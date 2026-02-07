@@ -9,6 +9,14 @@
     }
   </div>
 
+  <app-card title="Ученик">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-input label="Фамилия" [(ngModel)]="record.lastName"></app-input>
+      <app-input label="Имя" [(ngModel)]="record.firstName"></app-input>
+      <app-input label="Отчество" [(ngModel)]="record.middleName"></app-input>
+    </div>
+  </app-card>
+
   <app-card title="Обучение">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <app-input label="Школа" [(ngModel)]="record.schoolName"></app-input>

@@ -14,9 +14,15 @@
   </app-card>
 
   <app-card>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-select label="Свидетельство о рождении" [options]="certificateStatusOptions" [(ngModel)]="filters.certificateStatus"></app-select>
+    </div>
+  </app-card>
+
+  <app-card>
     <app-table
       [columns]="columns"
-      [data]="records"
+      [data]="filteredRecords"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
       [emptyMessage]="'Записей о рождении нет'"
@@ -39,6 +45,7 @@
             {{ getStatusLabel(row.status) }}
           </span>
         </td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getCertificateStatusLabel(row.certificateStatus) }}</td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
@@ -50,7 +57,7 @@
   </app-card>
 
   <app-modal [show]="showCreateModal" [title]="'Новая запись о рождении'" size="xl" (closed)="closeCreate()">
-    <app-birth-record-create></app-birth-record-create>
+    <app-birth-record-create (saved)="handleRecordSaved($event)"></app-birth-record-create>
   </app-modal>
 </div>
 

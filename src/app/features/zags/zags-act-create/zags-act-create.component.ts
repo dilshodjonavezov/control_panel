@@ -46,8 +46,16 @@ export class ZagsActCreateComponent {
   marriage = {
     marriageDate: '',
     place: '',
-    spouseOne: '',
-    spouseTwo: ''
+    registryOffice: '',
+    certificateNumber: '',
+    spouseOneFullName: '',
+    spouseOneIin: '',
+    spouseOneBirthDate: '',
+    spouseOneCitizenship: '',
+    spouseTwoFullName: '',
+    spouseTwoIin: '',
+    spouseTwoBirthDate: '',
+    spouseTwoCitizenship: ''
   };
 
   children = {

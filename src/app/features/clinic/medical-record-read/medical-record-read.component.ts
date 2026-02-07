@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CardComponent, TableComponent, TableColumn, InputComponent, ButtonComponent, ModalComponent } from '../../../shared/components';
 import { CitizenReadCardComponent, CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
-import { MedicalVisitAddEditComponent } from '../medical-visit-add-edit/medical-visit-add-edit.component';
+import { MedicalVisitAddEditComponent, type MedicalVisitRecord } from '../medical-visit-add-edit/medical-visit-add-edit.component';
 import { AttachmentsUploadComponent } from '../attachments-upload/attachments-upload.component';
 import { MedicalRecordCreateEditComponent } from '../medical-record-create-edit/medical-record-create-edit.component';
 
@@ -85,6 +85,20 @@ export class MedicalRecordReadComponent {
     this.selectedVisitId = null;
   }
 
+  handleVisitSaved(record: MedicalVisitRecord): void {
+    const id = record.id && record.id !== 'new' ? record.id : `v-${Date.now()}`;
+    const item: MedicalVisitItem = {
+      id,
+      date: this.formatVisitDate(record.visitDate),
+      doctor: record.doctor || '—',
+      diagnosis: record.diagnosis || '—',
+      status: record.status
+    };
+
+    this.visits = [item, ...this.visits.filter((visit) => visit.id !== id)];
+    this.closeVisitModal();
+  }
+
   openAttachments(): void {
     this.showAttachmentsModal = true;
   }
@@ -95,5 +109,17 @@ export class MedicalRecordReadComponent {
 
   getStatusLabel(status: MedicalVisitItem['status']): string {
     return status === 'FINAL' ? 'Закрыто' : 'Черновик';
+  }
+
+  private formatVisitDate(value: string): string {
+    if (!value) {
+      return '—';
+    }
+    const parts = value.split('-');
+    if (parts.length !== 3) {
+      return value;
+    }
+    const [year, month, day] = parts;
+    return `${day}.${month}.${year}`;
   }
 }

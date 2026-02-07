@@ -28,7 +28,8 @@ export class LoginComponent implements OnInit {
     { value: 'university', label: 'ВУЗ/Колледж' },
     { value: 'clinic', label: 'Медцентр/Поликлиника' },
     { value: 'vvk', label: 'ВВК' },
-    { value: 'border', label: 'Пограничная служба' }
+    { value: 'border', label: 'Пограничная служба' },
+    { value: 'superadmin', label: 'Суперадмин' }
   ];
 
   constructor(private router: Router, private route: ActivatedRoute) {}
@@ -59,7 +60,7 @@ export class LoginComponent implements OnInit {
       return;
     }
     if (this.role === 'identity-residence') {
-      this.router.navigate(['/identity-residence/citizens']);
+      this.router.navigate(['/identity-residence/jek']);
       return;
     }
     if (this.role === 'school') {
@@ -80,6 +81,10 @@ export class LoginComponent implements OnInit {
     }
     if (this.role === 'border') {
       this.router.navigate(['/border/crossings']);
+      return;
+    }
+    if (this.role === 'superadmin') {
+      this.router.navigate(['/superadmin/access']);
       return;
     }
     this.router.navigate(['/student/dashboard']);

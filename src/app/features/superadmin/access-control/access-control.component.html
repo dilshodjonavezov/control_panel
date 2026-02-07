@@ -1,0 +1,30 @@
+﻿<div class="space-y-6">
+  <div>
+    <h1 class="text-3xl font-bold text-gray-900">Доступы пользователей</h1>
+    <p class="mt-2 text-gray-600">Распределение доступа и фильтрация по ролям.</p>
+  </div>
+
+  <app-card>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-select label="Роль" [options]="roleOptions" [(ngModel)]="roleFilter"></app-select>
+      <app-input label="Поиск" placeholder="ФИО или email" [(ngModel)]="searchQuery"></app-input>
+    </div>
+  </app-card>
+
+  <app-card>
+    <app-table
+      [columns]="columns"
+      [data]="filteredUsers"
+      [rowTemplate]="rowTemplate"
+      [emptyMessage]="'Пользователи не найдены'"
+    >
+      <ng-template #rowTemplate let-row>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.email }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getRoleLabel(row.role) }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.accessLevel }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+</div>

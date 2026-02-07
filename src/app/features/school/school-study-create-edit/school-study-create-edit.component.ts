@@ -6,6 +6,9 @@ import { CardComponent, InputComponent, SelectComponent, SelectOption, ButtonCom
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
 interface SchoolStudyRecord {
   id: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
   startDate: string;
   endDate: string | null;
   classLevel: string;
@@ -35,6 +38,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
 
   record: SchoolStudyRecord = {
     id: 'sch-101',
+    lastName: 'Смирнов',
+    firstName: 'Алексей',
+    middleName: 'Игоревич',
     startDate: '2022-09-01',
     endDate: '',
     classLevel: '7Б',
@@ -54,6 +60,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
   private recordById: Record<string, SchoolStudyRecord> = {
     'sch-101': {
       id: 'sch-101',
+      lastName: 'Смирнов',
+      firstName: 'Алексей',
+      middleName: 'Игоревич',
       startDate: '2022-09-01',
       endDate: '',
       classLevel: '7Б',
@@ -62,6 +71,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
     },
     'sch-098': {
       id: 'sch-098',
+      lastName: 'Полякова',
+      firstName: 'Мария',
+      middleName: 'Денисовна',
       startDate: '2014-09-01',
       endDate: '2024-05-25',
       classLevel: '11А',
@@ -108,6 +120,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
     }
     this.record = {
       id: 'new',
+      lastName: '',
+      firstName: '',
+      middleName: '',
       startDate: '',
       endDate: '',
       classLevel: '',

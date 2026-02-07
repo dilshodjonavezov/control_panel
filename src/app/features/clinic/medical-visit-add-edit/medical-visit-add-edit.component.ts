@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CardComponent, InputComponent, SelectComponent, SelectOption, ButtonComponent } from '../../../shared/components';
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
-interface MedicalVisitRecord {
+export interface MedicalVisitRecord {
   id: string;
   visitDate: string;
   doctor: string;
@@ -24,6 +24,7 @@ export class MedicalVisitAddEditComponent implements OnInit, OnChanges {
   @Input() recordId: string | null = null;
   @Input() embedded: boolean = false;
   @Output() closed = new EventEmitter<void>();
+  @Output() saved = new EventEmitter<MedicalVisitRecord>();
 
   citizen = signal<CitizenReadCardData | null>({
     id: 'CIT-771102',
@@ -85,11 +86,13 @@ export class MedicalVisitAddEditComponent implements OnInit, OnChanges {
   save(): void {
     this.status.set('SAVED');
     this.lastActionAt.set(this.getNowLabel());
+    this.saved.emit({ ...this.record });
   }
 
   update(): void {
     this.status.set('UPDATED');
     this.lastActionAt.set(this.getNowLabel());
+    this.saved.emit({ ...this.record });
   }
 
   goBack(): void {

@@ -1,10 +1,9 @@
-<div class="space-y-6">
+﻿<div class="space-y-6">
   <div class="flex items-center justify-between">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Граждане</h1>
-      <p class="mt-2 text-gray-600">Управление гражданами на учете</p>
+      <h1 class="text-3xl font-bold text-gray-900">Призывники</h1>
+      <p class="mt-2 text-gray-600">Актуальные призывники, подлежащие службе.</p>
     </div>
-    <app-button variant="primary" (clicked)="openAddModal()"> + Добавить гражданина </app-button>
   </div>
   <div>
     <div class="mb-4">
@@ -16,14 +15,6 @@
             [ngModel]="searchQuery()"
             (ngModelChange)="searchQuery.set($event); onSearchChange()"
           ></app-input>
-
-          <app-select
-            label="Статус"
-            [options]="statusOptions"
-            [value]="selectedStatus()"
-            (ngModelChange)="onStatusSelect($event)"
-            [ngModel]="selectedStatus()"
-          ></app-select>
 
           <app-select
             label="Год рождения"
@@ -59,14 +50,13 @@
       </app-card>
     </div>
 
-    <!-- Таблица -->
     <app-card>
       <app-table
         [columns]="columns"
         [data]="filteredCitizens()"
         [rowTemplate]="rowTemplate"
         [actionsTemplate]="actionsTemplate"
-        [emptyMessage]="'Граждане не найдены'"
+        [emptyMessage]="'Призывники не найдены'"
       >
         <ng-template #rowTemplate let-row let-index="index">
           <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -121,10 +111,9 @@
       </app-table>
     </app-card>
 
-    <!-- Модальное окно добавления/редактирования -->
     <app-modal
       [show]="showAddModal()"
-      [title]="editingCitizen() ? 'Редактировать гражданина' : 'Добавить гражданина'"
+      [title]="editingCitizen() ? 'Редактировать призывника' : 'Добавить призывника'"
       size="lg"
       (closed)="closeModal()"
     >

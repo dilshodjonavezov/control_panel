@@ -1,0 +1,364 @@
+﻿@if (citizen()) {
+  <div class="space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">
+          {{ citizen()!.lastName }} {{ citizen()!.firstName }} {{ citizen()!.middleName || '' }}
+        </h1>
+        <div class="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
+          <span>Citizen ID: {{ citizen()!.id }}</span>
+          <span>ИИН: {{ citizen()!.iin }}</span>
+          <span>Дата рождения: {{ citizen()!.birthDate }}</span>
+          <span>Статус: {{ getStatusLabel(citizen()!.status) }}</span>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <app-button variant="primary" (clicked)="enableEdit()">Редактировать гражданина</app-button>
+        <app-button variant="outline" (clicked)="openStatusModal()">Сменить статус</app-button>
+        <app-button variant="outline" (clicked)="switchTab('history')">История изменений</app-button>
+        <app-button variant="outline" (clicked)="openDelete()">Удалить</app-button>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 border-b border-gray-200">
+      <button
+        class="px-4 py-2 text-sm font-medium"
+        [ngClass]="{ 'text-emerald-700 border-b-2 border-emerald-600': activeTab() === 'profile', 'text-gray-500': activeTab() !== 'profile' }"
+        (click)="switchTab('profile')"
+      >
+        Профиль
+      </button>
+      <button
+        class="px-4 py-2 text-sm font-medium"
+        [ngClass]="{ 'text-emerald-700 border-b-2 border-emerald-600': activeTab() === 'passport', 'text-gray-500': activeTab() !== 'passport' }"
+        (click)="switchTab('passport')"
+      >
+        Паспорт
+      </button>
+      <button
+        class="px-4 py-2 text-sm font-medium"
+        [ngClass]="{ 'text-emerald-700 border-b-2 border-emerald-600': activeTab() === 'address', 'text-gray-500': activeTab() !== 'address' }"
+        (click)="switchTab('address')"
+      >
+        Адреса
+      </button>
+      <button
+        class="px-4 py-2 text-sm font-medium"
+        [ngClass]="{ 'text-emerald-700 border-b-2 border-emerald-600': activeTab() === 'military', 'text-gray-500': activeTab() !== 'military' }"
+        (click)="switchTab('military')"
+      >
+        Воинский учет
+      </button>
+      <button
+        class="px-4 py-2 text-sm font-medium"
+        [ngClass]="{ 'text-emerald-700 border-b-2 border-emerald-600': activeTab() === 'history', 'text-gray-500': activeTab() !== 'history' }"
+        (click)="switchTab('history')"
+      >
+        История
+      </button>
+    </div>
+
+    @if (activeTab() === 'profile') {
+      <app-card title="Профиль">
+        @if (!editMode()) {
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-700">
+            <div>
+              <div class="text-gray-500">Фамилия</div>
+              <div class="font-medium">{{ citizen()!.lastName }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Имя</div>
+              <div class="font-medium">{{ citizen()!.firstName }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Отчество</div>
+              <div class="font-medium">{{ citizen()!.middleName || '—' }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Дата рождения</div>
+              <div class="font-medium">{{ citizen()!.birthDate }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Пол</div>
+              <div class="font-medium">{{ citizen()!.gender === 'male' ? 'Мужской' : 'Женский' }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Гражданство</div>
+              <div class="font-medium">{{ citizen()!.citizenship }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Семейное положение</div>
+              <div class="font-medium">{{ citizen()!.maritalStatus || '—' }}</div>
+            </div>
+            <div>
+              <div class="text-gray-500">Контакты</div>
+              <div class="font-medium">{{ citizen()!.phone || '—' }} / {{ citizen()!.email || '—' }}</div>
+            </div>
+          </div>
+        }
+
+        @if (editMode()) {
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <app-input label="Фамилия" [(ngModel)]="profileForm.lastName" (ngModelChange)="profileDirty = true"></app-input>
+            <app-input label="Имя" [(ngModel)]="profileForm.firstName" (ngModelChange)="profileDirty = true"></app-input>
+            <app-input label="Отчество" [(ngModel)]="profileForm.middleName" (ngModelChange)="profileDirty = true"></app-input>
+            <app-input label="Дата рождения" type="date" [(ngModel)]="profileForm.birthDate" (ngModelChange)="profileDirty = true"></app-input>
+            <app-select label="Пол" [options]="genderOptions" [(ngModel)]="profileForm.gender"></app-select>
+            <app-input label="Гражданство" [(ngModel)]="profileForm.citizenship"></app-input>
+            <app-input label="Семейное положение" [(ngModel)]="profileForm.maritalStatus"></app-input>
+            <app-input label="Телефон" [(ngModel)]="profileForm.phone"></app-input>
+            <app-input label="Email" [(ngModel)]="profileForm.email"></app-input>
+          </div>
+          <div class="mt-4 flex items-center gap-2">
+            <app-button variant="primary" (clicked)="saveProfile()">Сохранить</app-button>
+            <app-button variant="outline" (clicked)="cancelEdit()">Отмена</app-button>
+          </div>
+        }
+      </app-card>
+    }
+
+    @if (activeTab() === 'passport') {
+      <app-card>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold text-gray-900">Паспорта</h2>
+          <app-button variant="primary" (clicked)="openPassportModal()">Добавить паспорт</app-button>
+        </div>
+        <app-table
+          [columns]="passportColumns"
+          [data]="citizen()!.passports"
+          [rowTemplate]="passportRow"
+          [actionsTemplate]="passportActions"
+          [emptyMessage]="'Паспортов нет'"
+        >
+          <ng-template #passportRow let-row>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.series }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.number }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.issuedBy }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.issueDate }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.expireDate }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ getPassportStatusLabel(row.status) }}</td>
+          </ng-template>
+          <ng-template #passportActions let-row>
+            <div class="flex items-center gap-2">
+              <app-button variant="outline" size="sm" (clicked)="openPassportModal(row)">Редактировать</app-button>
+              <app-button variant="outline" size="sm" (clicked)="annulPassport(row)">Аннулировать</app-button>
+            </div>
+          </ng-template>
+        </app-table>
+      </app-card>
+    }
+
+    @if (activeTab() === 'address') {
+      <app-card>
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="text-lg font-semibold text-gray-900">Адреса</h2>
+          <app-button variant="primary" (clicked)="openAddressModal()">Добавить адрес</app-button>
+        </div>
+        <app-table
+          [columns]="addressColumns"
+          [data]="citizen()!.addresses"
+          [rowTemplate]="addressRow"
+          [actionsTemplate]="addressActions"
+          [emptyMessage]="'Адресов нет'"
+        >
+          <ng-template #addressRow let-row>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ getAddressTypeLabel(row.type) }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">
+              {{ row.region }}, {{ row.district }}, {{ row.city }}, {{ row.street }} {{ row.house }}{{ row.apartment ? ', кв. ' + row.apartment : '' }}
+            </td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.startDate }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.endDate || '—' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.isActive ? 'Да' : 'Нет' }}</td>
+          </ng-template>
+          <ng-template #addressActions let-row>
+            <div class="flex items-center gap-2">
+              <app-button variant="outline" size="sm" (clicked)="openAddressModal(row)">Редактировать</app-button>
+            </div>
+          </ng-template>
+        </app-table>
+      </app-card>
+    }
+
+    @if (activeTab() === 'military') {
+      @if (!isMilRequired(citizen()!)) {
+        <app-card>
+          <div class="text-sm text-gray-600">Воинский учет не требуется для данного гражданина.</div>
+        </app-card>
+      }
+      @if (isMilRequired(citizen()!)) {
+        <app-card>
+          <div class="flex items-center justify-between gap-2">
+            <h2 class="text-lg font-semibold text-gray-900">Воинский учет</h2>
+            <app-button variant="primary" (clicked)="openMilModal()">Добавить запись</app-button>
+          </div>
+          <app-table
+            [columns]="milColumns"
+            [data]="citizen()!.milRecords"
+            [rowTemplate]="milRow"
+            [actionsTemplate]="milActions"
+            [emptyMessage]="'Записей нет'"
+          >
+            <ng-template #milRow let-row>
+              <td class="px-6 py-4 text-sm text-gray-900">{{ row.office }}</td>
+              <td class="px-6 py-4 text-sm text-gray-900">{{ row.enlistDate }}</td>
+              <td class="px-6 py-4 text-sm text-gray-900">{{ row.category }}</td>
+              <td class="px-6 py-4 text-sm text-gray-900">{{ getMilStatusLabel(row.status) }}</td>
+            </ng-template>
+            <ng-template #milActions let-row>
+              <div class="flex items-center gap-2">
+                <app-button variant="outline" size="sm" (clicked)="openMilModal(row)">Редактировать</app-button>
+              </div>
+            </ng-template>
+          </app-table>
+        </app-card>
+      }
+    }
+
+    @if (activeTab() === 'history') {
+      <app-card>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <app-input label="С" type="date" [(ngModel)]="historyFilters.from"></app-input>
+          <app-input label="По" type="date" [(ngModel)]="historyFilters.to"></app-input>
+          <app-input label="Пользователь" [(ngModel)]="historyFilters.user"></app-input>
+          <app-select
+            label="Раздел"
+            [options]="[
+              { value: 'all', label: 'Все' },
+              { value: 'profile', label: 'Профиль' },
+              { value: 'passport', label: 'Паспорт' },
+              { value: 'address', label: 'Адреса' },
+              { value: 'military', label: 'Воинский учет' },
+              { value: 'status', label: 'Статус' }
+            ]"
+            [(ngModel)]="historyFilters.section"
+          ></app-select>
+        </div>
+      </app-card>
+      <app-card>
+        <app-table
+          [columns]="[
+            { key: 'date', label: 'Когда' },
+            { key: 'user', label: 'Кто' },
+            { key: 'action', label: 'Что сделал' },
+            { key: 'field', label: 'Поле' },
+            { key: 'before', label: 'Было' },
+            { key: 'after', label: 'Стало' }
+          ]"
+          [data]="filteredHistory()"
+          [rowTemplate]="historyRow"
+          [emptyMessage]="'История пуста'"
+        >
+          <ng-template #historyRow let-row>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.date }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.user }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.action }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.field || '—' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.before || '—' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-900">{{ row.after || '—' }}</td>
+          </ng-template>
+        </app-table>
+      </app-card>
+    }
+  </div>
+} @else {
+  <app-card>
+    <h2 class="text-xl font-semibold text-gray-900">Гражданин не найден</h2>
+    <p class="mt-2 text-sm text-gray-600">Проверьте идентификатор в адресной строке.</p>
+    <div class="mt-4">
+      <app-button variant="outline" routerLink="/identity-residence/jek">Вернуться в список</app-button>
+    </div>
+  </app-card>
+}
+
+<app-modal [show]="showStatusModal" [title]="'Сменить статус'" size="sm" (closed)="closeStatusModal()">
+  <div class="space-y-4">
+    <app-select label="Статус" [options]="statusOptions" (changed)="onStatusSelect($event)"></app-select>
+  </div>
+</app-modal>
+
+<app-modal [show]="showDeleteModal" [title]="'Удалить гражданина'" size="lg" (closed)="closeDelete()">
+  <div class="space-y-4">
+    <div class="space-y-1">
+      <label class="text-sm font-medium text-gray-700">Причина удаления</label>
+      <textarea
+        rows="3"
+        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        placeholder="Укажите причину"
+        [(ngModel)]="deleteReason"
+      ></textarea>
+    </div>
+    @if (canHardDelete) {
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" [(ngModel)]="hardDelete" />
+        Удалить навсегда (только админ)
+      </label>
+      @if (hardDelete) {
+        <label class="inline-flex items-center gap-2 text-sm text-red-600">
+          <input type="checkbox" [(ngModel)]="confirmHardDelete" /> Я понимаю последствия
+        </label>
+      }
+    }
+    <div class="flex items-center gap-2">
+      <app-button variant="primary" [disabled]="!deleteReason" (clicked)="confirmDelete()">Удалить</app-button>
+      <app-button variant="outline" (clicked)="closeDelete()">Отмена</app-button>
+    </div>
+  </div>
+</app-modal>
+
+<app-modal [show]="showPassportModal" [title]="editingPassportId ? 'Редактировать паспорт' : 'Добавить паспорт'" size="xl" (closed)="showPassportModal = false">
+  <div class="space-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-input label="Серия" [(ngModel)]="passportForm.series"></app-input>
+      <app-input label="Номер" [(ngModel)]="passportForm.number"></app-input>
+      <app-input label="Кем выдан" [(ngModel)]="passportForm.issuedBy"></app-input>
+      <app-input label="Дата выдачи" type="date" [(ngModel)]="passportForm.issueDate"></app-input>
+      <app-input label="Дата окончания" type="date" [(ngModel)]="passportForm.expireDate"></app-input>
+      <app-select label="Статус" [options]="passportStatusOptions" [(ngModel)]="passportForm.status"></app-select>
+      <app-input label="Примечание" [(ngModel)]="passportForm.notes"></app-input>
+    </div>
+    <div class="flex items-center gap-2">
+      <app-button variant="primary" (clicked)="savePassport()">Сохранить</app-button>
+      <app-button variant="outline" (clicked)="showPassportModal = false">Отмена</app-button>
+    </div>
+  </div>
+</app-modal>
+
+<app-modal [show]="showAddressModal" [title]="editingAddressId ? 'Редактировать адрес' : 'Добавить адрес'" size="xl" (closed)="showAddressModal = false">
+  <div class="space-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-select label="Тип" [options]="addressTypeOptions" [(ngModel)]="addressForm.type"></app-select>
+      <app-input label="Регион" [(ngModel)]="addressForm.region"></app-input>
+      <app-input label="Район" [(ngModel)]="addressForm.district"></app-input>
+      <app-input label="Город" [(ngModel)]="addressForm.city"></app-input>
+      <app-input label="Улица" [(ngModel)]="addressForm.street"></app-input>
+      <app-input label="Дом" [(ngModel)]="addressForm.house"></app-input>
+      <app-input label="Квартира" [(ngModel)]="addressForm.apartment"></app-input>
+      <app-input label="Дата начала" type="date" [(ngModel)]="addressForm.startDate"></app-input>
+      <app-input label="Дата окончания" type="date" [(ngModel)]="addressForm.endDate"></app-input>
+      <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+        <input type="checkbox" [(ngModel)]="addressForm.isActive" /> Активный адрес
+      </label>
+      <app-input label="Примечание" [(ngModel)]="addressForm.notes"></app-input>
+    </div>
+    <div class="flex items-center gap-2">
+      <app-button variant="primary" (clicked)="saveAddress()">Сохранить</app-button>
+      <app-button variant="outline" (clicked)="showAddressModal = false">Отмена</app-button>
+    </div>
+  </div>
+</app-modal>
+
+<app-modal [show]="showMilModal" [title]="editingMilId ? 'Редактировать воинский учет' : 'Добавить воинский учет'" size="lg" (closed)="showMilModal = false">
+  <div class="space-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-input label="Военкомат" [(ngModel)]="milForm.office"></app-input>
+      <app-input label="Дата постановки" type="date" [(ngModel)]="milForm.enlistDate"></app-input>
+      <app-input label="Категория" [(ngModel)]="milForm.category"></app-input>
+      <app-select label="Статус" [options]="milStatusOptions" [(ngModel)]="milForm.status"></app-select>
+      <app-input label="Комментарий" [(ngModel)]="milForm.notes"></app-input>
+    </div>
+    <div class="flex items-center gap-2">
+      <app-button variant="primary" (clicked)="saveMil()">Сохранить</app-button>
+      <app-button variant="outline" (clicked)="showMilModal = false">Отмена</app-button>
+    </div>
+  </div>
+</app-modal>

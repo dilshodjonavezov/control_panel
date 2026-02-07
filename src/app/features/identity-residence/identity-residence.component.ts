@@ -11,7 +11,8 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 })
 export class IdentityResidenceComponent {
   menuItems = [
-    { path: '/identity-residence/citizens', label: 'Поиск гражданина', icon: '🧾' },
+    { path: '/identity-residence/jek', label: 'ЖЭК', icon: '🏠' },
+    { path: '/identity-residence/passport', label: 'Паспорт', icon: '🛂' },
     { path: '/identity-residence/audit', label: 'История изменений', icon: '🕒' }
   ];
 }

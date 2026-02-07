@@ -38,6 +38,8 @@ import { ZagsActListComponent } from './features/zags/zags-act-list/zags-act-lis
 import { ZagsActViewComponent } from './features/zags/zags-act-view/zags-act-view.component';
 import { IdentityResidenceComponent } from './features/identity-residence/identity-residence.component';
 import { CitizenSearchComponent } from './features/identity-residence/citizen-search/citizen-search.component';
+import { CitizenDetailComponent as IdentityCitizenDetailComponent } from './features/identity-residence/citizen-detail/citizen-detail.component';
+import { PassportListComponent } from './features/identity-residence/passport-list/passport-list.component';
 import { HistoryAuditComponent } from './features/identity-residence/history-audit/history-audit.component';
 import { SchoolComponent as SchoolPortalComponent } from './features/school/school.component';
 import { SchoolStudyListComponent } from './features/school/school-study-list/school-study-list.component';
@@ -52,6 +54,8 @@ import { VvkComponent } from './features/vvk/vvk.component';
 import { VvkQueueComponent } from './features/vvk/vvk-queue/vvk-queue.component';
 import { BorderComponent } from './features/border/border.component';
 import { BorderCrossingListComponent } from './features/border/border-crossing-list/border-crossing-list.component';
+import { SuperadminComponent } from './features/superadmin/superadmin.component';
+import { AccessControlComponent } from './features/superadmin/access-control/access-control.component';
 
 export const routes: Routes = [
   {
@@ -112,6 +116,11 @@ export const routes: Routes = [
     path: 'login/border',
     component: LoginComponent,
     data: { role: 'border' }
+  },
+  {
+    path: 'login/superadmin',
+    component: LoginComponent,
+    data: { role: 'superadmin' }
   },
   {
     path: 'admin',
@@ -310,12 +319,25 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        redirectTo: 'citizens',
+        redirectTo: 'jek',
         pathMatch: 'full'
       },
       {
         path: 'citizens',
+        redirectTo: 'jek',
+        pathMatch: 'full'
+      },
+      {
+        path: 'jek',
         component: CitizenSearchComponent
+      },
+      {
+        path: 'passport',
+        component: PassportListComponent
+      },
+      {
+        path: 'citizens/:id',
+        component: IdentityCitizenDetailComponent
       },
       {
         path: 'audit',
@@ -395,6 +417,21 @@ export const routes: Routes = [
       {
         path: 'crossings',
         component: BorderCrossingListComponent
+      }
+    ]
+  },
+  {
+    path: 'superadmin',
+    component: SuperadminComponent,
+    children: [
+      {
+        path: '',
+        redirectTo: 'access',
+        pathMatch: 'full'
+      },
+      {
+        path: 'access',
+        component: AccessControlComponent
       }
     ]
   },

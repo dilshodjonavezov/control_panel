@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { CardComponent } from '../../../shared/components';
 import { CitizenStatus } from '../../../models';
 import { CitizenService } from '../../../services/citizen.service';
@@ -7,7 +8,7 @@ import { CitizenService } from '../../../services/citizen.service';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, CardComponent],
+  imports: [CommonModule, RouterLink, CardComponent],
   templateUrl: './dashboard.component.html',
   styleUrl: './dashboard.component.css'
 })
@@ -69,4 +70,3 @@ export class DashboardComponent implements OnInit {
     }));
   }
 }
-

@@ -1,19 +1,28 @@
-﻿import { Component, signal } from '@angular/core';
+﻿import { Component, signal, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CardComponent, InputComponent, SelectComponent, SelectOption, ButtonComponent } from '../../../shared/components';
 import { CitizenMiniCardComponent, CitizenMiniCardData } from '../components/citizen-mini-card/citizen-mini-card.component';
 
 type BirthRecordStatus = 'DRAFT' | 'SUBMITTED';
+export interface BirthRecordPayload {
+  birthDateTime: string;
+  place: string;
+  sex: 'male' | 'female';
+  motherFullName: string;
+  fatherFullName: string;
+  status: BirthRecordStatus;
+}
 
 @Component({
   selector: 'app-birth-record-create',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, ButtonComponent, CitizenMiniCardComponent],
+  imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, ButtonComponent, ],
   templateUrl: './birth-record-create.component.html',
   styleUrl: './birth-record-create.component.css'
 })
 export class BirthRecordCreateComponent {
+  @Output() saved = new EventEmitter<BirthRecordPayload>();
   form = {
     birthDateTime: '',
     place: '',
@@ -35,6 +44,11 @@ export class BirthRecordCreateComponent {
     this.status.set('DRAFT');
     this.citizen.set(null);
     this.lastActionAt.set(this.getNowLabel());
+    this.saved.emit({
+      ...this.form,
+      sex: this.form.sex as BirthRecordPayload['sex'],
+      status: 'DRAFT'
+    });
   }
 
   submit(): void {
@@ -51,6 +65,12 @@ export class BirthRecordCreateComponent {
     } else {
       this.citizen.set(null);
     }
+
+    this.saved.emit({
+      ...this.form,
+      sex: this.form.sex as BirthRecordPayload['sex'],
+      status: 'SUBMITTED'
+    });
   }
 
   canEdit(): boolean {
@@ -68,4 +88,5 @@ export class BirthRecordCreateComponent {
     return `${date} ${time}`;
   }
 }
+
 

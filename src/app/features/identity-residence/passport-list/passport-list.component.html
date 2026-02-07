@@ -1,0 +1,60 @@
+﻿<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Паспортный стол</h1>
+      <p class="mt-2 text-gray-600">Реестр паспортов с возможностью фильтрации по гражданам и документам.</p>
+    </div>
+    <app-button variant="primary" (clicked)="openCreate()">Добавить паспорт</app-button>
+  </div>
+
+  <app-card title="Фильтры">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <app-input label="ИИН" placeholder="800101300123" [(ngModel)]="filters.iin"></app-input>
+      <app-input label="ФИО" placeholder="Фамилия Имя Отчество" [(ngModel)]="filters.fullName"></app-input>
+      <app-input label="Серия" [(ngModel)]="filters.series"></app-input>
+      <app-input label="Номер" [(ngModel)]="filters.number"></app-input>
+      <app-select label="Статус" [options]="statusOptions" [(ngModel)]="filters.status"></app-select>
+    </div>
+  </app-card>
+
+  <app-card>
+    <app-table
+      [columns]="columns"
+      [data]="rows()"
+      [rowTemplate]="rowTemplate"
+      [emptyMessage]="'Паспорта не найдены'"
+    >
+      <ng-template #rowTemplate let-row>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.citizenId }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.iin }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.series }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.number }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.issuedBy }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.issueDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.expireDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+
+  <app-modal [show]="showCreateModal" [title]="'Добавить паспорт'" size="xl" (closed)="closeCreate()">
+    <div class="space-y-4">
+      <app-card title="Данные паспорта">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <app-select label="Гражданин" [options]="citizenOptions()" [(ngModel)]="createForm.citizenId"></app-select>
+          <app-input label="Серия" [(ngModel)]="createForm.series"></app-input>
+          <app-input label="Номер" [(ngModel)]="createForm.number"></app-input>
+          <app-input label="Кем выдан" [(ngModel)]="createForm.issuedBy"></app-input>
+          <app-input label="Дата выдачи" type="date" [(ngModel)]="createForm.issueDate"></app-input>
+          <app-input label="Дата окончания" type="date" [(ngModel)]="createForm.expireDate"></app-input>
+          <app-select label="Статус" [options]="statusFormOptions" [(ngModel)]="createForm.status"></app-select>
+        </div>
+      </app-card>
+      <div class="flex items-center gap-2">
+        <app-button variant="primary" (clicked)="savePassport()">Сохранить</app-button>
+        <app-button variant="outline" (clicked)="closeCreate()">Отмена</app-button>
+      </div>
+    </div>
+  </app-modal>
+</div>

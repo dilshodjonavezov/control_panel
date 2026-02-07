@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+﻿import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -27,14 +27,13 @@ export class CitizensComponent implements OnInit {
   filteredCitizens = signal<Citizen[]>([]);
   searchQuery = signal('');
   territoryQuery = signal('');
-  selectedStatus = signal<CitizenStatus | 'all'>('all');
+  selectedStatus = signal<CitizenStatus | 'all'>(CitizenStatus.CONSCRIPT);
   selectedBirthYear = signal<string>('all');
   selectedFitness = signal<FitnessCategory | 'all'>('all');
   selectedDeferment = signal<'all' | 'with' | 'without'>('all');
   showAddModal = signal(false);
   editingCitizen = signal<Citizen | null>(null);
 
-  // Форма
   formData: {
     firstName: string;
     lastName: string;
@@ -78,7 +77,7 @@ export class CitizensComponent implements OnInit {
     { value: CitizenStatus.UNFIT_HEALTH, label: 'Не годен по здоровью' },
     { value: CitizenStatus.ABROAD, label: 'За границей' },
     { value: CitizenStatus.IN_SERVICE, label: 'На службе' },
-    { value: CitizenStatus.DEMOBILIZED, label: 'Дембель' }
+    { value: CitizenStatus.DEMOBILIZED, label: 'Демобель' }
   ];
 
   fitnessCategoryFilterOptions: SelectOption[] = [
@@ -110,7 +109,7 @@ export class CitizensComponent implements OnInit {
     [CitizenStatus.UNFIT_HEALTH]: 'Не годен по здоровью',
     [CitizenStatus.ABROAD]: 'За границей',
     [CitizenStatus.IN_SERVICE]: 'На службе',
-    [CitizenStatus.DEMOBILIZED]: 'Дембель'
+    [CitizenStatus.DEMOBILIZED]: 'Демобель'
   };
 
   fitnessCategoryLabels: Record<FitnessCategory, string> = {
@@ -137,18 +136,13 @@ export class CitizensComponent implements OnInit {
   applyFilters(): void {
     let filtered = [...this.citizens()];
 
-    // Фильтр по статусу
-    if (this.selectedStatus() !== 'all') {
-      filtered = filtered.filter(c => c.status === this.selectedStatus());
-    }
+    filtered = filtered.filter(c => c.status === CitizenStatus.CONSCRIPT);
 
-    // Фильтр по году рождения
     if (this.selectedBirthYear() !== 'all') {
       const year = Number(this.selectedBirthYear());
       filtered = filtered.filter(c => new Date(c.birthDate).getFullYear() === year);
     }
 
-    // Фильтр по территории
     const territory = this.territoryQuery().toLowerCase();
     if (territory) {
       filtered = filtered.filter(c =>
@@ -157,12 +151,10 @@ export class CitizensComponent implements OnInit {
       );
     }
 
-    // Фильтр по категории годности
     if (this.selectedFitness() !== 'all') {
       filtered = filtered.filter(c => c.fitnessCategory === this.selectedFitness());
     }
 
-    // Фильтр по наличию отсрочки
     if (this.selectedDeferment() !== 'all') {
       filtered = filtered.filter(c =>
         this.selectedDeferment() === 'with'
@@ -171,7 +163,6 @@ export class CitizensComponent implements OnInit {
       );
     }
 
-    // Поиск
     const query = this.searchQuery().toLowerCase();
     if (query) {
       filtered = filtered.filter(c =>
@@ -323,4 +314,3 @@ export class CitizensComponent implements OnInit {
     }));
   }
 }
-

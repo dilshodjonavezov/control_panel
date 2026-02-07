@@ -1,4 +1,4 @@
-import { Component, Input, forwardRef, OnChanges } from '@angular/core';
+import { Component, Input, Output, EventEmitter, forwardRef, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ControlValueAccessor, NG_VALUE_ACCESSOR, FormsModule } from '@angular/forms';
 
@@ -32,6 +32,7 @@ export class SelectComponent implements ControlValueAccessor, OnChanges {
   @Input() hint: string = '';
   @Input() id: string = '';
   @Input() value: string | number | null = null;
+  @Output() changed = new EventEmitter<string | number | null>();
 
   // Внутреннее значение для ControlValueAccessor
   internalValue: string | number | null = null;
@@ -61,6 +62,7 @@ export class SelectComponent implements ControlValueAccessor, OnChanges {
     this.internalValue = newValue;
     this.value = newValue;
     this.onChange(newValue);
+    this.changed.emit(newValue);
   }
 
   ngOnChanges(): void {
@@ -79,4 +81,3 @@ export class SelectComponent implements ControlValueAccessor, OnChanges {
     return this.id || this.generatedId;
   }
 }
-

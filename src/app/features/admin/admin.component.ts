@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+﻿import { Component } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { CommonModule } from '@angular/common';
 
@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common';
 export class AdminComponent {
   menuItems = [
     { path: '/admin/dashboard', label: 'Панель управления', icon: '📊' },
-    { path: '/admin/citizens', label: 'Граждане', icon: '👥' },
+    { path: '/admin/citizens', label: 'Призывники', icon: '🧑‍✈️' },
     { path: '/admin/education-registry', label: 'Реестр по образованию', icon: '🗂️' },
     { path: '/admin/deferment-review', label: 'Проверка отсрочек', icon: '✅' },
     { path: '/admin/expulsions', label: 'Отчисления', icon: '⚠️' },
@@ -25,4 +25,3 @@ export class AdminComponent {
     { path: '/admin/settings', label: 'Настройки', icon: '⚙️' }
   ];
 }
-

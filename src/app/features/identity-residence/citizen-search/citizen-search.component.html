@@ -1,109 +1,319 @@
 ﻿<div class="space-y-6">
-  <div class="flex flex-wrap items-center justify-between gap-3">
+  <div class="flex flex-wrap items-start justify-between gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Поиск гражданина</h1>
-      <p class="mt-2 text-gray-600">
-        Поиск и просмотр данных. Создание/удаление гражданина запрещено.
-      </p>
+      <h1 class="text-3xl font-bold text-gray-900">ЖЭК</h1>
+      <p class="mt-2 text-gray-600">Реестр жителей с полным управлением данными.</p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <app-button variant="outline" (clicked)="openPassport()">Добавить паспорт</app-button>
-      <app-button variant="outline" (clicked)="openAddress()">Добавить адрес</app-button>
-      <app-button variant="outline" (clicked)="openMilOffice()">Добавить военкомат</app-button>
+      <app-button variant="primary" (clicked)="openCreate()">Создать гражданина</app-button>
+      <app-button variant="outline" (clicked)="importData()">Импорт</app-button>
+      <app-button variant="outline" (clicked)="exportData()">Экспорт</app-button>
     </div>
   </div>
 
   <app-card>
+    <div class="flex flex-wrap items-center gap-3">
+      <app-select
+        label="Массовые действия"
+        [options]="bulkActionOptions"
+        [(ngModel)]="bulkAction"
+        [disabled]="selectedCount === 0"
+      ></app-select>
+      @if (bulkAction === 'status') {
+        <app-select
+          label="Новый статус"
+          [options]="statusOptions"
+          [(ngModel)]="bulkStatus"
+        ></app-select>
+      }
+      @if (bulkAction === 'district') {
+        <app-input
+          label="Район/ЖЭК"
+          placeholder="Например, Алмалинский"
+          [(ngModel)]="bulkDistrict"
+        ></app-input>
+      }
+      <app-button variant="outline" [disabled]="selectedCount === 0" (clicked)="applyBulkAction()"
+        >Применить</app-button
+      >
+      <span class="text-sm text-gray-500">Выбрано: {{ selectedCount }}</span>
+    </div>
+  </app-card>
+
+  <app-card title="Фильтры">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <app-input
-        label="Citizen ID"
-        placeholder="CIT-000001"
-        [(ngModel)]="filters.citizenId"
+        label="ИИН"
+        placeholder="800101300123"
+        [(ngModel)]="filters.iin"
+        (keydown.enter)="applyFilters()"
       ></app-input>
-      <app-input label="ИИН" placeholder="800101300123" [(ngModel)]="filters.iin"></app-input>
       <app-input
         label="ФИО"
         placeholder="Фамилия Имя Отчество"
         [(ngModel)]="filters.fullName"
+        (keydown.enter)="applyFilters()"
       ></app-input>
-      <app-input label="Дата рождения" type="date" [(ngModel)]="filters.birthDate"></app-input>
+      <app-input
+        label="Дата рождения"
+        type="date"
+        [(ngModel)]="filters.birthDate"
+        (keydown.enter)="applyFilters()"
+      ></app-input>
+      <div class="space-y-2">
+        <div class="text-sm font-medium text-gray-700">Статус</div>
+        <div class="flex flex-wrap gap-3">
+          @for (option of statusOptions; track option.value) {
+            <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                [value]="option.value"
+                [checked]="isStatusSelected(option.value)"
+                (change)="onStatusToggle(option.value, $event)"
+              />
+              {{ option.label }}
+            </label>
+          }
+        </div>
+      </div>
     </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-2">
+      <app-button variant="primary" (clicked)="applyFilters()">Найти</app-button>
+      <app-button variant="outline" (clicked)="resetFilters()">Сбросить</app-button>
+      <button class="text-sm text-emerald-700 hover:text-emerald-800" (click)="toggleAdvanced()">
+        {{ showAdvanced ? 'Скрыть доп. фильтры' : 'Доп. фильтры' }}
+      </button>
+    </div>
+
+    @if (showAdvanced) {
+      <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <app-input
+          label="Citizen ID"
+          placeholder="CIT-000001"
+          [(ngModel)]="filters.citizenId"
+          (keydown.enter)="applyFilters()"
+        ></app-input>
+        <app-select label="Пол" [options]="genderOptions" [(ngModel)]="filters.gender"></app-select>
+        <app-input
+          label="Район/ЖЭК"
+          placeholder="Алмалинский"
+          [(ngModel)]="filters.district"
+        ></app-input>
+        <app-select
+          label="Паспорт"
+          [options]="yesNoOptions"
+          [(ngModel)]="filters.hasPassport"
+        ></app-select>
+        <app-select
+          label="Адрес"
+          [options]="yesNoOptions"
+          [(ngModel)]="filters.hasAddress"
+        ></app-select>
+        <app-select
+          label="Военкомат"
+          [options]="yesNoOptions"
+          [(ngModel)]="filters.hasMilOffice"
+        ></app-select>
+        <app-input label="Создано с" type="date" [(ngModel)]="filters.createdFrom"></app-input>
+        <app-input label="Создано по" type="date" [(ngModel)]="filters.createdTo"></app-input>
+        <app-input label="Обновлено с" type="date" [(ngModel)]="filters.updatedFrom"></app-input>
+        <app-input label="Обновлено по" type="date" [(ngModel)]="filters.updatedTo"></app-input>
+      </div>
+    }
   </app-card>
 
   <app-card>
+    <div class="mb-4 flex items-center gap-3 text-sm text-gray-600">
+      <label class="inline-flex items-center gap-2">
+        <input type="checkbox" (change)="onToggleAll($event)" />
+        Выбрать все на странице
+      </label>
+    </div>
     <app-table
       [columns]="columns"
-      [data]="filteredResults"
+      [data]="pagedRows"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
       [emptyMessage]="'Граждане не найдены'"
+      (sortChanged)="onSortChanged($event)"
     >
       <ng-template #rowTemplate let-row>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <input
+            type="checkbox"
+            [checked]="isSelected(row.id)"
+            (change)="onToggleRow(row.id, $event)"
+          />
+        </td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.iin }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.status }}</td>
+        <td class="px-6 py-4 text-sm">
+          <span
+            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+            [ngClass]="{
+              'bg-emerald-100 text-emerald-800': row.status === 'ACTIVE',
+              'bg-red-100 text-red-800': row.status === 'REMOVED',
+              'bg-gray-100 text-gray-800': row.status === 'ARCHIVED',
+            }"
+          >
+            {{ getStatusLabel(row.status) }}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.hasPassport ? 'Да' : 'Нет' }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.hasAddress ? 'Да' : 'Нет' }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.hasMilOffice ? 'Да' : 'Нет' }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.updatedAt }} / {{ row.updatedBy }}</td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
         <div class="flex items-center gap-2">
-          <app-button variant="outline" size="sm" (clicked)="selectCitizen(row)"
-            >Открыть</app-button
+          <app-button variant="outline" size="sm" (clicked)="openDetail(row)">Открыть</app-button>
+          <app-button variant="outline" size="sm" (clicked)="editDetail(row)"
+            >Редактировать</app-button
           >
-          <app-button variant="outline" size="sm" (clicked)="openPassportFor(row)"
-            >Паспорт</app-button
+          <app-button variant="outline" size="sm" (clicked)="openDelete([row.id])"
+            >Удалить</app-button
           >
-          <app-button variant="outline" size="sm" (clicked)="openAddressFor(row)">Адрес</app-button>
-          <app-button variant="outline" size="sm" (clicked)="openMilOfficeFor(row)"
-            >Военкомат</app-button
-          >
+          <app-select
+            label=""
+            [options]="[
+              { value: '', label: 'Еще' },
+              { value: 'duplicate', label: 'Дублировать' },
+              { value: 'status', label: 'Сменить статус' },
+              { value: 'copy_id', label: 'Скопировать ID' },
+              { value: 'copy_iin', label: 'Скопировать ИИН' },
+            ]"
+            (changed)="handleRowActionChange(row, $event)"
+          ></app-select>
         </div>
       </ng-template>
     </app-table>
   </app-card>
 
-  <div class="flex items-center gap-3">
-    <app-button variant="outline" (clicked)="clearSelection()">Очистить выбор</app-button>
-    <span class="text-sm text-gray-500"
-      >Редактирование ограничено идентификационными полями и photo_id.</span
-    >
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <app-select
+        label="На странице"
+        [options]="pageSizeOptions"
+        [(ngModel)]="pageSize"
+      ></app-select>
+      <span class="text-sm text-gray-500">Всего: {{ filteredRows().length }}</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <app-button variant="outline" (clicked)="prevPage()">Назад</app-button>
+      <span class="text-sm text-gray-600">Страница {{ currentPage }} из {{ totalPages }}</span>
+      <app-button variant="outline" (clicked)="nextPage()">Вперёд</app-button>
+    </div>
   </div>
 
-  <app-citizen-read-card [citizen]="selectedCitizen()"></app-citizen-read-card>
-
   <app-modal
-    [show]="showPassportModal"
-    [title]="'Паспортные данные'"
+    [show]="showCreateModal"
+    [title]="'Создать гражданина'"
     size="xl"
-    (closed)="closePassport()"
+    (closed)="closeCreate()"
   >
-    @if (showPassportModal) {
-      <app-passport-create-edit [citizenData]="selectedCitizen()"></app-passport-create-edit>
-    }
+    <div class="space-y-6">
+      @if (formErrors()) {
+        <div class="rounded-lg bg-red-50 text-red-700 text-sm p-3">{{ formErrors() }}</div>
+      }
+
+      <app-card title="Основные данные">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <app-input label="Фамилия" [(ngModel)]="createForm.lastName"></app-input>
+          <app-input label="Имя" [(ngModel)]="createForm.firstName"></app-input>
+          <app-input label="Отчество" [(ngModel)]="createForm.middleName"></app-input>
+          <app-input
+            label="Дата рождения"
+            type="date"
+            [(ngModel)]="createForm.birthDate"
+          ></app-input>
+          <app-select
+            label="Пол"
+            [options]="genderOptionsForm"
+            [(ngModel)]="createForm.gender"
+          ></app-select>
+          <app-input label="ИИН" [(ngModel)]="createForm.iin"></app-input>
+          <app-select
+            label="Статус"
+            [options]="statusOptions"
+            [(ngModel)]="createForm.status"
+          ></app-select>
+          <app-input label="Гражданство" [(ngModel)]="createForm.citizenship"></app-input>
+          <app-input label="Район/ЖЭК" [(ngModel)]="createForm.district"></app-input>
+        </div>
+      </app-card>
+
+      <app-card title="Документы (опционально)">
+        <div class="space-y-3 text-sm text-gray-700">
+          <label class="inline-flex items-center gap-2">
+            <input type="checkbox" [(ngModel)]="createForm.addDocuments" />
+            Сразу добавить документы
+          </label>
+          @if (createForm.addDocuments) {
+            <div class="flex flex-wrap gap-4">
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" [(ngModel)]="createForm.addPassport" /> Паспорт
+              </label>
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" [(ngModel)]="createForm.addAddress" /> Адрес
+              </label>
+              <label class="inline-flex items-center gap-2">
+                <input type="checkbox" [(ngModel)]="createForm.addMilOffice" /> Военкомат
+              </label>
+            </div>
+          }
+        </div>
+      </app-card>
+
+      <div class="flex flex-wrap items-center gap-3">
+        <app-button variant="primary" (clicked)="saveCitizen(true)"
+          >Сохранить и открыть карточку</app-button
+        >
+        <app-button variant="secondary" (clicked)="saveCitizen(false)"
+          >Сохранить и создать ещё</app-button
+        >
+        <app-button variant="outline" (clicked)="closeCreate()">Отмена</app-button>
+      </div>
+    </div>
   </app-modal>
 
   <app-modal
-    [show]="showAddressModal"
-    [title]="'Адрес регистрации'"
-    size="xl"
-    (closed)="closeAddress()"
+    [show]="showDeleteModal"
+    [title]="'Подтвердить удаление'"
+    size="lg"
+    (closed)="closeDelete()"
   >
-    @if (showAddressModal) {
-      <app-address-create-edit [citizenData]="selectedCitizen()"></app-address-create-edit>
-    }
-  </app-modal>
-
-  <app-modal
-    [show]="showMilOfficeModal"
-    [title]="'Прикрепление к военкомату'"
-    size="xl"
-    (closed)="closeMilOffice()"
-  >
-    @if (showMilOfficeModal) {
-      <app-mil-office-assignment-create-edit
-        [citizenData]="selectedCitizen()"
-      ></app-mil-office-assignment-create-edit>
-    }
+    <div class="space-y-4">
+      <p class="text-sm text-gray-600">Удаление выполняется как soft delete (статус REMOVED).</p>
+      <div class="space-y-1">
+        <label class="text-sm font-medium text-gray-700">Причина удаления</label>
+        <textarea
+          rows="3"
+          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          placeholder="Укажите причину"
+          [(ngModel)]="deleteReason"
+        ></textarea>
+      </div>
+      @if (canHardDelete) {
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" [(ngModel)]="hardDelete" />
+          Удалить навсегда (только админ)
+        </label>
+        @if (hardDelete) {
+          <label class="inline-flex items-center gap-2 text-sm text-red-600">
+            <input type="checkbox" [(ngModel)]="confirmHardDelete" /> Я понимаю последствия
+          </label>
+        }
+      }
+      <div class="flex items-center gap-3">
+        <app-button variant="primary" [disabled]="!deleteReason" (clicked)="confirmDelete()"
+          >Удалить</app-button
+        >
+        <app-button variant="outline" (clicked)="closeDelete()">Отмена</app-button>
+      </div>
+    </div>
   </app-modal>
 </div>

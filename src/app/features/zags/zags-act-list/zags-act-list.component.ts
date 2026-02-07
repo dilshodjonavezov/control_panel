@@ -12,6 +12,7 @@ interface ZagsActItem {
   type: 'BirthCertificate' | 'Marriage' | 'Children' | 'Death';
   subject: string;
   status: 'DRAFT' | 'REGISTERED' | 'UPDATED';
+  certificateStatus?: 'NOT_ISSUED' | 'ISSUED' | 'REJECTED';
 }
 
 @Component({
@@ -26,7 +27,8 @@ export class ZagsActListComponent {
   filters = {
     type: 'all',
     date: '',
-    actNumber: ''
+    actNumber: '',
+    certificateStatus: 'all'
   };
 
   typeOptions: SelectOption[] = [
@@ -37,16 +39,32 @@ export class ZagsActListComponent {
     { value: 'Death', label: 'Смерть' }
   ];
 
+  certificateStatusOptions: SelectOption[] = [
+    { value: 'all', label: 'Все' },
+    { value: 'NOT_ISSUED', label: 'Не выдано' },
+    { value: 'ISSUED', label: 'Выдано' },
+    { value: 'REJECTED', label: 'Отказано' }
+  ];
+
   columns: TableColumn[] = [
     { key: 'actDate', label: 'Дата', sortable: true },
     { key: 'actNumber', label: 'Акт №', sortable: true },
     { key: 'type', label: 'Тип', sortable: true },
     { key: 'subject', label: 'Гражданин', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true }
+    { key: 'status', label: 'Статус', sortable: true },
+    { key: 'certificateStatus', label: 'Свидетельство', sortable: true }
   ];
 
   records: ZagsActItem[] = [
-    { id: 'z-1101', actNumber: 'А-2026-001', actDate: '25.01.2026', type: 'BirthCertificate', subject: 'Семенова И.В.', status: 'REGISTERED' },
+    {
+      id: 'z-1101',
+      actNumber: 'А-2026-001',
+      actDate: '25.01.2026',
+      type: 'BirthCertificate',
+      subject: 'Семенова И.В.',
+      status: 'REGISTERED',
+      certificateStatus: 'ISSUED'
+    },
     { id: 'z-1098', actNumber: 'А-2026-002', actDate: '24.01.2026', type: 'Marriage', subject: 'Кузнецов Д.О. / Кузнецова А.С.', status: 'REGISTERED' },
     { id: 'z-1092', actNumber: 'А-2026-003', actDate: '23.01.2026', type: 'Death', subject: 'Иванов П.П.', status: 'UPDATED' }
   ];
@@ -67,7 +85,11 @@ export class ZagsActListComponent {
       const typeMatches = this.filters.type === 'all' || record.type === this.filters.type;
       const dateMatches = !filterDate || record.actDate === filterDate;
       const numberMatches = !this.filters.actNumber || record.actNumber.toLowerCase().includes(this.filters.actNumber.toLowerCase());
-      return typeMatches && dateMatches && numberMatches;
+      const certificateMatches =
+        this.filters.certificateStatus === 'all'
+          ? true
+          : record.type === 'BirthCertificate' && record.certificateStatus === this.filters.certificateStatus;
+      return typeMatches && dateMatches && numberMatches && certificateMatches;
     });
   }
 
@@ -90,6 +112,18 @@ export class ZagsActListComponent {
       DRAFT: 'Черновик',
       REGISTERED: 'Зарегистрировано',
       UPDATED: 'Исправлено'
+    };
+    return labels[status];
+  }
+
+  getCertificateStatusLabel(status?: ZagsActItem['certificateStatus']): string {
+    if (!status) {
+      return '—';
+    }
+    const labels: Record<NonNullable<ZagsActItem['certificateStatus']>, string> = {
+      NOT_ISSUED: 'Не выдано',
+      ISSUED: 'Выдано',
+      REJECTED: 'Отказано'
     };
     return labels[status];
   }

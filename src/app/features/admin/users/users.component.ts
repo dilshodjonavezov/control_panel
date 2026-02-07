@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CardComponent, TableComponent, TableColumn, ButtonComponent, ModalComponent, InputComponent, SelectComponent, SelectOption } from '../../../shared/components';
 
-type UserRole = 'admin' | 'teacher' | 'student' | 'maternity' | 'zags' | 'identity-residence' | 'school' | 'university' | 'clinic' | 'vvk' | 'border';
+type UserRole = 'superadmin' | 'admin' | 'teacher' | 'student' | 'maternity' | 'zags' | 'identity-residence' | 'school' | 'university' | 'clinic' | 'vvk' | 'border';
 
 interface UserItem {
   id: string;
@@ -31,6 +31,7 @@ export class UsersComponent {
   };
 
   roleOptions: SelectOption[] = [
+    { value: 'superadmin', label: 'Суперадмин' },
     { value: 'admin', label: 'Администратор' },
     { value: 'teacher', label: 'Преподаватель' },
     { value: 'student', label: 'Студент' },
@@ -52,6 +53,7 @@ export class UsersComponent {
   ];
 
   users: UserItem[] = [
+    { id: 'u0', fullName: 'Суперадмин Системы', email: 'superadmin@example.com', role: 'superadmin', status: 'active' },
     { id: 'u1', fullName: 'Админ Системы', email: 'admin@example.com', role: 'admin', status: 'active' },
     { id: 'u2', fullName: 'Смирнов А.И.', email: 'teacher@example.com', role: 'teacher', status: 'active' },
     { id: 'u3', fullName: 'Иванов И.И.', email: 'student@example.com', role: 'student', status: 'blocked' },
@@ -104,6 +106,7 @@ export class UsersComponent {
 
   getRoleLabel(role: UserRole): string {
     const labels: Record<UserRole, string> = {
+      superadmin: 'Суперадмин',
       admin: 'Администратор',
       teacher: 'Преподаватель',
       student: 'Студент',

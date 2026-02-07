@@ -4,76 +4,82 @@
     <p class="mt-2 text-gray-600">Создайте акт и передайте событие в систему.</p>
   </div>
 
-  <app-card>
+  <app-card title="Тип акта">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <app-select label="Тип акта" [options]="typeOptions" [(ngModel)]="actType"></app-select>
+      <app-select label="Тип" [options]="typeOptions" [(ngModel)]="actType"></app-select>
     </div>
   </app-card>
 
-  <app-card title="Поиск гражданина">
+  <app-card title="Сведения о браке">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <app-input label="Citizen ID" placeholder="CIT-000001" [(ngModel)]="citizenSearch.citizenId"></app-input>
-      <app-input label="ИИН" placeholder="800101300123" [(ngModel)]="citizenSearch.iin"></app-input>
-      <app-input label="ФИО" placeholder="Фамилия Имя Отчество" [(ngModel)]="citizenSearch.fullName"></app-input>
-      <app-input label="Дата рождения" type="date" [(ngModel)]="citizenSearch.birthDate"></app-input>
-    </div>
-    <div class="mt-4">
-      <app-button variant="outline" (clicked)="findCitizen()">Найти гражданина</app-button>
+      <app-input
+        label="Дата регистрации"
+        type="date"
+        [(ngModel)]="marriage.marriageDate"
+      ></app-input>
+      <app-input
+        label="Место регистрации"
+        placeholder="Город, ЗАГС"
+        [(ngModel)]="marriage.place"
+      ></app-input>
+      <app-input
+        label="Орган ЗАГС"
+        placeholder="Наименование отдела"
+        [(ngModel)]="marriage.registryOffice"
+      ></app-input>
+      <app-input
+        label="Номер свидетельства"
+        placeholder="Серия/номер"
+        [(ngModel)]="marriage.certificateNumber"
+      ></app-input>
     </div>
   </app-card>
 
-  @if (actType === 'BirthCertificate') {
-    <app-card title="Акт о рождении">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-input label="Дата и время рождения" type="datetime-local" [(ngModel)]="birthCertificate.birthDateTime"></app-input>
-        <app-input label="Место рождения" placeholder="Город, учреждение" [(ngModel)]="birthCertificate.birthPlace"></app-input>
-        <app-input label="ФИО ребенка" placeholder="Фамилия Имя Отчество" [(ngModel)]="birthCertificate.childFullName"></app-input>
-        <app-input label="ФИО матери" placeholder="Фамилия Имя Отчество" [(ngModel)]="birthCertificate.motherFullName"></app-input>
-        <app-input label="ФИО отца" placeholder="Фамилия Имя Отчество" [(ngModel)]="birthCertificate.fatherFullName"></app-input>
-      </div>
-    </app-card>
-  }
+  <app-card title="Супруг 1">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-input
+        label="ФИО"
+        placeholder="Фамилия Имя Отчество"
+        [(ngModel)]="marriage.spouseOneFullName"
+      ></app-input>
+      <app-input label="ИИН" [(ngModel)]="marriage.spouseOneIin"></app-input>
+      <app-input
+        label="Дата рождения"
+        type="date"
+        [(ngModel)]="marriage.spouseOneBirthDate"
+      ></app-input>
+      <app-input
+        label="Гражданство"
+        placeholder="Страна"
+        [(ngModel)]="marriage.spouseOneCitizenship"
+      ></app-input>
+    </div>
+  </app-card>
 
-  @if (actType === 'Marriage') {
-    <app-card title="Акт о браке">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-input label="Дата регистрации" type="date" [(ngModel)]="marriage.marriageDate"></app-input>
-        <app-input label="Место регистрации" placeholder="Город, отдел ЗАГС" [(ngModel)]="marriage.place"></app-input>
-        <app-input label="Супруг/супруга 1" placeholder="ФИО" [(ngModel)]="marriage.spouseOne"></app-input>
-        <app-input label="Супруг/супруга 2" placeholder="ФИО" [(ngModel)]="marriage.spouseTwo"></app-input>
-      </div>
-    </app-card>
-  }
-
-  @if (actType === 'Children') {
-    <app-card title="Акт о детях">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-input label="ФИО ребенка" placeholder="Фамилия Имя Отчество" [(ngModel)]="children.childFullName"></app-input>
-        <app-input label="Дата рождения" type="date" [(ngModel)]="children.birthDate"></app-input>
-        <app-input label="Родитель 1" placeholder="ФИО" [(ngModel)]="children.parentOne"></app-input>
-        <app-input label="Родитель 2" placeholder="ФИО" [(ngModel)]="children.parentTwo"></app-input>
-      </div>
-    </app-card>
-  }
-
-  @if (actType === 'Death') {
-    <app-card title="Акт о смерти">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-input label="Дата смерти" type="date" [(ngModel)]="death.deathDate"></app-input>
-        <app-input label="Место смерти" placeholder="Город, учреждение" [(ngModel)]="death.place"></app-input>
-        <app-input label="ФИО" placeholder="Фамилия Имя Отчество" [(ngModel)]="death.fullName"></app-input>
-        <app-input label="Причина" placeholder="Код/описание" [(ngModel)]="death.reason"></app-input>
-      </div>
-      <div class="mt-4 text-sm text-red-700">
-        При регистрации смерти гражданин помечается как DECEASED/REMOVED.
-      </div>
-    </app-card>
-  }
+  <app-card title="Супруг 2">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-input
+        label="ФИО"
+        placeholder="Фамилия Имя Отчество"
+        [(ngModel)]="marriage.spouseTwoFullName"
+      ></app-input>
+      <app-input label="ИИН" [(ngModel)]="marriage.spouseTwoIin"></app-input>
+      <app-input
+        label="Дата рождения"
+        type="date"
+        [(ngModel)]="marriage.spouseTwoBirthDate"
+      ></app-input>
+      <app-input
+        label="Гражданство"
+        placeholder="Страна"
+        [(ngModel)]="marriage.spouseTwoCitizenship"
+      ></app-input>
+    </div>
+  </app-card>
 
   <div class="flex flex-wrap items-center gap-3">
     <app-button variant="outline" (clicked)="saveDraft()">Сохранить черновик</app-button>
     <app-button variant="primary" (clicked)="registerAct()">Зарегистрировать</app-button>
-    <app-button variant="secondary" (clicked)="saveCorrection()" [disabled]="status() !== 'REGISTERED'">Сохранить исправление</app-button>
   </div>
 
   @if (status()) {
@@ -90,4 +96,3 @@
     </app-card>
   }
 </div>
-

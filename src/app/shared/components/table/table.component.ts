@@ -1,4 +1,4 @@
-import { Component, Input, TemplateRef } from '@angular/core';
+﻿import { Component, Input, Output, EventEmitter, TemplateRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 export interface TableColumn {
@@ -22,6 +22,7 @@ export class TableComponent {
   @Input() emptyMessage: string = 'Нет данных';
   @Input() rowTemplate?: TemplateRef<any>;
   @Input() actionsTemplate?: TemplateRef<any>;
+  @Output() sortChanged = new EventEmitter<{ key: string; direction: 'asc' | 'desc' }>();
 
   sortColumn: string = '';
   sortDirection: 'asc' | 'desc' = 'asc';
@@ -35,6 +36,8 @@ export class TableComponent {
       this.sortColumn = column.key;
       this.sortDirection = 'asc';
     }
+
+    this.sortChanged.emit({ key: this.sortColumn, direction: this.sortDirection });
   }
 
   getSortIcon(column: TableColumn): string {
@@ -44,5 +47,7 @@ export class TableComponent {
     return this.sortDirection === 'asc' ? '↑' : '↓';
   }
 }
+
+
 
 

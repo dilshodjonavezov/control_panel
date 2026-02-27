@@ -8,9 +8,8 @@
   </div>
 
   <app-card>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="grid grid-cols-1 gap-4">
       <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
-      <app-input label="Citizen ID" placeholder="CIT-000001" [(ngModel)]="filters.citizenId"></app-input>
     </div>
   </app-card>
 
@@ -24,7 +23,6 @@
     >
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.citizenId }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.lastExam || '-' }}</td>
@@ -41,6 +39,20 @@
   </app-card>
 
   <app-citizen-read-card [citizen]="selectedCitizen()"></app-citizen-read-card>
+
+  <app-modal [show]="showCreateModal" [title]="'Добавить в очередь ВВК'" size="lg" (closed)="closeCreate()">
+    <div class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-input label="ФИО" [(ngModel)]="createForm.fullName"></app-input>
+        <app-input label="Дата рождения" type="date" [(ngModel)]="createForm.birthDate"></app-input>
+        <app-select label="Статус" [options]="statusOptions" [(ngModel)]="createForm.status"></app-select>
+      </div>
+      <div class="flex items-center gap-2">
+        <app-button variant="primary" (clicked)="saveQueueItem()">Сохранить</app-button>
+        <app-button variant="outline" (clicked)="closeCreate()">Отмена</app-button>
+      </div>
+    </div>
+  </app-modal>
 
   <app-modal [show]="showResultModal" [title]="'Результат ВВК'" size="xl" (closed)="closeResult()">
     @if (showResultModal) {

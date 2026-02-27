@@ -43,7 +43,9 @@
 
   <app-modal [show]="showModal" [title]="'Поступление / отчисление'" size="xl" (closed)="closeModal()">
     @if (showModal) {
-      <app-university-study-create-edit [recordId]="selectedRecordId" [embedded]="true" (closed)="closeModal()"></app-university-study-create-edit>
+      <div class="max-h-[70vh] overflow-y-auto pr-1">
+        <app-university-study-create-edit [recordId]="selectedRecordId" [embedded]="true" (closed)="closeModal()"></app-university-study-create-edit>
+      </div>
     }
   </app-modal>
 </div>

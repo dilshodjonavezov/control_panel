@@ -9,6 +9,12 @@ type StudyForm = 'FULL_TIME' | 'PART_TIME';
 
 interface UniversityStudyRecord {
   id: string;
+  lastName: string;
+  firstName: string;
+  middleName: string;
+  iin: string;
+  eventType: 'ENROLLMENT' | 'EXPULSION';
+  expulsionReason: string;
   universityName: string;
   faculty: string;
   course: string;
@@ -40,6 +46,12 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
 
   record: UniversityStudyRecord = {
     id: 'uni-201',
+    lastName: 'Иванов',
+    firstName: 'Петр',
+    middleName: 'Павлович',
+    iin: '800101300123',
+    eventType: 'ENROLLMENT',
+    expulsionReason: '',
     universityName: 'КазНУ им. аль-Фараби',
     faculty: 'Информатика',
     course: '2',
@@ -54,6 +66,11 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
     { value: 'EXPELLED', label: 'Отчислен' }
   ];
 
+  eventTypeOptions: SelectOption[] = [
+    { value: 'ENROLLMENT', label: 'Поступление' },
+    { value: 'EXPULSION', label: 'Отчисление' }
+  ];
+
   formOptions: SelectOption[] = [
     { value: 'FULL_TIME', label: 'Очная форма' },
     { value: 'PART_TIME', label: 'Заочная форма' }
@@ -65,6 +82,12 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
   private recordById: Record<string, UniversityStudyRecord> = {
     'uni-201': {
       id: 'uni-201',
+      lastName: 'Иванов',
+      firstName: 'Петр',
+      middleName: 'Павлович',
+      iin: '800101300123',
+      eventType: 'ENROLLMENT',
+      expulsionReason: '',
       universityName: 'КазНУ им. аль-Фараби',
       faculty: 'Информатика',
       course: '2',
@@ -75,6 +98,12 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
     },
     'uni-198': {
       id: 'uni-198',
+      lastName: 'Соколов',
+      firstName: 'Егор',
+      middleName: 'Андреевич',
+      iin: '030713300942',
+      eventType: 'EXPULSION',
+      expulsionReason: 'Академическая неуспеваемость',
       universityName: 'КазНУ им. аль-Фараби',
       faculty: 'Экономика',
       course: '4',
@@ -127,6 +156,12 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
     }
     this.record = {
       id: 'new',
+      lastName: '',
+      firstName: '',
+      middleName: '',
+      iin: '',
+      eventType: 'ENROLLMENT',
+      expulsionReason: '',
       universityName: '',
       faculty: '',
       course: '',

@@ -41,7 +41,9 @@
 
   <app-modal [show]="showModal" [title]="'Запись об обучении'" size="xl" (closed)="closeModal()">
     @if (showModal) {
-      <app-school-study-create-edit [recordId]="selectedRecordId" [embedded]="true" (closed)="closeModal()"></app-school-study-create-edit>
+      <div class="max-h-[70vh] overflow-y-auto pr-1">
+        <app-school-study-create-edit [recordId]="selectedRecordId" [embedded]="true" (closed)="closeModal()"></app-school-study-create-edit>
+      </div>
     }
   </app-modal>
 </div>

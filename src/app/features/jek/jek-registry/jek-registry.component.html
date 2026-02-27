@@ -1,0 +1,64 @@
+﻿<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Реестр жильцов ЖЭК</h1>
+      <p class="mt-2 text-gray-600">Отдельный контур ЖЭК: регистрация по адресам, районы, задолженности и статусы учета.</p>
+    </div>
+    <app-button variant="primary" (clicked)="openCreate()">Добавить жильца</app-button>
+  </div>
+
+  <app-card title="Фильтры">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+      <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="draftFilters.fullName"></app-input>
+      <app-select label="Район" [options]="districtOptions" [(ngModel)]="draftFilters.district"></app-select>
+      <app-input label="Адрес" placeholder="Улица, дом" [(ngModel)]="draftFilters.address"></app-input>
+      <app-select label="Задолженность" [options]="debtOptions" [(ngModel)]="draftFilters.debt"></app-select>
+      <app-select label="Статус" [options]="statusOptions" [(ngModel)]="draftFilters.status"></app-select>
+    </div>
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <app-button variant="primary" (clicked)="applyFilters()">Применить</app-button>
+      <app-button variant="outline" (clicked)="resetFilters()">Сбросить</app-button>
+      <span class="text-sm text-gray-500">Найдено: {{ filteredResidents.length }}</span>
+    </div>
+  </app-card>
+
+  <app-card>
+    <app-table
+      [columns]="columns"
+      [data]="filteredResidents"
+      [rowTemplate]="rowTemplate"
+      [emptyMessage]="'Записи не найдены'"
+    >
+      <ng-template #rowTemplate let-row>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.residentId }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.iin }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.district }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.address }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.registrationType }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.registeredAt }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.debtAmount }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+
+  <app-modal [show]="showCreateModal" [title]="'Добавить жильца'" size="xl" (closed)="closeCreate()">
+    <div class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-input label="ФИО" [(ngModel)]="createForm.fullName"></app-input>
+        <app-input label="ИИН" [(ngModel)]="createForm.iin"></app-input>
+        <app-select label="Район" [options]="districtOptions" [(ngModel)]="createForm.district"></app-select>
+        <app-input label="Адрес" [(ngModel)]="createForm.address"></app-input>
+        <app-select label="Тип регистрации" [options]="registrationTypeOptions" [(ngModel)]="createForm.registrationType"></app-select>
+        <app-input label="Задолженность (тг)" type="number" [(ngModel)]="createForm.debtAmount"></app-input>
+        <app-select label="Статус" [options]="statusCreateOptions" [(ngModel)]="createForm.status"></app-select>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <app-button variant="primary" (clicked)="saveResident()">Сохранить</app-button>
+        <app-button variant="outline" (clicked)="closeCreate()">Отмена</app-button>
+      </div>
+    </div>
+  </app-modal>
+</div>

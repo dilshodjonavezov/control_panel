@@ -1,7 +1,7 @@
 ﻿import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CardComponent, TableComponent, TableColumn, InputComponent, ButtonComponent, ModalComponent } from '../../../shared/components';
+import { CardComponent, TableComponent, TableColumn, InputComponent, ButtonComponent, ModalComponent, SelectComponent, SelectOption } from '../../../shared/components';
 import { CitizenReadCardComponent, CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
 import { VvkResultCreateEditComponent } from '../vvk-result-create-edit/vvk-result-create-edit.component';
 import { MedicalRecordReadOnlyComponent } from '../medical-record-read-only/medical-record-read-only.component';
@@ -19,19 +19,30 @@ interface VvkQueueItem {
 @Component({
   selector: 'app-vvk-queue',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, ButtonComponent, ModalComponent, CitizenReadCardComponent, VvkResultCreateEditComponent, MedicalRecordReadOnlyComponent],
+  imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, SelectComponent, ButtonComponent, ModalComponent, CitizenReadCardComponent, VvkResultCreateEditComponent, MedicalRecordReadOnlyComponent],
   templateUrl: './vvk-queue.component.html',
   styleUrl: './vvk-queue.component.css'
 })
 export class VvkQueueComponent {
   filters = {
-    fullName: '',
-    citizenId: ''
+    fullName: ''
   };
+
+  showCreateModal = false;
+  createForm = {
+    fullName: '',
+    birthDate: '',
+    status: 'WAITING' as VvkQueueItem['status']
+  };
+
+  statusOptions: SelectOption[] = [
+    { value: 'WAITING', label: 'Ожидает' },
+    { value: 'IN_REVIEW', label: 'На рассмотрении' },
+    { value: 'DONE', label: 'Завершено' }
+  ];
 
   columns: TableColumn[] = [
     { key: 'fullName', label: 'ФИО', sortable: true },
-    { key: 'citizenId', label: 'Citizen ID', sortable: true },
     { key: 'birthDate', label: 'Дата рождения', sortable: true },
     { key: 'status', label: 'Статус', sortable: true },
     { key: 'lastExam', label: 'Последнее ВВК', sortable: true }
@@ -50,11 +61,9 @@ export class VvkQueueComponent {
 
   get filteredQueue(): VvkQueueItem[] {
     const byName = this.filters.fullName.toLowerCase();
-    const byId = this.filters.citizenId.toLowerCase();
     return this.queue.filter(item => {
       const matchesName = !byName || item.fullName.toLowerCase().includes(byName);
-      const matchesId = !byId || item.citizenId.toLowerCase().includes(byId);
-      return matchesName && matchesId;
+      return matchesName;
     });
   }
 
@@ -69,8 +78,37 @@ export class VvkQueueComponent {
   }
 
   openCreate(): void {
-    this.selectedResultId = null;
-    this.showResultModal = true;
+    this.showCreateModal = true;
+    this.createForm = {
+      fullName: '',
+      birthDate: '',
+      status: 'WAITING'
+    };
+  }
+
+  closeCreate(): void {
+    this.showCreateModal = false;
+  }
+
+  saveQueueItem(): void {
+    if (!this.createForm.fullName.trim() || !this.createForm.birthDate) {
+      return;
+    }
+
+    const nextIndex = this.queue.length + 100;
+    const citizenId = `VVK-${nextIndex}`;
+    const item: VvkQueueItem = {
+      id: `q-${nextIndex}`,
+      citizenId,
+      fullName: this.createForm.fullName.trim(),
+      birthDate: this.formatDate(this.createForm.birthDate),
+      status: this.createForm.status,
+      lastExam: null,
+      resultId: null
+    };
+
+    this.queue = [item, ...this.queue];
+    this.closeCreate();
   }
 
   openResult(item: VvkQueueItem): void {
@@ -100,5 +138,12 @@ export class VvkQueueComponent {
       DONE: 'Завершено'
     };
     return labels[status];
+  }
+
+  private formatDate(value: string): string {
+    const parts = value.split('-');
+    if (parts.length !== 3) return value;
+    const [year, month, day] = parts;
+    return `${day}.${month}.${year}`;
   }
 }

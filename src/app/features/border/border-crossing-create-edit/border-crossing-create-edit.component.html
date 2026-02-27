@@ -6,6 +6,7 @@
 
   <app-card title="Пересечение">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-input label="ФИО" [(ngModel)]="record.fullName"></app-input>
       <app-input label="Дата пересечения" type="date" [(ngModel)]="record.crossingDate"></app-input>
       <app-select label="Тип" [options]="typeOptions" [(ngModel)]="record.type"></app-select>
       <app-input label="КПП" [(ngModel)]="record.checkpoint"></app-input>

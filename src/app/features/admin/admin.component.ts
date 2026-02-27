@@ -16,12 +16,12 @@ export class AdminComponent {
     { path: '/admin/education-registry', label: 'Реестр по образованию', icon: '🗂️' },
     { path: '/admin/deferment-review', label: 'Проверка отсрочек', icon: '✅' },
     { path: '/admin/expulsions', label: 'Отчисления', icon: '⚠️' },
-    { path: '/admin/school', label: 'Школа', icon: '🏫' },
-    { path: '/admin/university', label: 'ВУЗ / Колледж', icon: '🎓' },
+    // { path: '/admin/school', label: 'Школа', icon: '🏫' },
+    // { path: '/admin/university', label: 'ВУЗ / Колледж', icon: '🎓' },
     { path: '/admin/organizations', label: 'Организации', icon: '🏛️' },
     { path: '/admin/users', label: 'Пользователи', icon: '🔐' },
     { path: '/admin/audit', label: 'Аудит', icon: '🧾' },
-    { path: '/admin/reports', label: 'Отчеты', icon: '📄' },
-    { path: '/admin/settings', label: 'Настройки', icon: '⚙️' }
+    // { path: '/admin/reports', label: 'Отчеты', icon: '📄' },
+    // { path: '/admin/settings', label: 'Настройки', icon: '⚙️' }
   ];
 }

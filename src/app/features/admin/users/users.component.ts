@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CardComponent, TableComponent, TableColumn, ButtonComponent, ModalComponent, InputComponent, SelectComponent, SelectOption } from '../../../shared/components';
 
-type UserRole = 'superadmin' | 'admin' | 'teacher' | 'student' | 'maternity' | 'zags' | 'identity-residence' | 'school' | 'university' | 'clinic' | 'vvk' | 'border';
+type UserRole = 'superadmin' | 'admin' | 'teacher' | 'student' | 'maternity' | 'zags' | 'jek' | 'passport' | 'school' | 'university' | 'clinic' | 'vvk' | 'border';
 
 interface UserItem {
   id: string;
@@ -37,7 +37,8 @@ export class UsersComponent {
     { value: 'student', label: 'Студент' },
     { value: 'maternity', label: 'Роддом' },
     { value: 'zags', label: 'ЗАГС' },
-    { value: 'identity-residence', label: 'ЖЭК/Паспортный' },
+    { value: 'jek', label: 'ЖЭК' },
+    { value: 'passport', label: 'Паспортный стол' },
     { value: 'school', label: 'Школа' },
     { value: 'university', label: 'ВУЗ/Колледж' },
     { value: 'clinic', label: 'Медцентр/Поликлиника' },
@@ -59,7 +60,8 @@ export class UsersComponent {
     { id: 'u3', fullName: 'Иванов И.И.', email: 'student@example.com', role: 'student', status: 'blocked' },
     { id: 'u4', fullName: 'ГКБ №12 Роддом', email: 'maternity@example.com', role: 'maternity', status: 'active' },
     { id: 'u5', fullName: 'ЗАГС Центральный', email: 'zags@example.com', role: 'zags', status: 'active' },
-    { id: 'u6', fullName: 'ЖЭК Центральный', email: 'residence@example.com', role: 'identity-residence', status: 'active' },
+    { id: 'u6', fullName: 'ЖЭК Центральный', email: 'jek@example.com', role: 'jek', status: 'active' },
+    { id: 'u12', fullName: 'Паспортный стол Центральный', email: 'passport@example.com', role: 'passport', status: 'active' },
     { id: 'u7', fullName: 'Школа №21', email: 'school@example.com', role: 'school', status: 'active' },
     { id: 'u8', fullName: 'Колледж №3', email: 'university@example.com', role: 'university', status: 'active' },
     { id: 'u9', fullName: 'Поликлиника №1', email: 'clinic@example.com', role: 'clinic', status: 'active' },
@@ -112,7 +114,8 @@ export class UsersComponent {
       student: 'Студент',
       maternity: 'Роддом',
       zags: 'ЗАГС',
-      'identity-residence': 'ЖЭК/Паспортный',
+      jek: 'ЖЭК',
+      passport: 'Паспортный стол',
       school: 'Школа',
       university: 'ВУЗ/Колледж',
       clinic: 'Медцентр/Поликлиника',

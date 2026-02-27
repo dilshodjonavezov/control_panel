@@ -36,11 +36,10 @@ import { TeacherReportsComponent } from './features/teacher/reports/teacher-repo
 import { ZagsComponent } from './features/zags/zags.component';
 import { ZagsActListComponent } from './features/zags/zags-act-list/zags-act-list.component';
 import { ZagsActViewComponent } from './features/zags/zags-act-view/zags-act-view.component';
-import { IdentityResidenceComponent } from './features/identity-residence/identity-residence.component';
-import { CitizenSearchComponent } from './features/identity-residence/citizen-search/citizen-search.component';
-import { CitizenDetailComponent as IdentityCitizenDetailComponent } from './features/identity-residence/citizen-detail/citizen-detail.component';
-import { PassportListComponent } from './features/identity-residence/passport-list/passport-list.component';
-import { HistoryAuditComponent } from './features/identity-residence/history-audit/history-audit.component';
+import { JekComponent } from './features/jek/jek.component';
+import { JekRegistryComponent } from './features/jek/jek-registry/jek-registry.component';
+import { PassportComponent } from './features/passport/passport.component';
+import { PassportRegistryComponent } from './features/passport/passport-registry/passport-registry.component';
 import { SchoolComponent as SchoolPortalComponent } from './features/school/school.component';
 import { SchoolStudyListComponent } from './features/school/school-study-list/school-study-list.component';
 import { MaternityComponent } from './features/maternity/maternity.component';
@@ -88,9 +87,14 @@ export const routes: Routes = [
     data: { role: 'zags' }
   },
   {
-    path: 'login/identity-residence',
+    path: 'login/jek',
     component: LoginComponent,
-    data: { role: 'identity-residence' }
+    data: { role: 'jek' }
+  },
+  {
+    path: 'login/passport',
+    component: LoginComponent,
+    data: { role: 'passport' }
   },
   {
     path: 'login/school',
@@ -314,34 +318,32 @@ export const routes: Routes = [
     ]
   },
   {
-    path: 'identity-residence',
-    component: IdentityResidenceComponent,
+    path: 'jek',
+    component: JekComponent,
     children: [
       {
         path: '',
-        redirectTo: 'jek',
+        redirectTo: 'registry',
         pathMatch: 'full'
       },
       {
-        path: 'citizens',
-        redirectTo: 'jek',
+        path: 'registry',
+        component: JekRegistryComponent
+      }
+    ]
+  },
+  {
+    path: 'passport',
+    component: PassportComponent,
+    children: [
+      {
+        path: '',
+        redirectTo: 'registry',
         pathMatch: 'full'
       },
       {
-        path: 'jek',
-        component: CitizenSearchComponent
-      },
-      {
-        path: 'passport',
-        component: PassportListComponent
-      },
-      {
-        path: 'citizens/:id',
-        component: IdentityCitizenDetailComponent
-      },
-      {
-        path: 'audit',
-        component: HistoryAuditComponent
+        path: 'registry',
+        component: PassportRegistryComponent
       }
     ]
   },

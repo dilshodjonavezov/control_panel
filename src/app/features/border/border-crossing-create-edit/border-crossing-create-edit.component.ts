@@ -7,6 +7,7 @@ type CrossingType = 'EXIT' | 'ENTRY';
 
 interface BorderCrossingRecord {
   id: string;
+  fullName: string;
   crossingDate: string;
   checkpoint: string;
   type: CrossingType;
@@ -32,6 +33,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges {
 
   record: BorderCrossingRecord = {
     id: 'bc-101',
+    fullName: 'Иванов Петр Павлович',
     crossingDate: '2026-01-25',
     checkpoint: 'КПП Алматы-1',
     type: 'EXIT',
@@ -47,6 +49,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges {
   private recordById: Record<string, BorderCrossingRecord> = {
     'bc-101': {
       id: 'bc-101',
+      fullName: 'Иванов Петр Павлович',
       crossingDate: '2026-01-25',
       checkpoint: 'КПП Алматы-1',
       type: 'EXIT',
@@ -55,6 +58,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges {
     },
     'bc-098': {
       id: 'bc-098',
+      fullName: 'Соколова Марина Андреевна',
       crossingDate: '2025-06-10',
       checkpoint: 'КПП Нур-Султан',
       type: 'ENTRY',
@@ -97,6 +101,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges {
     }
     this.record = {
       id: 'new',
+      fullName: this.citizen?.fullName || '',
       crossingDate: '',
       checkpoint: '',
       type: 'EXIT',
@@ -107,6 +112,9 @@ export class BorderCrossingCreateEditComponent implements OnChanges {
 
   private applyAbroadStatus(): void {
     if (!this.citizen) return;
+    if (!this.record.fullName) {
+      this.record.fullName = this.citizen.fullName;
+    }
     if (this.record.type === 'EXIT' && this.isMoreThanSixMonths(this.record.crossingDate)) {
       this.citizen = { ...this.citizen, status: 'ABROAD' };
     }

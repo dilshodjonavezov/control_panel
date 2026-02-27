@@ -13,6 +13,3 @@ export class CardComponent {
   @Input() subtitle: string = '';
   @Input() padding: boolean = true;
 }
-
-
-

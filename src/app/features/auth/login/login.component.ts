@@ -18,12 +18,13 @@ export class LoginComponent implements OnInit {
   roleLocked = false;
 
   roleOptions: SelectOption[] = [
-    { value: 'student', label: 'Студент' },
-    { value: 'teacher', label: 'Преподаватель' },
+    // { value: 'student', label: 'Студент' },
+    // { value: 'teacher', label: 'Преподаватель' },
     { value: 'admin', label: 'Администратор' },
     { value: 'maternity', label: 'Роддом' },
     { value: 'zags', label: 'ЗАГС' },
-    { value: 'identity-residence', label: 'ЖЭК/Паспортный' },
+    { value: 'jek', label: 'ЖЭК' },
+    { value: 'passport', label: 'Паспортный стол' },
     { value: 'school', label: 'Школа' },
     { value: 'university', label: 'ВУЗ/Колледж' },
     { value: 'clinic', label: 'Медцентр/Поликлиника' },
@@ -59,8 +60,12 @@ export class LoginComponent implements OnInit {
       this.router.navigate(['/zags/acts']);
       return;
     }
-    if (this.role === 'identity-residence') {
-      this.router.navigate(['/identity-residence/jek']);
+    if (this.role === 'jek') {
+      this.router.navigate(['/jek/registry']);
+      return;
+    }
+    if (this.role === 'passport') {
+      this.router.navigate(['/passport/registry']);
       return;
     }
     if (this.role === 'school') {
@@ -90,4 +95,3 @@ export class LoginComponent implements OnInit {
     this.router.navigate(['/student/dashboard']);
   }
 }
-

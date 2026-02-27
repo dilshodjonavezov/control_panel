@@ -49,7 +49,6 @@ export class BorderCrossingListComponent {
   filters = {
     fullName: '',
     type: 'all',
-    citizenId: '',
   };
 
   typeOptions: SelectOption[] = [
@@ -60,7 +59,6 @@ export class BorderCrossingListComponent {
 
   columns: TableColumn[] = [
     { key: 'fullName', label: 'ФИО', sortable: true },
-    { key: 'citizenId', label: 'Citizen ID', sortable: true },
     { key: 'crossingDate', label: 'Дата', sortable: true },
     { key: 'type', label: 'Тип', sortable: true },
     { key: 'country', label: 'Страна', sortable: true },
@@ -103,14 +101,12 @@ export class BorderCrossingListComponent {
 
   get filteredCrossings(): BorderCrossingItem[] {
     const byName = this.filters.fullName.toLowerCase();
-    const byId = this.filters.citizenId.toLowerCase();
     const byType = this.filters.type;
 
     return this.crossings.filter((item) => {
       const matchesName = !byName || item.fullName.toLowerCase().includes(byName);
-      const matchesId = !byId || item.citizenId.toLowerCase().includes(byId);
       const matchesType = byType === 'all' || item.type === byType;
-      return matchesName && matchesId && matchesType;
+      return matchesName && matchesType;
     });
   }
 

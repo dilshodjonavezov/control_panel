@@ -1,10 +1,7 @@
 ﻿@if (citizen) {
   <app-card title="Гражданин">
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-900">
-      <div>
-        <span class="text-gray-500">Citizen ID:</span>
-        <div class="font-medium">{{ citizen.id }}</div>
-      </div>
+
       <div>
         <span class="text-gray-500">ФИО:</span>
         <div class="font-medium">{{ citizen.fullName }}</div>
@@ -24,3 +21,4 @@
     <div class="text-sm text-gray-500">Данные о гражданине не созданы.</div>
   </app-card>
 }
+

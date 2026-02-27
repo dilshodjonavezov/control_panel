@@ -1,46 +1,108 @@
-﻿<div class="space-y-6">
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <h1 class="text-3xl font-bold text-gray-900">Запись об обучении</h1>
-      <p class="mt-2 text-gray-600">Поступление, изменение курса и отчисление.</p>
-    </div>
-    @if (!embedded) {
+﻿@if (!embedded) {
+  <div class="space-y-6">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-900">Запись об обучении</h1>
+        <p class="mt-2 text-gray-600">Поступление, изменение курса и отчисление.</p>
+      </div>
       <app-button variant="outline" (clicked)="goBack()">Назад к списку</app-button>
-    }
-  </div>
-
-  <app-card title="Обучение">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <app-input label="Учебное заведение" [(ngModel)]="record.universityName"></app-input>
-      <app-input label="Факультет" [(ngModel)]="record.faculty"></app-input>
-      <app-input label="Курс" [(ngModel)]="record.course"></app-input>
-      <app-select label="Форма обучения" [options]="formOptions" [(ngModel)]="record.form"></app-select>
-      <app-select label="Статус" [options]="statusOptions" [(ngModel)]="record.status"></app-select>
-      <app-input label="Дата поступления" type="date" [(ngModel)]="record.startDate"></app-input>
-      <app-input label="Дата отчисления" type="date" [(ngModel)]="record.endDate"></app-input>
     </div>
-    <div class="mt-4 text-sm text-sky-700">
-      Очная форма (ENROLLED + FULL_TIME) дает статус STUDENT_DEFERRED. Отчисление запускает пересчет статуса.
-    </div>
-  </app-card>
 
-  <div class="flex flex-wrap items-center gap-3">
-    <app-button variant="primary" (clicked)="save()">Сохранить</app-button>
-    <app-button variant="secondary" (clicked)="update()">Сохранить изменение</app-button>
-  </div>
-
-  @if (status()) {
-    <app-card>
-      <div class="flex flex-col gap-2 text-sm text-gray-700">
-        <div class="flex items-center gap-2">
-          <span class="font-medium">Статус:</span>
-          <span class="font-semibold text-sky-700">{{ status() }}</span>
-        </div>
-        @if (lastActionAt()) {
-          <div>Последнее действие: {{ lastActionAt() }}</div>
-        }
+    <app-card title="Студент">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-input label="Фамилия" [(ngModel)]="record.lastName"></app-input>
+        <app-input label="Имя" [(ngModel)]="record.firstName"></app-input>
+        <app-input label="Отчество" [(ngModel)]="record.middleName"></app-input>
+        <app-input label="ИИН" [(ngModel)]="record.iin"></app-input>
       </div>
     </app-card>
-  }
-</div>
 
+    <app-card title="Обучение">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-select label="Событие" [options]="eventTypeOptions" [(ngModel)]="record.eventType"></app-select>
+        <app-input label="Учебное заведение" [(ngModel)]="record.universityName"></app-input>
+        <app-input label="Факультет" [(ngModel)]="record.faculty"></app-input>
+        <app-input label="Курс" [(ngModel)]="record.course"></app-input>
+        <app-select label="Форма обучения" [options]="formOptions" [(ngModel)]="record.form"></app-select>
+        <app-select label="Статус" [options]="statusOptions" [(ngModel)]="record.status"></app-select>
+        <app-input label="Дата поступления" type="date" [(ngModel)]="record.startDate"></app-input>
+        <app-input label="Дата отчисления" type="date" [(ngModel)]="record.endDate"></app-input>
+        @if (record.eventType === 'EXPULSION') {
+          <app-input label="Причина отчисления" [(ngModel)]="record.expulsionReason"></app-input>
+        }
+      </div>
+      <div class="mt-4 text-sm text-sky-700">
+        Очная форма (ENROLLED + FULL_TIME) дает статус STUDENT_DEFERRED. Отчисление запускает пересчет статуса.
+      </div>
+    </app-card>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <app-button variant="primary" (clicked)="save()">Сохранить</app-button>
+      <app-button variant="secondary" (clicked)="update()">Сохранить изменение</app-button>
+    </div>
+
+    @if (status()) {
+      <app-card>
+        <div class="flex flex-col gap-2 text-sm text-gray-700">
+          <div class="flex items-center gap-2">
+            <span class="font-medium">Статус:</span>
+            <span class="font-semibold text-sky-700">{{ status() }}</span>
+          </div>
+          @if (lastActionAt()) {
+            <div>Последнее действие: {{ lastActionAt() }}</div>
+          }
+        </div>
+      </app-card>
+    }
+  </div>
+} @else {
+  <div class="space-y-5">
+    <p class="text-sm text-gray-600">Заполните основные данные студента и параметры обучения.</p>
+
+    <section class="rounded-lg border border-gray-200 p-4 md:p-5 space-y-4">
+      <h2 class="text-base font-semibold text-gray-900">Студент</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-input label="Фамилия" [(ngModel)]="record.lastName"></app-input>
+        <app-input label="Имя" [(ngModel)]="record.firstName"></app-input>
+        <app-input label="Отчество" [(ngModel)]="record.middleName"></app-input>
+        <app-input label="ИИН" [(ngModel)]="record.iin"></app-input>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-gray-200 p-4 md:p-5 space-y-4">
+      <h2 class="text-base font-semibold text-gray-900">Обучение</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-select label="Событие" [options]="eventTypeOptions" [(ngModel)]="record.eventType"></app-select>
+        <app-input label="Учебное заведение" [(ngModel)]="record.universityName"></app-input>
+        <app-input label="Факультет" [(ngModel)]="record.faculty"></app-input>
+        <app-input label="Курс" [(ngModel)]="record.course"></app-input>
+        <app-select label="Форма обучения" [options]="formOptions" [(ngModel)]="record.form"></app-select>
+        <app-select label="Статус" [options]="statusOptions" [(ngModel)]="record.status"></app-select>
+        <app-input label="Дата поступления" type="date" [(ngModel)]="record.startDate"></app-input>
+        <app-input label="Дата отчисления" type="date" [(ngModel)]="record.endDate"></app-input>
+        @if (record.eventType === 'EXPULSION') {
+          <app-input label="Причина отчисления" [(ngModel)]="record.expulsionReason"></app-input>
+        }
+      </div>
+    </section>
+
+    <div class="pt-1 flex flex-wrap items-center gap-3">
+      <app-button variant="primary" (clicked)="save()">Сохранить</app-button>
+      <app-button variant="secondary" (clicked)="update()">Сохранить изменение</app-button>
+    </div>
+
+    @if (status()) {
+      <div class="rounded-lg border border-sky-100 bg-sky-50 p-4">
+        <div class="flex flex-col gap-2 text-sm text-gray-700">
+          <div class="flex items-center gap-2">
+            <span class="font-medium">Статус:</span>
+            <span class="font-semibold text-sky-700">{{ status() }}</span>
+          </div>
+          @if (lastActionAt()) {
+            <div>Последнее действие: {{ lastActionAt() }}</div>
+          }
+        </div>
+      </div>
+    }
+  </div>
+}

@@ -1,7 +1,13 @@
 ﻿import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CardComponent, InputComponent, SelectComponent, SelectOption, ButtonComponent } from '../../../shared/components';
+import {
+  CardComponent,
+  InputComponent,
+  SelectComponent,
+  SelectOption,
+  ButtonComponent,
+} from '../../../shared/components';
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
 type ZagsActType = 'BirthCertificate' | 'Marriage' | 'Children' | 'Death';
 
@@ -10,9 +16,9 @@ type ZagsActStatus = 'DRAFT' | 'REGISTERED' | 'UPDATED';
 @Component({
   selector: 'app-zags-act-create',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, ButtonComponent],
+  imports: [CommonModule, FormsModule, InputComponent, SelectComponent, ButtonComponent],
   templateUrl: './zags-act-create.component.html',
-  styleUrl: './zags-act-create.component.css'
+  styleUrl: './zags-act-create.component.css',
 })
 export class ZagsActCreateComponent {
   actType: ZagsActType = 'BirthCertificate';
@@ -23,7 +29,7 @@ export class ZagsActCreateComponent {
     citizenId: '',
     iin: '',
     fullName: '',
-    birthDate: ''
+    birthDate: '',
   };
 
   citizen = signal<CitizenReadCardData | null>(null);
@@ -32,7 +38,7 @@ export class ZagsActCreateComponent {
     { value: 'BirthCertificate', label: 'Рождение' },
     { value: 'Marriage', label: 'Брак' },
     { value: 'Children', label: 'Дети' },
-    { value: 'Death', label: 'Смерть' }
+    { value: 'Death', label: 'Смерть' },
   ];
 
   birthCertificate = {
@@ -40,7 +46,7 @@ export class ZagsActCreateComponent {
     birthPlace: '',
     childFullName: '',
     motherFullName: '',
-    fatherFullName: ''
+    fatherFullName: '',
   };
 
   marriage = {
@@ -55,21 +61,21 @@ export class ZagsActCreateComponent {
     spouseTwoFullName: '',
     spouseTwoIin: '',
     spouseTwoBirthDate: '',
-    spouseTwoCitizenship: ''
+    spouseTwoCitizenship: '',
   };
 
   children = {
     childFullName: '',
     birthDate: '',
     parentOne: '',
-    parentTwo: ''
+    parentTwo: '',
   };
 
   death = {
     deathDate: '',
     place: '',
     fullName: '',
-    reason: ''
+    reason: '',
   };
 
   findCitizen(): void {
@@ -78,7 +84,7 @@ export class ZagsActCreateComponent {
       iin: this.citizenSearch.iin || '800101300123',
       fullName: this.citizenSearch.fullName || 'Иванов Петр Павлович',
       birthDate: this.citizenSearch.birthDate || '01.01.1980',
-      status: 'ACTIVE'
+      status: 'ACTIVE',
     });
   }
 
@@ -89,7 +95,7 @@ export class ZagsActCreateComponent {
     if (this.actType === 'Death' && this.citizen()) {
       this.citizen.set({
         ...this.citizen()!,
-        status: 'DECEASED'
+        status: 'DECEASED',
       });
     }
   }
@@ -108,7 +114,7 @@ export class ZagsActCreateComponent {
     const labels: Record<ZagsActStatus, string> = {
       DRAFT: 'Черновик',
       REGISTERED: 'Зарегистрировано',
-      UPDATED: 'Исправлено'
+      UPDATED: 'Исправлено',
     };
     return labels[status];
   }
@@ -120,5 +126,3 @@ export class ZagsActCreateComponent {
     return `${date} ${time}`;
   }
 }
-
-

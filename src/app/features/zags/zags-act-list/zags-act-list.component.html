@@ -42,6 +42,8 @@
   </app-card>
 
   <app-modal [show]="showCreateModal" [title]="'Регистрация акта'" size="xl" (closed)="closeCreate()">
-    <app-zags-act-create></app-zags-act-create>
+    <div class="max-h-[70vh] overflow-y-auto pr-1">
+      <app-zags-act-create></app-zags-act-create>
+    </div>
   </app-modal>
 </div>

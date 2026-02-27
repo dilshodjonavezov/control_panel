@@ -40,9 +40,9 @@
   </app-card>
 
   <div class="flex flex-wrap items-center gap-3">
-    <app-button variant="outline" (clicked)="saveDraft()" [disabled]="status() === 'SUBMITTED'">Сохранить черновик</app-button>
+    <!-- <app-button variant="outline" (clicked)="saveDraft()" [disabled]="status() === 'SUBMITTED'">Сохранить черновик</app-button> -->
     <app-button variant="primary" (clicked)="submit()" [disabled]="status() === 'SUBMITTED'">Отправить</app-button>
-    <span class="text-sm text-gray-500">Редактирование возможно до статуса SUBMITTED.</span>
+    <!-- <span class="text-sm text-gray-500">Редактирование возможно до статуса SUBMITTED.</span> -->
   </div>
 
   @if (status() === 'DRAFT') {

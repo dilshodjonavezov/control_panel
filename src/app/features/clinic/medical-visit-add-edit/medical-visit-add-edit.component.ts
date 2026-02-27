@@ -6,6 +6,7 @@ import { CardComponent, InputComponent, SelectComponent, SelectOption, ButtonCom
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
 export interface MedicalVisitRecord {
   id: string;
+  patientFullName: string;
   visitDate: string;
   doctor: string;
   diagnosis: string;
@@ -36,6 +37,7 @@ export class MedicalVisitAddEditComponent implements OnInit, OnChanges {
 
   record: MedicalVisitRecord = {
     id: 'v-101',
+    patientFullName: 'Иванов Петр Павлович',
     visitDate: '2026-01-24',
     doctor: 'Сидорова А.В.',
     diagnosis: 'ОРВИ',
@@ -54,6 +56,7 @@ export class MedicalVisitAddEditComponent implements OnInit, OnChanges {
   private recordById: Record<string, MedicalVisitRecord> = {
     'v-101': {
       id: 'v-101',
+      patientFullName: 'Иванов Петр Павлович',
       visitDate: '2026-01-24',
       doctor: 'Сидорова А.В.',
       diagnosis: 'ОРВИ',
@@ -62,6 +65,7 @@ export class MedicalVisitAddEditComponent implements OnInit, OnChanges {
     },
     'v-097': {
       id: 'v-097',
+      patientFullName: 'Иванов Петр Павлович',
       visitDate: '2026-01-12',
       doctor: 'Рахимова Н.С.',
       diagnosis: 'Жалобы на боли',
@@ -110,6 +114,7 @@ export class MedicalVisitAddEditComponent implements OnInit, OnChanges {
     }
     this.record = {
       id: 'new',
+      patientFullName: this.citizen()?.fullName || '',
       visitDate: '',
       doctor: '',
       diagnosis: '',

@@ -1,7 +1,10 @@
 ﻿<div class="space-y-6">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900">Доступы пользователей</h1>
-    <p class="mt-2 text-gray-600">Распределение доступа и фильтрация по ролям.</p>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Доступы пользователей</h1>
+      <p class="mt-2 text-gray-600">Распределение доступа и фильтрация по ролям.</p>
+    </div>
+    <app-button variant="primary" (clicked)="openRoleModal()">Добавить роль</app-button>
   </div>
 
   <app-card>
@@ -27,4 +30,17 @@
       </ng-template>
     </app-table>
   </app-card>
+
+  <app-modal [show]="showRoleModal" [title]="'Добавить новую роль'" size="lg" (closed)="closeRoleModal()">
+    <div class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <app-input label="Код роли" placeholder="example-role" [(ngModel)]="roleForm.value"></app-input>
+        <app-input label="Название роли" placeholder="Новая роль" [(ngModel)]="roleForm.label"></app-input>
+      </div>
+      <div class="flex items-center gap-2">
+        <app-button variant="primary" (clicked)="addRole()">Сохранить</app-button>
+        <app-button variant="outline" (clicked)="closeRoleModal()">Отмена</app-button>
+      </div>
+    </div>
+  </app-modal>
 </div>

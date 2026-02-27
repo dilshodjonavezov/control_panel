@@ -64,7 +64,6 @@ export class PassportListComponent {
   ];
 
   columns: TableColumn[] = [
-    { key: 'citizenId', label: 'Citizen ID', sortable: true },
     { key: 'iin', label: 'ИИН', sortable: true },
     { key: 'fullName', label: 'ФИО', sortable: true },
     { key: 'series', label: 'Серия', sortable: true },

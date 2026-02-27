@@ -7,48 +7,33 @@
     <app-button variant="primary" (clicked)="addVisit()">Добавить посещение</app-button>
   </div>
 
-  <app-card title="Поиск гражданина">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-      <app-input label="Citizen ID" [(ngModel)]="search.citizenId"></app-input>
-      <app-input label="ИИН" [(ngModel)]="search.iin"></app-input>
+  <app-card title="Фильтры посещений">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <app-input label="Врач" placeholder="Фамилия врача" [(ngModel)]="draftFilters.doctor"></app-input>
+      <app-input label="Диагноз" placeholder="Например, ОРВИ" [(ngModel)]="draftFilters.diagnosis"></app-input>
+      <app-select label="Статус" [options]="statusFilterOptions" [(ngModel)]="draftFilters.status"></app-select>
+      <app-input label="Дата с" type="date" [(ngModel)]="draftFilters.dateFrom"></app-input>
+      <app-input label="Дата по" type="date" [(ngModel)]="draftFilters.dateTo"></app-input>
+    </div>
+
+    <div class="mt-4 flex flex-wrap items-center gap-3">
+      <app-button variant="primary" (clicked)="applyFilters()">Применить</app-button>
+      <app-button variant="outline" (clicked)="resetFilters()">Сбросить</app-button>
+      <span class="text-sm text-gray-500">Найдено: {{ filteredVisits.length }}</span>
     </div>
   </app-card>
 
-  <!-- <app-citizen-read-card [citizen]="citizen()"></app-citizen-read-card> -->
-
-  <!-- @if (recordStatus() === 'MISSING') {
-    <app-card>
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="text-sm text-gray-600">Медицинская карта отсутствует. Вы можете создать новую.</div>
-        <app-button variant="primary" (clicked)="createRecord()">Создать карту</app-button>
-      </div>
-    </app-card>
-  } -->
-
   @if (recordStatus() === 'EXISTS') {
-    <!-- <app-card>
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <div class="text-sm text-gray-500">Статус карты</div>
-          <div class="font-semibold text-gray-900">Активна</div>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <app-button variant="outline" (clicked)="editRecord()">Изменить карту</app-button>
-          <app-button variant="outline" (clicked)="openAttachments()">Вложения</app-button>
-          <app-button variant="outline" (clicked)="addVisit()">Добавить посещение</app-button>
-        </div>
-      </div>
-    </app-card> -->
-
     <app-card>
       <app-table
         [columns]="columns"
-        [data]="visits"
+        [data]="filteredVisits"
         [rowTemplate]="rowTemplate"
         [actionsTemplate]="actionsTemplate"
         [emptyMessage]="'Посещений нет'"
       >
         <ng-template #rowTemplate let-row>
+          <td class="px-6 py-4 text-sm text-gray-900">{{ row.patientFullName }}</td>
           <td class="px-6 py-4 text-sm text-gray-900">{{ row.date }}</td>
           <td class="px-6 py-4 text-sm text-gray-900">{{ row.doctor }}</td>
           <td class="px-6 py-4 text-sm text-gray-900">{{ row.diagnosis }}</td>
@@ -66,12 +51,14 @@
 
   <app-modal [show]="showVisitModal" [title]="'Посещение'" size="xl" (closed)="closeVisitModal()">
     @if (showVisitModal) {
-      <app-medical-visit-add-edit
-        [recordId]="selectedVisitId"
-        [embedded]="true"
-        (closed)="closeVisitModal()"
-        (saved)="handleVisitSaved($event)"
-      ></app-medical-visit-add-edit>
+      <div class="max-h-[70vh] overflow-y-auto pr-1">
+        <app-medical-visit-add-edit
+          [recordId]="selectedVisitId"
+          [embedded]="true"
+          (closed)="closeVisitModal()"
+          (saved)="handleVisitSaved($event)"
+        ></app-medical-visit-add-edit>
+      </div>
     }
   </app-modal>
 

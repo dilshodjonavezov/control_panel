@@ -6,7 +6,6 @@
           {{ citizen()!.lastName }} {{ citizen()!.firstName }} {{ citizen()!.middleName || '' }}
         </h1>
         <div class="mt-2 flex flex-wrap gap-4 text-sm text-gray-600">
-          <span>Citizen ID: {{ citizen()!.id }}</span>
           <span>ИИН: {{ citizen()!.iin }}</span>
           <span>Дата рождения: {{ citizen()!.birthDate }}</span>
           <span>Статус: {{ getStatusLabel(citizen()!.status) }}</span>

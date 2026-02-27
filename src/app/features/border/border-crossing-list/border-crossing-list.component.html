@@ -8,9 +8,8 @@
   </div>
 
   <app-card>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
       <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
-      <app-input label="Citizen ID" placeholder="CIT-000001" [(ngModel)]="filters.citizenId"></app-input>
       <app-select label="Тип" [options]="typeOptions" [(ngModel)]="filters.type"></app-select>
     </div>
   </app-card>
@@ -25,7 +24,6 @@
     >
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.citizenId }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.crossingDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ getTypeLabel(row.type) }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.country }}</td>

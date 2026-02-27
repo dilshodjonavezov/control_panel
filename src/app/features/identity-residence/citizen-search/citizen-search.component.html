@@ -88,12 +88,6 @@
 
     @if (showAdvanced) {
       <div class="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <app-input
-          label="Citizen ID"
-          placeholder="CIT-000001"
-          [(ngModel)]="filters.citizenId"
-          (keydown.enter)="applyFilters()"
-        ></app-input>
         <app-select label="Пол" [options]="genderOptions" [(ngModel)]="filters.gender"></app-select>
         <app-input
           label="Район/ЖЭК"
@@ -146,7 +140,6 @@
             (change)="onToggleRow(row.id, $event)"
           />
         </td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.iin }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>

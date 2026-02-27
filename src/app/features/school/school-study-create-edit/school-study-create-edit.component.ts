@@ -9,6 +9,9 @@ interface SchoolStudyRecord {
   lastName: string;
   firstName: string;
   middleName: string;
+  iin: string;
+  eventType: 'ENROLLMENT' | 'EXPULSION';
+  expulsionReason: string;
   startDate: string;
   endDate: string | null;
   classLevel: string;
@@ -41,6 +44,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
     lastName: 'Смирнов',
     firstName: 'Алексей',
     middleName: 'Игоревич',
+    iin: '120501400555',
+    eventType: 'ENROLLMENT',
+    expulsionReason: '',
     startDate: '2022-09-01',
     endDate: '',
     classLevel: '7Б',
@@ -54,6 +60,11 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
     { value: 'TRANSFERRED', label: 'Переведен' }
   ];
 
+  eventTypeOptions: SelectOption[] = [
+    { value: 'ENROLLMENT', label: 'Поступление' },
+    { value: 'EXPULSION', label: 'Отчисление' }
+  ];
+
   status = signal<'SAVED' | 'UPDATED' | null>(null);
   lastActionAt = signal<string | null>(null);
 
@@ -63,6 +74,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
       lastName: 'Смирнов',
       firstName: 'Алексей',
       middleName: 'Игоревич',
+      iin: '120501400555',
+      eventType: 'ENROLLMENT',
+      expulsionReason: '',
       startDate: '2022-09-01',
       endDate: '',
       classLevel: '7Б',
@@ -74,6 +88,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
       lastName: 'Полякова',
       firstName: 'Мария',
       middleName: 'Денисовна',
+      iin: '050430400221',
+      eventType: 'EXPULSION',
+      expulsionReason: 'Перевод в другое учебное заведение',
       startDate: '2014-09-01',
       endDate: '2024-05-25',
       classLevel: '11А',
@@ -123,6 +140,9 @@ export class SchoolStudyCreateEditComponent implements OnInit, OnChanges {
       lastName: '',
       firstName: '',
       middleName: '',
+      iin: '',
+      eventType: 'ENROLLMENT',
+      expulsionReason: '',
       startDate: '',
       endDate: '',
       classLevel: '',

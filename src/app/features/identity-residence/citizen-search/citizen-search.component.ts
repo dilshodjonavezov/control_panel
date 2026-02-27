@@ -79,7 +79,6 @@ export class CitizenSearchComponent {
     fullName: '',
     birthDate: '',
     status: [] as CitizenStatus[],
-    citizenId: '',
     gender: 'all',
     district: '',
     hasPassport: 'all',
@@ -140,7 +139,6 @@ export class CitizenSearchComponent {
 
   columns: TableColumn[] = [
     { key: 'select', label: '', sortable: false },
-    { key: 'id', label: 'Citizen ID', sortable: true },
     { key: 'iin', label: 'ИИН', sortable: true },
     { key: 'fullName', label: 'ФИО', sortable: true },
     { key: 'birthDate', label: 'Дата рождения', sortable: true },
@@ -155,7 +153,6 @@ export class CitizenSearchComponent {
     const data = this.citizensList.map(c => this.toRow(c));
     const name = this.filters.fullName.trim().toLowerCase();
     const iin = this.filters.iin.trim().toLowerCase();
-    const citizenId = this.filters.citizenId.trim().toLowerCase();
     const district = this.filters.district.trim().toLowerCase();
     const status = this.filters.status;
 
@@ -164,7 +161,6 @@ export class CitizenSearchComponent {
       if (name && !row.fullName.toLowerCase().includes(name)) return false;
       if (this.filters.birthDate && row.birthDate !== this.filters.birthDate) return false;
       if (status.length && !status.includes(row.status)) return false;
-      if (citizenId && !row.id.toLowerCase().includes(citizenId)) return false;
       if (this.filters.gender !== 'all' && row.gender !== this.filters.gender) return false;
       if (district && !(row.district || '').toLowerCase().includes(district)) return false;
       if (!this.matchesYesNo(this.filters.hasPassport, row.hasPassport)) return false;
@@ -207,7 +203,6 @@ export class CitizenSearchComponent {
       fullName: '',
       birthDate: '',
       status: [],
-      citizenId: '',
       gender: 'all',
       district: '',
       hasPassport: 'all',
@@ -456,9 +451,8 @@ export class CitizenSearchComponent {
 
   exportData(): void {
     const rows = this.filteredRows();
-    const header = ['Citizen ID', 'ИИН', 'ФИО', 'Дата рождения', 'Статус', 'Паспорт', 'Адрес', 'Военкомат', 'Обновлён'];
+    const header = ['ИИН', 'ФИО', 'Дата рождения', 'Статус', 'Паспорт', 'Адрес', 'Военкомат', 'Обновлён'];
     const lines = rows.map(row => [
-      row.id,
       row.iin,
       row.fullName,
       this.formatDate(row.birthDate),
@@ -510,7 +504,6 @@ export class CitizenSearchComponent {
     if (params['fullName']) this.filters.fullName = params['fullName'];
     if (params['birthDate']) this.filters.birthDate = params['birthDate'];
     if (params['status']) this.filters.status = params['status'].split(',') as CitizenStatus[];
-    if (params['citizenId']) this.filters.citizenId = params['citizenId'];
     if (params['gender']) this.filters.gender = params['gender'];
     if (params['district']) this.filters.district = params['district'];
     if (params['hasPassport']) this.filters.hasPassport = params['hasPassport'];
@@ -528,7 +521,6 @@ export class CitizenSearchComponent {
     if (this.filters.fullName) queryParams['fullName'] = this.filters.fullName;
     if (this.filters.birthDate) queryParams['birthDate'] = this.filters.birthDate;
     if (this.filters.status.length) queryParams['status'] = this.filters.status.join(',');
-    if (this.filters.citizenId) queryParams['citizenId'] = this.filters.citizenId;
     if (this.filters.gender !== 'all') queryParams['gender'] = this.filters.gender;
     if (this.filters.district) queryParams['district'] = this.filters.district;
     if (this.filters.hasPassport !== 'all') queryParams['hasPassport'] = this.filters.hasPassport;

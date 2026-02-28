@@ -20,7 +20,7 @@ export class LoginComponent implements OnInit {
   roleOptions: SelectOption[] = [
     // { value: 'student', label: 'Студент' },
     // { value: 'teacher', label: 'Преподаватель' },
-    { value: 'admin', label: 'Администратор' },
+    { value: 'admin', label: 'Админ' },
     { value: 'maternity', label: 'Роддом' },
     { value: 'zags', label: 'ЗАГС' },
     { value: 'jek', label: 'ЖЭК' },
@@ -28,7 +28,7 @@ export class LoginComponent implements OnInit {
     { value: 'school', label: 'Школа' },
     { value: 'university', label: 'ВУЗ/Колледж' },
     { value: 'clinic', label: 'Медцентр/Поликлиника' },
-    { value: 'vvk', label: 'ВВК' },
+    { value: 'vvk', label: 'Военнокомат' },
     { value: 'border', label: 'Пограничная служба' },
     { value: 'superadmin', label: 'Суперадмин' }
   ];

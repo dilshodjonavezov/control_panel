@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiBaseUrl: 'http://www.conscripts-web-api.somee.com',
+  apiBaseUrl: 'https://www.conscripts-web-api.somee.com',
 };

@@ -1,10 +1,29 @@
 ﻿import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, OnInit, Output, SimpleChanges, signal } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  SimpleChanges,
+  signal,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { asyncScheduler, finalize, observeOn } from 'rxjs';
-import { BorderCrossingService, CreateBorderCrossingRequest } from '../../../services/border-crossing.service';
-import { ButtonComponent, CardComponent, InputComponent, SelectComponent, SelectOption } from '../../../shared/components';
+import {
+  BorderCrossingService,
+  CreateBorderCrossingRequest,
+} from '../../../services/border-crossing.service';
+import {
+  ButtonComponent,
+  CardComponent,
+  InputComponent,
+  SelectComponent,
+  SelectOption,
+} from '../../../shared/components';
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
 
 interface BorderCrossingForm {
@@ -20,9 +39,16 @@ interface BorderCrossingForm {
 @Component({
   selector: 'app-border-crossing-create-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, ButtonComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    CardComponent,
+    InputComponent,
+    SelectComponent,
+    ButtonComponent,
+  ],
   templateUrl: './border-crossing-create-edit.component.html',
-  styleUrl: './border-crossing-create-edit.component.css'
+  styleUrl: './border-crossing-create-edit.component.css',
 })
 export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   @Input() citizen: CitizenReadCardData | null = null;
@@ -44,12 +70,10 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
 
   outsideBorderOptions: SelectOption[] = [
     { value: 'true', label: 'Да' },
-    { value: 'false', label: 'Нет' }
+    { value: 'false', label: 'Нет' },
   ];
 
-  constructor(
-    private readonly borderCrossingService: BorderCrossingService
-  ) {}
+  constructor(private readonly borderCrossingService: BorderCrossingService) {}
 
   ngOnInit(): void {
     this.loadReferenceData();
@@ -77,23 +101,25 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       ? this.borderCrossingService.update(recordId, payload)
       : this.borderCrossingService.create(payload);
 
-    request$.pipe(
-      finalize(() => {
-        this.isSubmitting = false;
-      })
-    ).subscribe({
-      next: () => {
-        this.status.set('SAVED');
-        this.lastActionAt.set(this.getNowLabel());
-        this.saved.emit();
-        if (this.embedded) {
-          this.closed.emit();
-        }
-      },
-      error: (error: HttpErrorResponse) => {
-        this.errorMessage = this.resolveApiError(error);
-      }
-    });
+    request$
+      .pipe(
+        finalize(() => {
+          this.isSubmitting = false;
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.status.set('SAVED');
+          this.lastActionAt.set(this.getNowLabel());
+          this.saved.emit();
+          if (this.embedded) {
+            this.closed.emit();
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          this.errorMessage = this.resolveApiError(error);
+        },
+      });
   }
 
   close(): void {
@@ -124,32 +150,35 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     }
 
     this.isLoading = true;
-    this.borderCrossingService.getById(id).pipe(
-      observeOn(asyncScheduler),
-      finalize(() => {
-        this.isLoading = false;
-      })
-    ).subscribe({
-      next: (item) => {
-        if (!item) {
-          this.errorMessage = 'Запись не найдена.';
-          return;
-        }
+    this.borderCrossingService
+      .getById(id)
+      .pipe(
+        observeOn(asyncScheduler),
+        finalize(() => {
+          this.isLoading = false;
+        }),
+      )
+      .subscribe({
+        next: (item) => {
+          if (!item) {
+            this.errorMessage = 'Запись не найдена.';
+            return;
+          }
 
-        this.form = {
-          peopleId: item.peopleId.toString(),
-          userId: item.userId.toString(),
-          departureDate: this.toDateTimeLocal(item.departureDate),
-          returnDate: item.returnDate ? this.toDateTimeLocal(item.returnDate) : '',
-          outsideBorder: item.outsideBorder ? 'true' : 'false',
-          country: item.country ?? '',
-          description: item.description ?? ''
-        };
-      },
-      error: () => {
-        this.errorMessage = 'Не удалось загрузить запись.';
-      }
-    });
+          this.form = {
+            peopleId: item.peopleId.toString(),
+            userId: item.userId.toString(),
+            departureDate: this.toDateTimeLocal(item.departureDate),
+            returnDate: item.returnDate ? this.toDateTimeLocal(item.returnDate) : '',
+            outsideBorder: item.outsideBorder ? 'true' : 'false',
+            country: item.country ?? '',
+            description: item.description ?? '',
+          };
+        },
+        error: () => {
+          this.errorMessage = 'Не удалось загрузить запись.';
+        },
+      });
   }
 
   private loadReferenceData(): void {
@@ -157,33 +186,40 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
 
     this.borderCrossingService.getPeople().subscribe({
       next: (people) => {
-        this.peopleOptions.set(people.map((item) => ({
-          value: item.id,
-          label: item.fullName?.trim() ? item.fullName : `${item.id}`
-        })));
+        this.peopleOptions.set(
+          people.map((item) => ({
+            value: item.id,
+            label: item.fullName?.trim() ? item.fullName : `${item.id}`,
+          })),
+        );
       },
       error: () => {
         this.errorMessage = 'Не удалось загрузить список людей.';
-      }
+      },
     });
 
-    this.borderCrossingService.getUsers().pipe(
-      finalize(() => {
-        this.isReferenceLoading = false;
-      })
-    ).subscribe({
-      next: (users) => {
-        this.userOptions.set(users.map((item) => ({
-          value: item.id,
-          label: item.fullName?.trim() ? item.fullName : `${item.id}`
-        })));
-      },
-      error: () => {
-        this.errorMessage = this.errorMessage
-          ? `${this.errorMessage} Не удалось загрузить список пользователей.`
-          : 'Не удалось загрузить список пользователей.';
-      }
-    });
+    this.borderCrossingService
+      .getUsers()
+      .pipe(
+        finalize(() => {
+          this.isReferenceLoading = false;
+        }),
+      )
+      .subscribe({
+        next: (users) => {
+          this.userOptions.set(
+            users.map((item) => ({
+              value: item.id,
+              label: item.fullName?.trim() ? item.fullName : `${item.id}`,
+            })),
+          );
+        },
+        error: () => {
+          this.errorMessage = this.errorMessage
+            ? `${this.errorMessage} Не удалось загрузить список пользователей.`
+            : 'Не удалось загрузить список пользователей.';
+        },
+      });
   }
 
   private buildPayload(): CreateBorderCrossingRequest | null {
@@ -212,7 +248,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       returnDate: this.form.returnDate ? new Date(this.form.returnDate).toISOString() : null,
       outsideBorder: this.form.outsideBorder === 'true',
       country: this.form.country.trim(),
-      description: this.form.description.trim()
+      description: this.form.description.trim(),
     };
   }
 
@@ -224,7 +260,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       returnDate: '',
       outsideBorder: 'true',
       country: '',
-      description: ''
+      description: '',
     };
   }
 
@@ -274,4 +310,3 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     return this.recordId ? 'Не удалось обновить запись.' : 'Не удалось создать запись.';
   }
 }
-

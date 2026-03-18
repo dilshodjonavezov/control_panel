@@ -1,34 +1,37 @@
-import { HttpErrorResponse } from '@angular/common/http';
+﻿import { HttpErrorResponse } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { finalize } from 'rxjs';
-import { AuthService, LoginApiResponse } from '../../../services/auth.service';
+import { AuthService, AuthUser, LoginApiResponse } from '../../../services/auth.service';
 import {
   ButtonComponent,
   CardComponent,
   InputComponent,
-  SelectComponent,
-  SelectOption
+  SelectOption,
 } from '../../../shared/components';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, ButtonComponent, InputComponent, SelectComponent, CardComponent],
+  imports: [CommonModule, FormsModule, ButtonComponent, InputComponent, CardComponent],
   templateUrl: './login.component.html',
-  styleUrl: './login.component.css'
+  styleUrl: './login.component.css',
 })
 export class LoginComponent implements OnInit {
+  private readonly adminUsernameMarker = 'admin';
+  private readonly adminPasswordMarker = 'password';
+
   email = '';
   password = '';
   role = 'student';
   roleLocked = false;
   routeRole: string | null = null;
-  isGeneralLoginRoute = false;
   isSubmitting = false;
+  isLoadingUsers = false;
   submitError = '';
+  private users: AuthUser[] = [];
 
   roleOptions: SelectOption[] = [
     { value: 'admin', label: 'Админ' },
@@ -39,30 +42,30 @@ export class LoginComponent implements OnInit {
     { value: 'school', label: 'Школа' },
     { value: 'university', label: 'ВУЗ/Колледж' },
     { value: 'clinic', label: 'Медцентр/Поликлиника' },
-    { value: 'vvk', label: 'Военнокомат' },
+    { value: 'vvk', label: 'Военкомат' },
     { value: 'border', label: 'Пограничная служба' },
-    { value: 'superadmin', label: 'Суперадмин' }
+    { value: 'superadmin', label: 'Суперадмин' },
   ];
 
   constructor(
     private readonly router: Router,
     private readonly route: ActivatedRoute,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
   ) {}
 
   ngOnInit(): void {
-    this.isGeneralLoginRoute = this.router.url.split('?')[0] === '/login';
-
     const roleFromRoute = this.route.snapshot.data['role'] as string | undefined;
     if (roleFromRoute) {
       this.routeRole = roleFromRoute;
       this.role = roleFromRoute;
       this.roleLocked = true;
     }
+
+    this.loadUsers();
   }
 
   submit(): void {
-    const username = this.email.trim();
+    const username = this.resolveLoginUsername();
     if (!username || !this.password.trim()) {
       this.submitError = 'Введите логин и пароль.';
       return;
@@ -71,34 +74,75 @@ export class LoginComponent implements OnInit {
     this.submitError = '';
     this.isSubmitting = true;
 
-    this.authService.login({ username, password: this.password }).pipe(
-      finalize(() => {
-        this.isSubmitting = false;
-      })
-    ).subscribe({
-      next: ({ token, raw }) => {
-        if (raw.success === false) {
-          this.submitError = this.getApiMessage(raw) ?? 'Неверный логин или пароль.';
-          return;
-        }
+    this.authService
+      .login({ username, password: this.password })
+      .pipe(
+        finalize(() => {
+          this.isSubmitting = false;
+        }),
+      )
+      .subscribe({
+        next: ({ token, raw }) => {
+          if (raw.success === false) {
+            this.submitError = this.getApiMessage(raw) ?? 'Неверный логин или пароль.';
+            return;
+          }
 
-        if (!token) {
-          this.submitError = 'Токен не получен от сервера.';
-          return;
-        }
+          if (!token) {
+            this.submitError = 'Токен не получен от сервера.';
+            return;
+          }
 
-        this.authService.saveToken(token);
-        this.applyRoleAfterLogin(username);
-        this.navigateByRole();
-      },
-      error: (error: HttpErrorResponse) => {
-        this.submitError = this.resolveHttpError(error);
-      }
-    });
+          this.authService.saveToken(token);
+          this.applyRoleAfterLogin(username);
+          this.navigateByRole();
+        },
+        error: (error: HttpErrorResponse) => {
+          this.submitError = this.resolveHttpError(error);
+        },
+      });
   }
 
   canSelectRole(): boolean {
-    return !this.roleLocked && this.isGeneralLoginRoute;
+    return this.email.trim().toLowerCase() === this.adminUsernameMarker
+      && this.password.trim().toLowerCase() === this.adminPasswordMarker;
+  }
+
+  onRoleChange(role: string): void {
+    this.role = role;
+    this.syncUsernameWithRole();
+  }
+
+  private loadUsers(): void {
+    this.isLoadingUsers = true;
+
+    this.authService
+      .getUsers()
+      .pipe(
+        finalize(() => {
+          this.isLoadingUsers = false;
+        }),
+      )
+      .subscribe({
+        next: (users) => {
+          this.users = users;
+          this.syncUsernameWithRole();
+        },
+        error: () => {
+          this.users = [];
+        },
+      });
+  }
+
+  private syncUsernameWithRole(): void {
+    const username = this.getUsernameForRole(this.role);
+    if (username) {
+      this.email = username;
+    }
+  }
+
+  private resolveLoginUsername(): string {
+    return this.getUsernameForRole(this.role) ?? this.email.trim();
   }
 
   private applyRoleAfterLogin(username: string): void {
@@ -111,22 +155,93 @@ export class LoginComponent implements OnInit {
       return;
     }
 
-    const detectedRole = this.detectRoleByUsername(username);
+    const detectedRole = this.detectRoleByUser(username);
     if (detectedRole) {
       this.role = detectedRole;
     }
   }
 
-  private detectRoleByUsername(username: string): string | null {
+  private detectRoleByUser(username: string): string | null {
+    const normalizedUsername = username.trim().toLowerCase();
+    const matchedUser = this.users.find(
+      (user) => user.username.trim().toLowerCase() === normalizedUsername,
+    );
+    if (matchedUser) {
+      return this.mapRoleIdToRole(matchedUser.roleId);
+    }
+
+    return this.detectRoleByUsernameFallback(normalizedUsername);
+  }
+
+  private getUsernameForRole(role: string): string | null {
+    const roleId = this.mapRoleToRoleId(role);
+    if (roleId !== null) {
+      const userByRoleId = this.users.find(
+        (user) => user.roleId === roleId && !!user.username?.trim(),
+      );
+      if (userByRoleId) {
+        return userByRoleId.username.trim();
+      }
+    }
+
+    const userByFallbackRole = this.users.find(
+      (user) => this.detectRoleByUsernameFallback(user.username) === role,
+    );
+    return userByFallbackRole?.username.trim() ?? null;
+  }
+
+  private mapRoleToRoleId(role: string): number | null {
+    const roleToId: Record<string, number> = {
+      admin: 1,
+      maternity: 2,
+      zags: 3,
+      jek: 4,
+      passport: 5,
+      school: 6,
+      university: 7,
+      clinic: 8,
+      vvk: 9,
+      border: 10,
+    };
+
+    return roleToId[role] ?? null;
+  }
+
+  private mapRoleIdToRole(roleId: number | null): string | null {
+    const idToRole: Record<number, string> = {
+      1: 'admin',
+      2: 'maternity',
+      3: 'zags',
+      4: 'jek',
+      5: 'passport',
+      6: 'school',
+      7: 'university',
+      8: 'clinic',
+      9: 'vvk',
+      10: 'border',
+    };
+
+    if (roleId === null) {
+      return null;
+    }
+
+    return idToRole[roleId] ?? null;
+  }
+
+  private detectRoleByUsernameFallback(username: string): string | null {
     const value = username.trim().toLowerCase();
     const roleByUsername: Record<string, string> = {
       admin: 'admin',
-      doctor: 'clinic',
-      borderguard: 'border',
-      passportofficer: 'passport',
+      maternity: 'maternity',
       zagsemployee: 'zags',
-      militaryemployee: 'jek',
-      educationemployee: 'school'
+      jek: 'jek',
+      passportofficer: 'passport',
+      school: 'school',
+      highereducation: 'university',
+      medicalcenter: 'clinic',
+      militaryofficer: 'vvk',
+      borderservice: 'border',
+      borderservice2: 'border',
     };
 
     return roleByUsername[value] ?? null;
@@ -137,6 +252,7 @@ export class LoginComponent implements OnInit {
     if (typeof message === 'string' && message.trim()) {
       return message;
     }
+
     return null;
   }
 
@@ -209,6 +325,7 @@ export class LoginComponent implements OnInit {
       this.router.navigate(['/superadmin/access']);
       return;
     }
+
     this.router.navigate(['/student/dashboard']);
   }
 }

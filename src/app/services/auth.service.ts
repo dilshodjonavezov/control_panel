@@ -15,6 +15,21 @@ export interface LoginApiResponse {
   [key: string]: unknown;
 }
 
+export interface ApiResponse<T> {
+  success?: boolean;
+  message?: string;
+  data?: T;
+}
+
+export interface AuthUser {
+  id: number;
+  fullName: string | null;
+  username: string;
+  email: string | null;
+  roleId: number | null;
+  lastLogin: string | null;
+}
+
 export interface LoginResult {
   token: string | null;
   raw: LoginApiResponse;
@@ -23,6 +38,7 @@ export interface LoginResult {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly apiUrl = `${environment.apiBaseUrl}/api/Auth`;
+  private readonly usersApiUrl = `${environment.apiBaseUrl}/api/users`;
   private readonly tokenStorageKey = 'auth_token';
 
   constructor(private readonly http: HttpClient) {}
@@ -36,6 +52,12 @@ export class AuthService {
     );
   }
 
+  getUsers(): Observable<AuthUser[]> {
+    return this.http
+      .get<ApiResponse<AuthUser[]> | AuthUser[]>(this.usersApiUrl)
+      .pipe(map((response) => this.unwrapArray<AuthUser>(response)));
+  }
+
   saveToken(token: string): void {
     localStorage.setItem(this.tokenStorageKey, token);
   }
@@ -46,6 +68,14 @@ export class AuthService {
 
   clearToken(): void {
     localStorage.removeItem(this.tokenStorageKey);
+  }
+
+  private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {
+    if (Array.isArray(response)) {
+      return response;
+    }
+
+    return response.data ?? [];
   }
 
   private extractToken(response: LoginApiResponse): string | null {

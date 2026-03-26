@@ -1,18 +1,14 @@
 <div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Учебные заведения</h1>
-      <p class="mt-2 text-gray-600">Данные из API `/api/education-institutions`.</p>
+      <h1 class="text-3xl font-bold text-gray-900">Реестр обучения</h1>
+      <p class="mt-2 text-gray-600">Записи обучения по выбранному ВУЗу/Колледжу.</p>
     </div>
-    <app-button variant="primary" (clicked)="openCreateModal()">Добавить</app-button>
+    <div class="flex items-center gap-2">
+      <app-button variant="outline" (clicked)="goBack()">Назад</app-button>
+      <app-button variant="primary" (clicked)="openCreateModal()">Добавить запись</app-button>
+    </div>
   </div>
-
-  <app-card>
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <app-input label="Название" placeholder="Например: ТГУ" [(ngModel)]="filters.name"></app-input>
-      <app-input label="Тип" placeholder="Университет / Колледж" [(ngModel)]="filters.type"></app-input>
-    </div>
-  </app-card>
 
   @if (errorMessage) {
     <app-card>
@@ -22,36 +18,20 @@
 
   <app-card>
     <app-table
-      [columns]="columns"
-      [data]="filteredRecords"
+      [columns]="educationColumns"
+      [data]="records"
       [loading]="isLoading"
-      [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
-      [emptyMessage]="'Записей нет'"
+      [emptyMessage]="'Для этого учебного заведения записей нет'"
     >
-      <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.name }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.type }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.address }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.description }}</td>
-        <td class="px-6 py-4 text-sm">
-          <a
-            [routerLink]="['/university/studies', row.id]"
-            class="font-medium text-sky-700 underline decoration-sky-300 underline-offset-2 hover:text-sky-900"
-          >
-            Подробнее
-          </a>
-        </td>
-      </ng-template>
-
       <ng-template #actionsTemplate let-row>
         <div class="flex items-center gap-2">
           <button
             type="button"
             class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
-            title="Редактировать"
-            (click)="openEditModal(row)">
+            title="Изменить"
+            (click)="openEditModal(row)"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
               <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.707 8.707a2 2 0 0 1-.878.497l-2.425.693a.75.75 0 0 1-.928-.928l.693-2.425a2 2 0 0 1 .497-.878l8.92-8.494Z"/>
             </svg>
@@ -60,7 +40,8 @@
             type="button"
             class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 text-red-600 hover:bg-red-50"
             title="Удалить"
-            (click)="openDeleteModal(row)">
+            (click)="openDeleteModal(row)"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
               <path fill-rule="evenodd" d="M8.75 2.5a1 1 0 0 0-1 1V4h4.5v-.5a1 1 0 0 0-1-1h-2.5Zm-3 3a.75.75 0 0 0 0 1.5h.53l.53 9.28A2 2 0 0 0 8.806 18h2.388a2 2 0 0 0 1.996-1.72l.53-9.28h.53a.75.75 0 0 0 0-1.5h-8.5Z" clip-rule="evenodd"/>
             </svg>
@@ -75,20 +56,51 @@
       @if (formErrorMessage) {
         <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
       }
+
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <app-input label="Название" [disabled]="isFormLoading || isFormSubmitting" [(ngModel)]="formData.name"></app-input>
-        <app-input label="Тип" [disabled]="isFormLoading || isFormSubmitting" [(ngModel)]="formData.type"></app-input>
-        <app-input label="Адрес" [disabled]="isFormLoading || isFormSubmitting" [(ngModel)]="formData.address"></app-input>
-        <app-input label="Описание" [disabled]="isFormLoading || isFormSubmitting" [(ngModel)]="formData.description"></app-input>
+        <app-select
+          label="Гражданин (peopleId)"
+          [options]="peopleOptions"
+          placeholder="Выберите гражданина"
+          [(ngModel)]="formData.peopleId"
+        ></app-select>
+
+        <app-input
+          type="number"
+          label="Пользователь (userId)"
+          placeholder="Например: 12"
+          [(ngModel)]="formData.userId"
+        ></app-input>
+
+        <app-input label="Форма обучения" placeholder="Очный" [(ngModel)]="formData.studyForm"></app-input>
+        <app-input label="Факультет" placeholder="Факультет..." [(ngModel)]="formData.faculty"></app-input>
+        <app-input label="Специальность" placeholder="Специальность..." [(ngModel)]="formData.specialty"></app-input>
+
+        <app-input type="date" label="Дата поступления" [(ngModel)]="formData.admissionDate"></app-input>
+        <app-input type="date" label="Дата отчисления" [(ngModel)]="formData.expulsionDate"></app-input>
+        <app-input type="date" label="Дата окончания" [(ngModel)]="formData.graduationDate"></app-input>
+
+        <div class="flex items-center gap-3 md:col-span-2">
+          <input
+            id="deferral"
+            type="checkbox"
+            class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            [(ngModel)]="formData.isDeferralActive"
+          />
+          <label for="deferral" class="text-sm text-gray-700">Активная отсрочка</label>
+        </div>
       </div>
+
       <div class="flex justify-end gap-2">
         <app-button variant="secondary" [disabled]="isFormSubmitting" (clicked)="closeFormModal()">Отмена</app-button>
-        <app-button variant="primary" [loading]="isFormSubmitting" [disabled]="isFormLoading || isFormSubmitting" (clicked)="saveForm()">Сохранить</app-button>
+        <app-button variant="primary" [loading]="isFormSubmitting" [disabled]="isFormSubmitting" (clicked)="saveForm()">
+          Сохранить
+        </app-button>
       </div>
     </div>
   </app-modal>
 
-  <app-modal [show]="showDeleteModal" [title]="'Удаление учебного заведения'" size="md" (closed)="closeDeleteModal()">
+  <app-modal [show]="showDeleteModal" [title]="'Удаление записи'" size="md" (closed)="closeDeleteModal()">
     <div class="space-y-4">
       @if (deleteErrorMessage) {
         <p class="text-sm text-red-600">{{ deleteErrorMessage }}</p>
@@ -96,7 +108,7 @@
       <p class="text-sm text-gray-700">
         Удалить запись
         @if (deletingRecord) {
-          <span class="font-semibold">#{{ deletingRecord.id }} ({{ deletingRecord.name }})</span>
+          <span class="font-semibold">#{{ deletingRecord.id }}</span>
         }
         ?
       </p>

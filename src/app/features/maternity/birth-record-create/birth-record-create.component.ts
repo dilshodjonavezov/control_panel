@@ -1,92 +1,124 @@
-﻿import { Component, signal, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CardComponent, InputComponent, SelectComponent, SelectOption, ButtonComponent } from '../../../shared/components';
-import { CitizenMiniCardComponent, CitizenMiniCardData } from '../components/citizen-mini-card/citizen-mini-card.component';
+import { ButtonComponent, CardComponent, InputComponent, SelectComponent, SelectOption } from '../../../shared/components';
+import { type CreateMaternityRecordRequest } from '../../../services/maternity-records.service';
 
-type BirthRecordStatus = 'DRAFT' | 'SUBMITTED';
-export interface BirthRecordPayload {
-  birthDateTime: string;
-  place: string;
-  sex: 'male' | 'female';
-  motherFullName: string;
-  fatherFullName: string;
-  status: BirthRecordStatus;
-}
+export interface BirthRecordCreatePayload extends CreateMaternityRecordRequest {}
 
 @Component({
   selector: 'app-birth-record-create',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, ButtonComponent, ],
+  imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, ButtonComponent],
   templateUrl: './birth-record-create.component.html',
-  styleUrl: './birth-record-create.component.css'
+  styleUrl: './birth-record-create.component.css',
 })
-export class BirthRecordCreateComponent {
-  @Output() saved = new EventEmitter<BirthRecordPayload>();
-  form = {
-    birthDateTime: '',
-    place: '',
-    sex: 'male',
-    motherFullName: '',
-    fatherFullName: ''
-  };
+export class BirthRecordCreateComponent implements OnChanges {
+  @Input() initialData: BirthRecordCreatePayload | null = null;
+  @Input() submitLabel: string = 'Сохранить';
+  @Output() saved = new EventEmitter<BirthRecordCreatePayload>();
 
-  status = signal<BirthRecordStatus | null>(null);
-  citizen = signal<CitizenMiniCardData | null>(null);
-  lastActionAt = signal<string | null>(null);
+  form = this.createDefaultForm();
+  errorMessage = '';
 
-  sexOptions: SelectOption[] = [
-    { value: 'male', label: 'Мальчик' },
-    { value: 'female', label: 'Девочка' }
+  genderOptions: SelectOption[] = [
+    { value: 'M', label: 'M' },
+    { value: 'F', label: 'F' },
   ];
 
-  saveDraft(): void {
-    this.status.set('DRAFT');
-    this.citizen.set(null);
-    this.lastActionAt.set(this.getNowLabel());
-    this.saved.emit({
-      ...this.form,
-      sex: this.form.sex as BirthRecordPayload['sex'],
-      status: 'DRAFT'
-    });
+  statusOptions: SelectOption[] = [
+    { value: 'Registered', label: 'Registered' },
+    { value: 'Pending', label: 'Pending' },
+    { value: 'Transferred', label: 'Transferred' },
+    { value: 'Archived', label: 'Archived' },
+  ];
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['initialData']) {
+      this.applyInitialData();
+    }
   }
 
   submit(): void {
-    this.status.set('SUBMITTED');
-    this.lastActionAt.set(this.getNowLabel());
+    const userId = Number(this.form.userId);
+    const birthWeight = Number(this.form.birthWeight);
 
-    if (this.form.sex === 'male') {
-      this.citizen.set({
-        id: 'CIT-2026-0104',
-        fullName: 'Новорожденный (ФИО не указано)',
-        birthDate: this.form.birthDateTime ? this.form.birthDateTime.replace('T', ' ') : '—',
-        status: 'DOPRIZYVNIK'
-      });
-    } else {
-      this.citizen.set(null);
+    if (!Number.isInteger(userId) || userId <= 0) {
+      this.errorMessage = 'Укажите корректный userId.';
+      return;
     }
 
+    if (!this.form.birthDateTime) {
+      this.errorMessage = 'Укажите дату и время рождения.';
+      return;
+    }
+
+    if (!this.form.placeOfBirth.trim()) {
+      this.errorMessage = 'Укажите место рождения.';
+      return;
+    }
+
+    if (!Number.isFinite(birthWeight) || birthWeight <= 0) {
+      this.errorMessage = 'Укажите корректный вес при рождении.';
+      return;
+    }
+
+    this.errorMessage = '';
+
     this.saved.emit({
-      ...this.form,
-      sex: this.form.sex as BirthRecordPayload['sex'],
-      status: 'SUBMITTED'
+      userId,
+      birthDateTime: new Date(this.form.birthDateTime).toISOString(),
+      placeOfBirth: this.form.placeOfBirth.trim(),
+      gender: this.form.gender as BirthRecordCreatePayload['gender'],
+      fatherFullName: this.form.fatherFullName.trim(),
+      motherFullName: this.form.motherFullName.trim(),
+      birthWeight,
+      status: this.form.status as BirthRecordCreatePayload['status'],
+      comment: this.form.comment.trim(),
     });
   }
 
-  canEdit(): boolean {
-    return this.status() !== 'SUBMITTED';
+  private applyInitialData(): void {
+    if (!this.initialData) {
+      this.form = this.createDefaultForm();
+      this.errorMessage = '';
+      return;
+    }
+
+    this.form = {
+      userId: this.initialData.userId.toString(),
+      birthDateTime: this.toDateTimeLocal(this.initialData.birthDateTime),
+      placeOfBirth: this.initialData.placeOfBirth || '',
+      gender: this.initialData.gender,
+      fatherFullName: this.initialData.fatherFullName || '',
+      motherFullName: this.initialData.motherFullName || '',
+      birthWeight: this.initialData.birthWeight.toString(),
+      status: this.initialData.status,
+      comment: this.initialData.comment || '',
+    };
+    this.errorMessage = '';
   }
 
-  getStatusLabel(status: BirthRecordStatus): string {
-    return status === 'DRAFT' ? 'Черновик' : 'Отправлено в центральную систему';
+  private createDefaultForm() {
+    return {
+      userId: '',
+      birthDateTime: '',
+      placeOfBirth: '',
+      gender: 'M',
+      fatherFullName: '',
+      motherFullName: '',
+      birthWeight: '',
+      status: 'Registered',
+      comment: '',
+    };
   }
 
-  private getNowLabel(): string {
-    const now = new Date();
-    const date = now.toLocaleDateString('ru-RU');
-    const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    return `${date} ${time}`;
+  private toDateTimeLocal(iso: string): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
   }
 }
-
-

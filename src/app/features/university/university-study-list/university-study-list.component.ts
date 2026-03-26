@@ -1,6 +1,7 @@
-﻿import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { finalize, TimeoutError, timeout } from 'rxjs';
 import { CardComponent, TableComponent, TableColumn, InputComponent, ButtonComponent, ModalComponent } from '../../../shared/components';
 import { CreateEducationInstitutionRequest, EducationInstitutionsService } from '../../../services/education-institutions.service';
@@ -16,7 +17,7 @@ interface UniversityStudyItem {
 @Component({
   selector: 'app-university-study-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, ButtonComponent, ModalComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CardComponent, TableComponent, InputComponent, ButtonComponent, ModalComponent],
   templateUrl: './university-study-list.component.html',
   styleUrl: './university-study-list.component.css'
 })
@@ -31,7 +32,8 @@ export class UniversityStudyListComponent implements OnInit {
     { key: 'name', label: 'Название', sortable: true },
     { key: 'type', label: 'Тип', sortable: true },
     { key: 'address', label: 'Адрес', sortable: true },
-    { key: 'description', label: 'Описание', sortable: false }
+    { key: 'description', label: 'Описание', sortable: false },
+    { key: 'details', label: 'Подробнее', sortable: false }
   ];
 
   records: UniversityStudyItem[] = [];

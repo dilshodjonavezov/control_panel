@@ -47,6 +47,7 @@ import { BirthRecordListComponent } from './features/maternity/birth-record-list
 import { BirthRecordViewComponent } from './features/maternity/birth-record-view/birth-record-view.component';
 import { UniversityComponent as UniversityPortalComponent } from './features/university/university.component';
 import { UniversityStudyListComponent } from './features/university/university-study-list/university-study-list.component';
+import { UniversityStudyDetailComponent } from './features/university/university-study-detail/university-study-detail.component';
 import { ClinicComponent } from './features/clinic/clinic.component';
 import { MedicalRecordReadComponent } from './features/clinic/medical-record-read/medical-record-read.component';
 import { VvkComponent } from './features/vvk/vvk.component';
@@ -374,6 +375,10 @@ export const routes: Routes = [
       {
         path: 'studies',
         component: UniversityStudyListComponent
+      },
+      {
+        path: 'studies/:id',
+        component: UniversityStudyDetailComponent
       }
     ]
   },

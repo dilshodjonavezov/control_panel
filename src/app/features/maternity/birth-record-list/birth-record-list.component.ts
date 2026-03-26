@@ -1,157 +1,305 @@
-﻿import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
-import { CardComponent, TableComponent, TableColumn, ButtonComponent, ModalComponent, SelectComponent, SelectOption } from '../../../shared/components';
-import { BirthRecordCreateComponent, type BirthRecordPayload } from '../birth-record-create/birth-record-create.component';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { finalize, TimeoutError, timeout } from 'rxjs';
+import { ButtonComponent, CardComponent, ModalComponent, TableComponent, TableColumn } from '../../../shared/components';
+import { BirthRecordCreateComponent, type BirthRecordCreatePayload } from '../birth-record-create/birth-record-create.component';
+import {
+  ApiMaternityRecord,
+  MaternityRecordsService,
+  type MaternityGender,
+  type MaternityStatus,
+} from '../../../services/maternity-records.service';
 
 interface BirthRecordItem {
-  id: string;
+  id: number;
   birthDateTime: string;
   motherFullName: string;
   fatherFullName: string;
-  sex: 'male' | 'female';
-  status: 'DRAFT' | 'SUBMITTED' | 'CANCELLED' | 'VOID';
-  certificateStatus: 'NOT_ISSUED' | 'ISSUED' | 'REJECTED';
+  placeOfBirth: string;
+  gender: MaternityGender;
+  status: MaternityStatus;
+  userName: string;
+  birthWeight: string;
 }
 
 @Component({
   selector: 'app-birth-record-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, TableComponent, ButtonComponent, ModalComponent, SelectComponent, BirthRecordCreateComponent],
+  imports: [CommonModule, CardComponent, TableComponent, ButtonComponent, ModalComponent, BirthRecordCreateComponent],
   templateUrl: './birth-record-list.component.html',
-  styleUrl: './birth-record-list.component.css'
+  styleUrl: './birth-record-list.component.css',
 })
-export class BirthRecordListComponent {
-  showCreateModal = false;
-  filters = {
-    certificateStatus: 'all'
-  };
-
-  certificateStatusOptions: SelectOption[] = [
-    { value: 'all', label: 'Все' },
-    { value: 'NOT_ISSUED', label: 'Не выдано' },
-    { value: 'ISSUED', label: 'Выдано' },
-    { value: 'REJECTED', label: 'Отказано' }
-  ];
-
+export class BirthRecordListComponent implements OnInit {
   columns: TableColumn[] = [
-    { key: 'birthDateTime', label: 'Дата и время', sortable: true },
+    { key: 'id', label: 'ID', sortable: true },
+    { key: 'birthDateTime', label: 'Дата рождения', sortable: true },
     { key: 'motherFullName', label: 'ФИО матери', sortable: true },
     { key: 'fatherFullName', label: 'ФИО отца', sortable: true },
-    { key: 'sex', label: 'Пол', sortable: true },
+    { key: 'placeOfBirth', label: 'Место рождения', sortable: true },
+    { key: 'gender', label: 'Пол', sortable: true },
+    { key: 'birthWeight', label: 'Вес', sortable: true },
     { key: 'status', label: 'Статус', sortable: true },
-    { key: 'certificateStatus', label: 'Свидетельство', sortable: true }
+    { key: 'userName', label: 'Пользователь', sortable: true },
   ];
 
-  records: BirthRecordItem[] = [
-    {
-      id: 'br-1024',
-      birthDateTime: '25.01.2026 04:18',
-      motherFullName: 'Семенова Ирина Викторовна',
-      fatherFullName: 'Семенов Андрей Юрьевич',
-      sex: 'male',
-      status: 'SUBMITTED',
-      certificateStatus: 'ISSUED'
-    },
-    {
-      id: 'br-1023',
-      birthDateTime: '24.01.2026 21:05',
-      motherFullName: 'Кузнецова Анна Сергеевна',
-      fatherFullName: 'Кузнецов Дмитрий Олегович',
-      sex: 'female',
-      status: 'DRAFT',
-      certificateStatus: 'NOT_ISSUED'
-    },
-    {
-      id: 'br-1019',
-      birthDateTime: '21.01.2026 12:40',
-      motherFullName: 'Лазарева Марина Игоревна',
-      fatherFullName: 'Лазарев Павел Ильич',
-      sex: 'male',
-      status: 'CANCELLED',
-      certificateStatus: 'REJECTED'
-    }
-  ];
+  records: BirthRecordItem[] = [];
+  private sourceRecordsById = new Map<number, ApiMaternityRecord>();
 
-  constructor(private router: Router) {}
+  isLoading = false;
+  errorMessage = '';
+
+  showFormModal = false;
+  isEditMode = false;
+  editingRecordId: number | null = null;
+  isFormSubmitting = false;
+  formErrorMessage = '';
+  formInitialData: BirthRecordCreatePayload | null = null;
+
+  showDeleteModal = false;
+  deletingRecord: BirthRecordItem | null = null;
+  isDeleting = false;
+  deleteErrorMessage = '';
+
+  constructor(
+    private readonly maternityRecordsService: MaternityRecordsService,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
+
+  ngOnInit(): void {
+    this.loadRecords();
+  }
+
+  get formModalTitle(): string {
+    return this.isEditMode ? 'Изменение записи о рождении' : 'Новая запись о рождении';
+  }
+
+  get formSubmitLabel(): string {
+    return this.isEditMode ? 'Сохранить изменения' : 'Сохранить';
+  }
+
+  loadRecords(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.maternityRecordsService
+      .getAll()
+      .pipe(timeout(15000))
+      .subscribe({
+        next: (records) => {
+          this.sourceRecordsById.clear();
+          records.forEach((record) => this.sourceRecordsById.set(record.id, record));
+
+          this.records = records.map((item: ApiMaternityRecord) => ({
+            id: item.id,
+            birthDateTime: this.formatDateTime(item.birthDateTime),
+            motherFullName: item.motherFullName?.trim() || '-',
+            fatherFullName: item.fatherFullName?.trim() || '-',
+            placeOfBirth: item.placeOfBirth?.trim() || '-',
+            gender: this.normalizeGender(item.gender),
+            birthWeight: item.birthWeight !== null ? `${item.birthWeight}` : '-',
+            status: this.normalizeStatus(item.status),
+            userName: item.userName?.trim() || `ID ${item.userId}`,
+          }));
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (error: unknown) => {
+          this.records = [];
+          this.sourceRecordsById.clear();
+          if (error instanceof TimeoutError) {
+            this.errorMessage = 'Превышено время ожидания ответа API.';
+          } else {
+            this.errorMessage = 'Не удалось загрузить записи роддома.';
+          }
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+      });
+  }
 
   openCreate(): void {
-    this.showCreateModal = true;
+    this.isEditMode = false;
+    this.editingRecordId = null;
+    this.formInitialData = null;
+    this.formErrorMessage = '';
+    this.showFormModal = true;
   }
 
-  closeCreate(): void {
-    this.showCreateModal = false;
-  }
-
-  handleRecordSaved(payload: BirthRecordPayload): void {
-    const id = `br-${Date.now()}`;
-    const item: BirthRecordItem = {
-      id,
-      birthDateTime: this.formatBirthDateTime(payload.birthDateTime),
-      motherFullName: payload.motherFullName || '—',
-      fatherFullName: payload.fatherFullName || '—',
-      sex: payload.sex,
-      status: payload.status,
-      certificateStatus: 'NOT_ISSUED'
-    };
-
-    this.records = [item, ...this.records];
-    this.closeCreate();
-  }
-
-  get filteredRecords(): BirthRecordItem[] {
-    return this.records.filter(record => {
-      if (this.filters.certificateStatus === 'all') {
-        return true;
-      }
-      return record.certificateStatus === this.filters.certificateStatus;
-    });
-  }
-
-  openRecord(record: BirthRecordItem): void {
-    this.router.navigate(['/maternity/birth-records', record.id]);
-  }
-
-  getSexLabel(sex: BirthRecordItem['sex']): string {
-    return sex === 'male' ? 'Мальчик' : 'Девочка';
-  }
-
-  getStatusLabel(status: BirthRecordItem['status']): string {
-    const labels: Record<BirthRecordItem['status'], string> = {
-      DRAFT: 'Черновик',
-      SUBMITTED: 'Отправлено',
-      CANCELLED: 'Отменено',
-      VOID: 'Аннулировано'
-    };
-    return labels[status];
-  }
-
-  getCertificateStatusLabel(status: BirthRecordItem['certificateStatus']): string {
-    const labels: Record<BirthRecordItem['certificateStatus'], string> = {
-      NOT_ISSUED: 'Не выдано',
-      ISSUED: 'Выдано',
-      REJECTED: 'Отказано'
-    };
-    return labels[status];
-  }
-
-  private formatBirthDateTime(value: string): string {
-    if (!value) {
-      return '—';
+  openEdit(row: BirthRecordItem): void {
+    const source = this.sourceRecordsById.get(row.id);
+    if (!source) {
+      this.errorMessage = 'Не удалось загрузить исходные данные записи для изменения.';
+      return;
     }
-    const parts = value.split('T');
-    if (parts.length !== 2) {
+
+    this.isEditMode = true;
+    this.editingRecordId = row.id;
+    this.formInitialData = {
+      userId: source.userId,
+      birthDateTime: source.birthDateTime,
+      placeOfBirth: source.placeOfBirth || '',
+      gender: this.normalizeGender(source.gender),
+      fatherFullName: source.fatherFullName || '',
+      motherFullName: source.motherFullName || '',
+      birthWeight: source.birthWeight ?? 0,
+      status: this.normalizeStatus(source.status),
+      comment: source.comment || '',
+    };
+    this.formErrorMessage = '';
+    this.showFormModal = true;
+  }
+
+  closeFormModal(): void {
+    if (this.isFormSubmitting) {
+      return;
+    }
+    this.showFormModal = false;
+    this.formErrorMessage = '';
+  }
+
+  handleRecordSaved(payload: BirthRecordCreatePayload): void {
+    this.isFormSubmitting = true;
+    this.formErrorMessage = '';
+
+    if (this.isEditMode && this.editingRecordId) {
+      this.maternityRecordsService
+        .update(this.editingRecordId, payload)
+        .pipe(
+          timeout(15000),
+          finalize(() => {
+            this.isFormSubmitting = false;
+            this.cdr.detectChanges();
+          }),
+        )
+        .subscribe({
+          next: (ok) => {
+            if (!ok) {
+              this.formErrorMessage = 'Не удалось изменить запись.';
+              return;
+            }
+            this.showFormModal = false;
+            this.loadRecords();
+          },
+          error: (error: unknown) => {
+            if (error instanceof TimeoutError) {
+              this.formErrorMessage = 'Превышено время ожидания ответа API.';
+            } else {
+              this.formErrorMessage = 'Не удалось изменить запись.';
+            }
+          },
+        });
+      return;
+    }
+
+    this.maternityRecordsService
+      .create(payload)
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isFormSubmitting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (created) => {
+          if (!created) {
+            this.formErrorMessage = 'Не удалось создать запись.';
+            return;
+          }
+          this.showFormModal = false;
+          this.loadRecords();
+        },
+        error: (error: unknown) => {
+          if (error instanceof TimeoutError) {
+            this.formErrorMessage = 'Превышено время ожидания ответа API.';
+          } else {
+            this.formErrorMessage = 'Не удалось создать запись.';
+          }
+        },
+      });
+  }
+
+  openDelete(row: BirthRecordItem): void {
+    this.deletingRecord = row;
+    this.deleteErrorMessage = '';
+    this.showDeleteModal = true;
+  }
+
+  closeDeleteModal(): void {
+    if (this.isDeleting) {
+      return;
+    }
+    this.showDeleteModal = false;
+    this.deletingRecord = null;
+    this.deleteErrorMessage = '';
+  }
+
+  confirmDelete(): void {
+    if (!this.deletingRecord || this.isDeleting) {
+      return;
+    }
+
+    this.isDeleting = true;
+    this.deleteErrorMessage = '';
+
+    this.maternityRecordsService
+      .delete(this.deletingRecord.id)
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isDeleting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.deleteErrorMessage = 'Не удалось удалить запись.';
+            return;
+          }
+          this.showDeleteModal = false;
+          this.deletingRecord = null;
+          this.loadRecords();
+        },
+        error: (error: unknown) => {
+          if (error instanceof TimeoutError) {
+            this.deleteErrorMessage = 'Превышено время ожидания ответа API.';
+          } else {
+            this.deleteErrorMessage = 'Не удалось удалить запись.';
+          }
+        },
+      });
+  }
+
+  getGenderLabel(gender: MaternityGender): string {
+    return gender;
+  }
+
+  getStatusLabel(status: MaternityStatus): string {
+    return status;
+  }
+
+  private normalizeStatus(status: string | null): MaternityStatus {
+    if (status === 'Registered' || status === 'Pending' || status === 'Transferred' || status === 'Archived') {
+      return status;
+    }
+    return 'Pending';
+  }
+
+  private normalizeGender(gender: string | null): MaternityGender {
+    return gender === 'F' ? 'F' : 'M';
+  }
+
+  private formatDateTime(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
       return value;
     }
-    const [date, time] = parts;
-    const dateParts = date.split('-');
-    if (dateParts.length !== 3) {
-      return value.replace('T', ' ');
-    }
-    const [year, month, day] = dateParts;
-    const formattedTime = time.slice(0, 5);
-    return `${day}.${month}.${year} ${formattedTime}`;
+
+    return date.toLocaleDateString('ru-RU');
   }
 }
-

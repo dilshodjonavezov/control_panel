@@ -1,29 +1,44 @@
-﻿import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ButtonComponent, CardComponent, InputComponent, ModalComponent, SelectComponent, SelectOption, TableComponent, TableColumn } from '../../../shared/components';
+import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
+import {
+  ButtonComponent,
+  CardComponent,
+  InputComponent,
+  ModalComponent,
+  SelectComponent,
+  SelectOption,
+  TableComponent,
+  TableColumn,
+} from '../../../shared/components';
+import {
+  ApiPassportRecord,
+  CreatePassportRecordRequest,
+  PassportRecordsService,
+} from '../../../services/passport-records.service';
 
-type PassportState = 'active' | 'expired' | 'annulled' | 'draft';
-
-interface PassportEntry {
-  passportId: string;
-  fullName: string;
-  iin: string;
-  series: string;
-  number: string;
-  issueDate: string;
-  expireDate: string;
-  issuedBy: string;
-  biometric: 'Да' | 'Нет';
-  status: PassportState;
+interface PassportRecordItem {
+  id: number;
+  peopleId: number;
+  peopleFullName: string;
+  userId: number;
+  userName: string;
+  passportNumber: string;
+  dateOfIssue: string;
+  dateOfIssueRaw: string;
+  placeOfIssue: string;
+  dateBirth: string;
+  dateBirthRaw: string;
 }
 
-interface PassportFilters {
-  fullName: string;
-  iin: string;
-  series: string;
-  status: 'all' | PassportState;
-  biometric: 'all' | 'yes' | 'no';
+interface PassportForm {
+  peopleId: string;
+  userId: string;
+  passportNumber: string;
+  dateOfIssue: string;
+  placeOfIssue: string;
+  dateBirth: string;
 }
 
 @Component({
@@ -31,193 +46,301 @@ interface PassportFilters {
   standalone: true,
   imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, TableComponent, ButtonComponent, ModalComponent],
   templateUrl: './passport-registry.component.html',
-  styleUrl: './passport-registry.component.css'
+  styleUrl: './passport-registry.component.css',
 })
-export class PassportRegistryComponent {
-  showCreateModal = false;
-
-  draftFilters: PassportFilters = {
+export class PassportRegistryComponent implements OnInit {
+  filters = {
     fullName: '',
-    iin: '',
-    series: '',
-    status: 'all',
-    biometric: 'all'
+    passportNumber: '',
   };
-
-  appliedFilters: PassportFilters = { ...this.draftFilters };
-
-  createForm = {
-    fullName: '',
-    iin: '',
-    series: '',
-    number: '',
-    issueDate: '',
-    expireDate: '',
-    issuedBy: '',
-    biometric: 'Да' as PassportEntry['biometric'],
-    status: 'draft' as PassportState
-  };
-
-  statusOptions: SelectOption[] = [
-    { value: 'all', label: 'Все статусы' },
-    { value: 'active', label: 'Действует' },
-    { value: 'expired', label: 'Истек' },
-    { value: 'annulled', label: 'Аннулирован' },
-    { value: 'draft', label: 'Черновик' }
-  ];
-
-  biometricOptions: SelectOption[] = [
-    { value: 'all', label: 'Биометрия: любая' },
-    { value: 'yes', label: 'С биометрией' },
-    { value: 'no', label: 'Без биометрии' }
-  ];
-
-  biometricCreateOptions: SelectOption[] = [
-    { value: 'Да', label: 'Да' },
-    { value: 'Нет', label: 'Нет' }
-  ];
-
-  statusCreateOptions: SelectOption[] = [
-    { value: 'active', label: 'Действует' },
-    { value: 'expired', label: 'Истек' },
-    { value: 'annulled', label: 'Аннулирован' },
-    { value: 'draft', label: 'Черновик' }
-  ];
 
   columns: TableColumn[] = [
-    { key: 'passportId', label: 'Passport ID', sortable: true },
-    { key: 'fullName', label: 'ФИО', sortable: true },
-    { key: 'iin', label: 'ИИН', sortable: true },
-    { key: 'series', label: 'Серия', sortable: true },
-    { key: 'number', label: 'Номер', sortable: true },
-    { key: 'issueDate', label: 'Дата выдачи', sortable: true },
-    { key: 'expireDate', label: 'Срок действия', sortable: true },
-    { key: 'issuedBy', label: 'Кем выдан', sortable: true },
-    { key: 'biometric', label: 'Биометрия', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true }
+    { key: 'id', label: 'ID', sortable: true },
+    { key: 'peopleFullName', label: 'ФИО', sortable: true },
+    { key: 'passportNumber', label: 'Номер паспорта', sortable: true },
+    { key: 'dateOfIssue', label: 'Дата выдачи', sortable: true },
+    { key: 'placeOfIssue', label: 'Место выдачи', sortable: true },
+    { key: 'dateBirth', label: 'Дата рождения', sortable: true },
+    { key: 'userName', label: 'Пользователь', sortable: true },
   ];
 
-  entries: PassportEntry[] = [
-    {
-      passportId: 'PASS-88301',
-      fullName: 'Кузнецова Марина Павловна',
-      iin: '040511400555',
-      series: 'N',
-      number: '0844551',
-      issueDate: '2024-02-10',
-      expireDate: '2034-02-10',
-      issuedBy: 'Отдел №1, г. Алматы',
-      biometric: 'Да',
-      status: 'active'
-    },
-    {
-      passportId: 'PASS-88302',
-      fullName: 'Сарсенов Тимур Айдынович',
-      iin: '970918300887',
-      series: 'M',
-      number: '0019942',
-      issueDate: '2014-06-01',
-      expireDate: '2024-06-01',
-      issuedBy: 'Отдел №3, г. Астана',
-      biometric: 'Нет',
-      status: 'expired'
-    },
-    {
-      passportId: 'PASS-88303',
-      fullName: 'Ахметов Руслан Берикович',
-      iin: '011020300764',
-      series: 'K',
-      number: '4458102',
-      issueDate: '2025-01-15',
-      expireDate: '2035-01-15',
-      issuedBy: 'Отдел №2, г. Шымкент',
-      biometric: 'Да',
-      status: 'draft'
-    }
-  ];
+  records: PassportRecordItem[] = [];
+  peopleOptions: SelectOption[] = [];
+  userOptions: SelectOption[] = [];
 
-  get filteredEntries(): PassportEntry[] {
-    const byName = this.appliedFilters.fullName.trim().toLowerCase();
-    const byIin = this.appliedFilters.iin.trim().toLowerCase();
-    const bySeries = this.appliedFilters.series.trim().toLowerCase();
+  isLoading = false;
+  errorMessage = '';
 
-    return this.entries.filter((entry) => {
-      if (byName && !entry.fullName.toLowerCase().includes(byName)) return false;
-      if (byIin && !entry.iin.toLowerCase().includes(byIin)) return false;
-      if (bySeries && !entry.series.toLowerCase().includes(bySeries)) return false;
-      if (this.appliedFilters.status !== 'all' && entry.status !== this.appliedFilters.status) return false;
-      if (this.appliedFilters.biometric === 'yes' && entry.biometric !== 'Да') return false;
-      if (this.appliedFilters.biometric === 'no' && entry.biometric !== 'Нет') return false;
-      return true;
+  showFormModal = false;
+  isEditMode = false;
+  editingRecordId: number | null = null;
+  isFormSubmitting = false;
+  formErrorMessage = '';
+  formData: PassportForm = this.createDefaultForm();
+
+  showDeleteModal = false;
+  deletingRecord: PassportRecordItem | null = null;
+  isDeleting = false;
+  deleteErrorMessage = '';
+
+  constructor(
+    private readonly passportRecordsService: PassportRecordsService,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
+
+  ngOnInit(): void {
+    this.loadData();
+  }
+
+  get filteredRecords(): PassportRecordItem[] {
+    const byName = this.filters.fullName.trim().toLowerCase();
+    const byPassport = this.filters.passportNumber.trim().toLowerCase();
+
+    return this.records.filter((record) => {
+      const matchesName = !byName || record.peopleFullName.toLowerCase().includes(byName);
+      const matchesPassport = !byPassport || record.passportNumber.toLowerCase().includes(byPassport);
+      return matchesName && matchesPassport;
     });
   }
 
-  applyFilters(): void {
-    this.appliedFilters = { ...this.draftFilters };
+  get formModalTitle(): string {
+    return this.isEditMode ? 'Изменить паспортную запись' : 'Добавить паспортную запись';
   }
 
-  resetFilters(): void {
-    this.draftFilters = {
-      fullName: '',
-      iin: '',
-      series: '',
-      status: 'all',
-      biometric: 'all'
-    };
-    this.applyFilters();
+  loadData(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    forkJoin({
+      records: this.passportRecordsService.getAll(),
+      people: this.passportRecordsService.getPeople(),
+      users: this.passportRecordsService.getUsers(),
+    })
+      .pipe(timeout(15000))
+      .subscribe({
+        next: ({ records, people, users }) => {
+          this.peopleOptions = people.map((person) => ({
+            value: person.id.toString(),
+            label: person.fullName?.trim() || `ID ${person.id}`,
+          }));
+          this.userOptions = users.map((user) => ({
+            value: user.id.toString(),
+            label: user.fullName?.trim() || `ID ${user.id}`,
+          }));
+          this.records = records.map((record) => this.mapRecord(record));
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (error: unknown) => {
+          this.records = [];
+          this.peopleOptions = [];
+          this.userOptions = [];
+          if (error instanceof TimeoutError) {
+            this.errorMessage = 'Превышено время ожидания ответа API.';
+          } else {
+            this.errorMessage = 'Не удалось загрузить паспортные записи.';
+          }
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   openCreate(): void {
-    this.showCreateModal = true;
-    this.createForm = {
-      fullName: '',
-      iin: '',
-      series: '',
-      number: '',
-      issueDate: '',
-      expireDate: '',
-      issuedBy: '',
-      biometric: 'Да',
-      status: 'draft'
+    this.isEditMode = false;
+    this.editingRecordId = null;
+    this.formData = this.createDefaultForm();
+    this.formErrorMessage = '';
+    this.showFormModal = true;
+  }
+
+  openEdit(row: PassportRecordItem): void {
+    this.isEditMode = true;
+    this.editingRecordId = row.id;
+    this.formData = {
+      peopleId: row.peopleId.toString(),
+      userId: row.userId.toString(),
+      passportNumber: row.passportNumber,
+      dateOfIssue: row.dateOfIssueRaw,
+      placeOfIssue: row.placeOfIssue === '-' ? '' : row.placeOfIssue,
+      dateBirth: row.dateBirthRaw,
     };
+    this.formErrorMessage = '';
+    this.showFormModal = true;
   }
 
-  closeCreate(): void {
-    this.showCreateModal = false;
+  closeFormModal(): void {
+    if (this.isFormSubmitting) {
+      return;
+    }
+    this.showFormModal = false;
   }
 
-  savePassport(): void {
-    if (!this.createForm.fullName.trim() || !this.createForm.iin.trim() || !this.createForm.series.trim() || !this.createForm.number.trim()) {
+  saveForm(): void {
+    const payload = this.buildPayload();
+    if (!payload) {
       return;
     }
 
-    const nextId = `PASS-${88300 + this.entries.length + 1}`;
-    this.entries = [
-      {
-        passportId: nextId,
-        fullName: this.createForm.fullName.trim(),
-        iin: this.createForm.iin.trim(),
-        series: this.createForm.series.trim(),
-        number: this.createForm.number.trim(),
-        issueDate: this.createForm.issueDate,
-        expireDate: this.createForm.expireDate,
-        issuedBy: this.createForm.issuedBy.trim(),
-        biometric: this.createForm.biometric,
-        status: this.createForm.status
-      },
-      ...this.entries
-    ];
+    this.isFormSubmitting = true;
+    this.formErrorMessage = '';
 
-    this.closeCreate();
+    const request$ =
+      this.isEditMode && this.editingRecordId
+        ? this.passportRecordsService.update(this.editingRecordId, payload)
+        : this.passportRecordsService.create(payload);
+
+    request$
+      .pipe(
+        finalize(() => {
+          this.isFormSubmitting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.formErrorMessage = this.isEditMode
+              ? 'Не удалось изменить запись.'
+              : 'Не удалось создать запись.';
+            return;
+          }
+          this.showFormModal = false;
+          this.loadData();
+        },
+        error: () => {
+          this.formErrorMessage = this.isEditMode
+            ? 'Не удалось изменить запись.'
+            : 'Не удалось создать запись.';
+        },
+      });
   }
 
-  getStatusLabel(status: PassportState): string {
-    const labels: Record<PassportState, string> = {
-      active: 'Действует',
-      expired: 'Истек',
-      annulled: 'Аннулирован',
-      draft: 'Черновик'
+  openDelete(row: PassportRecordItem): void {
+    this.deletingRecord = row;
+    this.deleteErrorMessage = '';
+    this.showDeleteModal = true;
+  }
+
+  closeDeleteModal(): void {
+    if (this.isDeleting) {
+      return;
+    }
+    this.showDeleteModal = false;
+    this.deletingRecord = null;
+    this.deleteErrorMessage = '';
+  }
+
+  confirmDelete(): void {
+    if (!this.deletingRecord || this.isDeleting) {
+      return;
+    }
+
+    this.isDeleting = true;
+    this.deleteErrorMessage = '';
+
+    this.passportRecordsService
+      .delete(this.deletingRecord.id)
+      .pipe(
+        finalize(() => {
+          this.isDeleting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.deleteErrorMessage = 'Не удалось удалить запись.';
+            return;
+          }
+          this.showDeleteModal = false;
+          this.deletingRecord = null;
+          this.loadData();
+        },
+        error: () => {
+          this.deleteErrorMessage = 'Не удалось удалить запись.';
+        },
+      });
+  }
+
+  private mapRecord(record: ApiPassportRecord): PassportRecordItem {
+    return {
+      id: record.id,
+      peopleId: record.peopleId,
+      peopleFullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
+      userId: record.userId,
+      userName: record.userName?.trim() || `ID ${record.userId}`,
+      passportNumber: record.passportNumber?.trim() || '-',
+      dateOfIssue: this.formatDate(record.dateOfIssue),
+      dateOfIssueRaw: this.normalizeDateInput(record.dateOfIssue),
+      placeOfIssue: record.placeOfIssue?.trim() || '-',
+      dateBirth: this.formatDate(record.dateBirth),
+      dateBirthRaw: this.normalizeDateInput(record.dateBirth),
     };
-    return labels[status];
+  }
+
+  private buildPayload(): CreatePassportRecordRequest | null {
+    const peopleId = Number(this.formData.peopleId);
+    const userId = Number(this.formData.userId);
+
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      this.formErrorMessage = 'Выберите корректный peopleId.';
+      return null;
+    }
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      this.formErrorMessage = 'Выберите корректный userId.';
+      return null;
+    }
+
+    if (!this.formData.passportNumber.trim()) {
+      this.formErrorMessage = 'Укажите номер паспорта.';
+      return null;
+    }
+
+    if (!this.formData.placeOfIssue.trim()) {
+      this.formErrorMessage = 'Укажите место выдачи.';
+      return null;
+    }
+
+    return {
+      peopleId,
+      userId,
+      passportNumber: this.formData.passportNumber.trim(),
+      dateOfIssue: this.formData.dateOfIssue || null,
+      placeOfIssue: this.formData.placeOfIssue.trim(),
+      dateBirth: this.formData.dateBirth || null,
+    };
+  }
+
+  private createDefaultForm(): PassportForm {
+    return {
+      peopleId: '',
+      userId: '',
+      passportNumber: '',
+      dateOfIssue: '',
+      placeOfIssue: '',
+      dateBirth: '',
+    };
+  }
+
+  private normalizeDateInput(value: string | null): string {
+    if (!value) {
+      return '';
+    }
+    return value.length >= 10 ? value.slice(0, 10) : value;
+  }
+
+  private formatDate(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleDateString('ru-RU');
   }
 }

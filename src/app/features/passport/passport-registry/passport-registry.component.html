@@ -1,67 +1,125 @@
-﻿<div class="space-y-6">
+<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Паспортный реестр</h1>
-      <p class="mt-2 text-gray-600">Отдельный контур паспортного стола: выпуск, срок действия и верификация документов.</p>
+      <p class="mt-2 text-gray-600">Данные из API `/api/passport-records`.</p>
     </div>
-    <app-button variant="primary" (clicked)="openCreate()">Добавить паспорт</app-button>
+    <div class="flex items-center gap-2">
+      <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
+      <app-button variant="primary" (clicked)="openCreate()">Добавить паспорт</app-button>
+    </div>
   </div>
 
   <app-card title="Фильтры">
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-      <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="draftFilters.fullName"></app-input>
-      <app-input label="ИИН" placeholder="990101300123" [(ngModel)]="draftFilters.iin"></app-input>
-      <app-input label="Серия" placeholder="N" [(ngModel)]="draftFilters.series"></app-input>
-      <app-select label="Статус" [options]="statusOptions" [(ngModel)]="draftFilters.status"></app-select>
-      <app-select label="Биометрия" [options]="biometricOptions" [(ngModel)]="draftFilters.biometric"></app-select>
-    </div>
-
-    <div class="mt-4 flex flex-wrap items-center gap-3">
-      <app-button variant="primary" (clicked)="applyFilters()">Применить</app-button>
-      <app-button variant="outline" (clicked)="resetFilters()">Сбросить</app-button>
-      <span class="text-sm text-gray-500">Найдено: {{ filteredEntries.length }}</span>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+      <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
+      <app-input label="Номер паспорта" placeholder="A323232" [(ngModel)]="filters.passportNumber"></app-input>
     </div>
   </app-card>
+
+  @if (errorMessage) {
+    <app-card>
+      <p class="text-sm text-red-600">{{ errorMessage }}</p>
+    </app-card>
+  }
 
   <app-card>
     <app-table
       [columns]="columns"
-      [data]="filteredEntries"
+      [data]="filteredRecords"
+      [loading]="isLoading"
       [rowTemplate]="rowTemplate"
+      [actionsTemplate]="actionsTemplate"
       [emptyMessage]="'Паспорта не найдены'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.passportId }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.iin }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.series }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.number }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.issueDate }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.expireDate }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.issuedBy }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.biometric }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.passportNumber }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.dateOfIssue }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfIssue }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.dateBirth }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
+      </ng-template>
+
+      <ng-template #actionsTemplate let-row>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
+            title="Изменить"
+            (click)="openEdit(row)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.707 8.707a2 2 0 0 1-.878.497l-2.425.693a.75.75 0 0 1-.928-.928l.693-2.425a2 2 0 0 1 .497-.878l8.92-8.494Z"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 text-red-600 hover:bg-red-50"
+            title="Удалить"
+            (click)="openDelete(row)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path fill-rule="evenodd" d="M8.75 2.5a1 1 0 0 0-1 1V4h4.5v-.5a1 1 0 0 0-1-1h-2.5Zm-3 3a.75.75 0 0 0 0 1.5h.53l.53 9.28A2 2 0 0 0 8.806 18h2.388a2 2 0 0 0 1.996-1.72l.53-9.28h.53a.75.75 0 0 0 0-1.5h-8.5Z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
       </ng-template>
     </app-table>
   </app-card>
 
-  <app-modal [show]="showCreateModal" [title]="'Добавить паспорт'" size="xl" (closed)="closeCreate()">
+  <app-modal [show]="showFormModal" [title]="formModalTitle" size="lg" (closed)="closeFormModal()">
     <div class="space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-input label="ФИО" [(ngModel)]="createForm.fullName"></app-input>
-        <app-input label="ИИН" [(ngModel)]="createForm.iin"></app-input>
-        <app-input label="Серия" [(ngModel)]="createForm.series"></app-input>
-        <app-input label="Номер" [(ngModel)]="createForm.number"></app-input>
-        <app-input label="Дата выдачи" type="date" [(ngModel)]="createForm.issueDate"></app-input>
-        <app-input label="Срок действия" type="date" [(ngModel)]="createForm.expireDate"></app-input>
-        <app-input label="Кем выдан" [(ngModel)]="createForm.issuedBy"></app-input>
-        <app-select label="Биометрия" [options]="biometricCreateOptions" [(ngModel)]="createForm.biometric"></app-select>
-        <app-select label="Статус" [options]="statusCreateOptions" [(ngModel)]="createForm.status"></app-select>
+      @if (formErrorMessage) {
+        <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
+      }
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <app-select
+          label="Гражданин (peopleId)"
+          [options]="peopleOptions"
+          placeholder="Выберите гражданина"
+          [(ngModel)]="formData.peopleId"
+        ></app-select>
+
+        <app-select
+          label="Пользователь (userId)"
+          [options]="userOptions"
+          placeholder="Выберите пользователя"
+          [(ngModel)]="formData.userId"
+        ></app-select>
+
+        <app-input label="Номер паспорта" placeholder="A323232" [(ngModel)]="formData.passportNumber"></app-input>
+        <app-input type="date" label="Дата выдачи" [(ngModel)]="formData.dateOfIssue"></app-input>
+        <app-input label="Место выдачи" placeholder="Худжанд" [(ngModel)]="formData.placeOfIssue"></app-input>
+        <app-input type="date" label="Дата рождения" [(ngModel)]="formData.dateBirth"></app-input>
       </div>
 
-      <div class="flex items-center gap-2">
-        <app-button variant="primary" (clicked)="savePassport()">Сохранить</app-button>
-        <app-button variant="outline" (clicked)="closeCreate()">Отмена</app-button>
+      <div class="flex justify-end gap-2">
+        <app-button variant="secondary" [disabled]="isFormSubmitting" (clicked)="closeFormModal()">Отмена</app-button>
+        <app-button variant="primary" [loading]="isFormSubmitting" [disabled]="isFormSubmitting" (clicked)="saveForm()">
+          Сохранить
+        </app-button>
+      </div>
+    </div>
+  </app-modal>
+
+  <app-modal [show]="showDeleteModal" [title]="'Удаление записи'" size="md" (closed)="closeDeleteModal()">
+    <div class="space-y-4">
+      @if (deleteErrorMessage) {
+        <p class="text-sm text-red-600">{{ deleteErrorMessage }}</p>
+      }
+      <p class="text-sm text-gray-700">
+        Удалить запись
+        @if (deletingRecord) {
+          <span class="font-semibold">#{{ deletingRecord.id }}</span>
+        }
+        ?
+      </p>
+      <div class="flex justify-end gap-2">
+        <app-button variant="secondary" [disabled]="isDeleting" (clicked)="closeDeleteModal()">Отмена</app-button>
+        <app-button variant="danger" [loading]="isDeleting" [disabled]="isDeleting" (clicked)="confirmDelete()">Удалить</app-button>
       </div>
     </div>
   </app-modal>

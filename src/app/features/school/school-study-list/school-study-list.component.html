@@ -1,49 +1,117 @@
-﻿<div class="space-y-6">
+<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Реестр обучения</h1>
-      <p class="mt-2 text-gray-600">Фиксация обучения, переводов и выпусков.</p>
+      <p class="mt-2 text-gray-600">Данные из API `/api/school-records`.</p>
     </div>
-    <app-button variant="primary" (clicked)="openCreate()">Новая запись</app-button>
+    <div class="flex items-center gap-2">
+      <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
+      <app-button variant="primary" (clicked)="openCreate()">Новая запись</app-button>
+    </div>
   </div>
 
   <app-card>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
       <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
-      <app-input label="Класс" placeholder="7Б" [(ngModel)]="filters.classLevel"></app-input>
-      <app-select label="Статус" [options]="statusOptions" [(ngModel)]="filters.status"></app-select>
+      <app-input label="Класс" placeholder="11" [(ngModel)]="filters.classNumber"></app-input>
     </div>
   </app-card>
+
+  @if (errorMessage) {
+    <app-card>
+      <p class="text-sm text-red-600">{{ errorMessage }}</p>
+    </app-card>
+  }
 
   <app-card>
     <app-table
       [columns]="columns"
       [data]="filteredRecords"
+      [loading]="isLoading"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
       [emptyMessage]="'Записей нет'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.classLevel }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.startDate }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.endDate || '-' }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.institutionName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.classNumber }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.admissionDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.graduationDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.expulsionDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.isStudying }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.comment }}</td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
         <div class="flex items-center gap-2">
-          <app-button variant="outline" size="sm" (clicked)="openEdit(row)">Открыть</app-button>
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
+            title="Изменить"
+            (click)="openEdit(row)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.707 8.707a2 2 0 0 1-.878.497l-2.425.693a.75.75 0 0 1-.928-.928l.693-2.425a2 2 0 0 1 .497-.878l8.92-8.494Z"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 text-red-600 hover:bg-red-50"
+            title="Удалить"
+            (click)="openDelete(row)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path fill-rule="evenodd" d="M8.75 2.5a1 1 0 0 0-1 1V4h4.5v-.5a1 1 0 0 0-1-1h-2.5Zm-3 3a.75.75 0 0 0 0 1.5h.53l.53 9.28A2 2 0 0 0 8.806 18h2.388a2 2 0 0 0 1.996-1.72l.53-9.28h.53a.75.75 0 0 0 0-1.5h-8.5Z" clip-rule="evenodd"/>
+            </svg>
+          </button>
         </div>
       </ng-template>
     </app-table>
   </app-card>
 
-  <app-modal [show]="showModal" [title]="'Запись об обучении'" size="xl" (closed)="closeModal()">
-    @if (showModal) {
-      <div class="max-h-[70vh] overflow-y-auto pr-1">
-        <app-school-study-create-edit [recordId]="selectedRecordId" [embedded]="true" (closed)="closeModal()"></app-school-study-create-edit>
+  <app-modal [show]="showFormModal" [title]="formModalTitle" size="lg" (closed)="closeFormModal()">
+    <div class="space-y-4">
+      @if (formErrorMessage) {
+        <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
+      }
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <app-input type="number" label="peopleId" placeholder="1" [(ngModel)]="formData.peopleId"></app-input>
+        <app-input type="number" label="institutionId" placeholder="1" [(ngModel)]="formData.institutionId"></app-input>
+        <app-input type="number" label="classNumber" placeholder="11" [(ngModel)]="formData.classNumber"></app-input>
+        <app-input type="number" label="userId" placeholder="1" [(ngModel)]="formData.userId"></app-input>
+        <app-input type="datetime-local" label="admissionDate" [(ngModel)]="formData.admissionDate"></app-input>
+        <app-input type="datetime-local" label="graduationDate" [(ngModel)]="formData.graduationDate"></app-input>
+        <app-input type="datetime-local" label="expulsionDate" [(ngModel)]="formData.expulsionDate"></app-input>
+        <app-input label="comment" placeholder="Комментарий" [(ngModel)]="formData.comment"></app-input>
       </div>
-    }
+
+      <div class="flex justify-end gap-2">
+        <app-button variant="secondary" [disabled]="isFormSubmitting" (clicked)="closeFormModal()">Отмена</app-button>
+        <app-button variant="primary" [loading]="isFormSubmitting" [disabled]="isFormSubmitting" (clicked)="saveForm()">Сохранить</app-button>
+      </div>
+    </div>
+  </app-modal>
+
+  <app-modal [show]="showDeleteModal" [title]="'Удаление записи'" size="md" (closed)="closeDeleteModal()">
+    <div class="space-y-4">
+      @if (deleteErrorMessage) {
+        <p class="text-sm text-red-600">{{ deleteErrorMessage }}</p>
+      }
+      <p class="text-sm text-gray-700">
+        Удалить запись
+        @if (deletingRecord) {
+          <span class="font-semibold">#{{ deletingRecord.id }}</span>
+        }
+        ?
+      </p>
+      <div class="flex justify-end gap-2">
+        <app-button variant="secondary" [disabled]="isDeleting" (clicked)="closeDeleteModal()">Отмена</app-button>
+        <app-button variant="danger" [loading]="isDeleting" [disabled]="isDeleting" (clicked)="confirmDelete()">Удалить</app-button>
+      </div>
+    </div>
   </app-modal>
 </div>

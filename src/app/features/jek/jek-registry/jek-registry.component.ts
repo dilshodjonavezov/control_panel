@@ -1,29 +1,45 @@
-﻿import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ButtonComponent, CardComponent, InputComponent, ModalComponent, SelectComponent, SelectOption, TableComponent, TableColumn } from '../../../shared/components';
+import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
+import {
+  ButtonComponent,
+  CardComponent,
+  InputComponent,
+  ModalComponent,
+  SelectComponent,
+  SelectOption,
+  TableComponent,
+  TableColumn,
+} from '../../../shared/components';
+import {
+  ApiResidenceRecord,
+  CreateResidenceRecordRequest,
+  ResidenceRecordsService,
+} from '../../../services/residence-records.service';
 
-type ResidenceStatus = 'registered' | 'temporary' | 'removed';
-type UtilityDebt = 'all' | 'no_debt' | 'has_debt';
-
-interface JekResident {
-  residentId: string;
-  fullName: string;
-  iin: string;
-  district: string;
+interface ResidenceRecordItem {
+  id: number;
+  peopleId: number;
+  peopleFullName: string;
   address: string;
-  registrationType: 'Постоянная' | 'Временная';
   registeredAt: string;
-  debtAmount: number;
-  status: ResidenceStatus;
+  registeredAtRaw: string;
+  unregisteredAt: string;
+  unregisteredAtRaw: string;
+  isActive: 'Активна' | 'Не активна';
+  userId: number;
+  userName: string;
+  comment: string;
 }
 
-interface JekFilters {
-  fullName: string;
-  district: string;
+interface ResidenceForm {
+  peopleId: string;
   address: string;
-  debt: UtilityDebt;
-  status: 'all' | ResidenceStatus;
+  registeredAt: string;
+  unregisteredAt: string;
+  userId: string;
+  comment: string;
 }
 
 @Component({
@@ -31,189 +47,323 @@ interface JekFilters {
   standalone: true,
   imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, TableComponent, ButtonComponent, ModalComponent],
   templateUrl: './jek-registry.component.html',
-  styleUrl: './jek-registry.component.css'
+  styleUrl: './jek-registry.component.css',
 })
-export class JekRegistryComponent {
-  showCreateModal = false;
-
-  draftFilters: JekFilters = {
+export class JekRegistryComponent implements OnInit {
+  filters = {
     fullName: '',
-    district: '',
     address: '',
-    debt: 'all',
-    status: 'all'
+    active: 'all',
   };
 
-  appliedFilters: JekFilters = { ...this.draftFilters };
-
-  createForm = {
-    fullName: '',
-    iin: '',
-    district: '',
-    address: '',
-    registrationType: 'Постоянная' as JekResident['registrationType'],
-    debtAmount: '',
-    status: 'registered' as ResidenceStatus
-  };
-
-  districtOptions: SelectOption[] = [
-    { value: '', label: 'Все районы' },
-    { value: 'Центральный', label: 'Центральный' },
-    { value: 'Северный', label: 'Северный' },
-    { value: 'Южный', label: 'Южный' }
-  ];
-
-  debtOptions: SelectOption[] = [
-    { value: 'all', label: 'Любая задолженность' },
-    { value: 'no_debt', label: 'Без долга' },
-    { value: 'has_debt', label: 'Есть долг' }
-  ];
-
-  statusOptions: SelectOption[] = [
-    { value: 'all', label: 'Все статусы' },
-    { value: 'registered', label: 'Зарегистрирован' },
-    { value: 'temporary', label: 'Временная регистрация' },
-    { value: 'removed', label: 'Снят с регистрации' }
-  ];
-
-  registrationTypeOptions: SelectOption[] = [
-    { value: 'Постоянная', label: 'Постоянная' },
-    { value: 'Временная', label: 'Временная' }
-  ];
-
-  statusCreateOptions: SelectOption[] = [
-    { value: 'registered', label: 'Зарегистрирован' },
-    { value: 'temporary', label: 'Временная регистрация' },
-    { value: 'removed', label: 'Снят с регистрации' }
+  activeOptions: SelectOption[] = [
+    { value: 'all', label: 'Все' },
+    { value: 'active', label: 'Активна' },
+    { value: 'inactive', label: 'Не активна' },
   ];
 
   columns: TableColumn[] = [
-    { key: 'residentId', label: 'Resident ID', sortable: true },
-    { key: 'fullName', label: 'ФИО', sortable: true },
-    { key: 'iin', label: 'ИИН', sortable: true },
-    { key: 'district', label: 'Район', sortable: true },
+    { key: 'id', label: 'ID', sortable: true },
+    { key: 'peopleFullName', label: 'ФИО', sortable: true },
     { key: 'address', label: 'Адрес', sortable: true },
-    { key: 'registrationType', label: 'Регистрация', sortable: true },
-    { key: 'registeredAt', label: 'Дата учета', sortable: true },
-    { key: 'debtAmount', label: 'Долг (тг)', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true }
+    { key: 'registeredAt', label: 'Дата регистрации', sortable: true },
+    { key: 'unregisteredAt', label: 'Дата снятия', sortable: true },
+    { key: 'isActive', label: 'Статус', sortable: true },
+    { key: 'userName', label: 'Пользователь', sortable: true },
+    { key: 'comment', label: 'Комментарий', sortable: false },
   ];
 
-  residents: JekResident[] = [
-    {
-      residentId: 'RES-10021',
-      fullName: 'Иванов Артем Сергеевич',
-      iin: '990201300121',
-      district: 'Центральный',
-      address: 'ул. Абая 15, кв. 8',
-      registrationType: 'Постоянная',
-      registeredAt: '2022-08-14',
-      debtAmount: 0,
-      status: 'registered'
-    },
-    {
-      residentId: 'RES-10022',
-      fullName: 'Садыкова Ляззат Ермековна',
-      iin: '021125400987',
-      district: 'Северный',
-      address: 'мкр. Самал 2, д. 44',
-      registrationType: 'Временная',
-      registeredAt: '2025-04-03',
-      debtAmount: 18640,
-      status: 'temporary'
-    },
-    {
-      residentId: 'RES-10023',
-      fullName: 'Пак Дмитрий Валерьевич',
-      iin: '960617301112',
-      district: 'Южный',
-      address: 'пр. Республики 73, кв. 102',
-      registrationType: 'Постоянная',
-      registeredAt: '2020-11-29',
-      debtAmount: 0,
-      status: 'removed'
-    }
-  ];
+  records: ResidenceRecordItem[] = [];
+  peopleOptions: SelectOption[] = [];
+  userOptions: SelectOption[] = [];
 
-  get filteredResidents(): JekResident[] {
-    const byName = this.appliedFilters.fullName.trim().toLowerCase();
-    const byAddress = this.appliedFilters.address.trim().toLowerCase();
+  isLoading = false;
+  errorMessage = '';
 
-    return this.residents.filter((resident) => {
-      if (byName && !resident.fullName.toLowerCase().includes(byName)) return false;
-      if (this.appliedFilters.district && resident.district !== this.appliedFilters.district) return false;
-      if (byAddress && !resident.address.toLowerCase().includes(byAddress)) return false;
-      if (this.appliedFilters.status !== 'all' && resident.status !== this.appliedFilters.status) return false;
-      if (this.appliedFilters.debt === 'no_debt' && resident.debtAmount > 0) return false;
-      if (this.appliedFilters.debt === 'has_debt' && resident.debtAmount === 0) return false;
-      return true;
+  showFormModal = false;
+  isEditMode = false;
+  editingRecordId: number | null = null;
+  isFormSubmitting = false;
+  formErrorMessage = '';
+  formData: ResidenceForm = this.createDefaultForm();
+
+  showDeleteModal = false;
+  deletingRecord: ResidenceRecordItem | null = null;
+  isDeleting = false;
+  deleteErrorMessage = '';
+
+  constructor(
+    private readonly residenceRecordsService: ResidenceRecordsService,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
+
+  ngOnInit(): void {
+    this.loadData();
+  }
+
+  get filteredRecords(): ResidenceRecordItem[] {
+    const byName = this.filters.fullName.trim().toLowerCase();
+    const byAddress = this.filters.address.trim().toLowerCase();
+    const byActive = this.filters.active;
+
+    return this.records.filter((record) => {
+      const matchesName = !byName || record.peopleFullName.toLowerCase().includes(byName);
+      const matchesAddress = !byAddress || record.address.toLowerCase().includes(byAddress);
+      const matchesActive =
+        byActive === 'all' ||
+        (byActive === 'active' && record.isActive === 'Активна') ||
+        (byActive === 'inactive' && record.isActive === 'Не активна');
+
+      return matchesName && matchesAddress && matchesActive;
     });
   }
 
-  applyFilters(): void {
-    this.appliedFilters = { ...this.draftFilters };
+  get formModalTitle(): string {
+    return this.isEditMode ? 'Изменить запись регистрации' : 'Добавить запись регистрации';
   }
 
-  resetFilters(): void {
-    this.draftFilters = {
-      fullName: '',
-      district: '',
-      address: '',
-      debt: 'all',
-      status: 'all'
-    };
-    this.applyFilters();
+  loadData(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    forkJoin({
+      records: this.residenceRecordsService.getAll(),
+      people: this.residenceRecordsService.getPeople(),
+      users: this.residenceRecordsService.getUsers(),
+    })
+      .pipe(timeout(15000))
+      .subscribe({
+        next: ({ records, people, users }) => {
+          this.peopleOptions = people.map((person) => ({
+            value: person.id.toString(),
+            label: person.fullName?.trim() || `ID ${person.id}`,
+          }));
+          this.userOptions = users.map((user) => ({
+            value: user.id.toString(),
+            label: user.fullName?.trim() || `ID ${user.id}`,
+          }));
+          this.records = records.map((record) => this.mapRecord(record));
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (error: unknown) => {
+          this.records = [];
+          this.peopleOptions = [];
+          this.userOptions = [];
+          if (error instanceof TimeoutError) {
+            this.errorMessage = 'Превышено время ожидания ответа API.';
+          } else {
+            this.errorMessage = 'Не удалось загрузить реестр ЖЭК.';
+          }
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   openCreate(): void {
-    this.showCreateModal = true;
-    this.createForm = {
-      fullName: '',
-      iin: '',
-      district: '',
-      address: '',
-      registrationType: 'Постоянная',
-      debtAmount: '',
-      status: 'registered'
+    this.isEditMode = false;
+    this.editingRecordId = null;
+    this.formData = this.createDefaultForm();
+    this.formErrorMessage = '';
+    this.showFormModal = true;
+  }
+
+  openEdit(row: ResidenceRecordItem): void {
+    this.isEditMode = true;
+    this.editingRecordId = row.id;
+    this.formData = {
+      peopleId: row.peopleId.toString(),
+      address: row.address === '-' ? '' : row.address,
+      registeredAt: row.registeredAtRaw,
+      unregisteredAt: row.unregisteredAtRaw,
+      userId: row.userId.toString(),
+      comment: row.comment === '-' ? '' : row.comment,
     };
+    this.formErrorMessage = '';
+    this.showFormModal = true;
   }
 
-  closeCreate(): void {
-    this.showCreateModal = false;
+  closeFormModal(): void {
+    if (this.isFormSubmitting) {
+      return;
+    }
+    this.showFormModal = false;
   }
 
-  saveResident(): void {
-    if (!this.createForm.fullName.trim() || !this.createForm.iin.trim() || !this.createForm.address.trim()) {
+  saveForm(): void {
+    const payload = this.buildPayload();
+    if (!payload) {
       return;
     }
 
-    const nextId = `RES-${10000 + this.residents.length + 1}`;
-    const debtAmount = Number(this.createForm.debtAmount || 0);
+    this.isFormSubmitting = true;
+    this.formErrorMessage = '';
 
-    this.residents = [
-      {
-        residentId: nextId,
-        fullName: this.createForm.fullName.trim(),
-        iin: this.createForm.iin.trim(),
-        district: this.createForm.district || 'Центральный',
-        address: this.createForm.address.trim(),
-        registrationType: this.createForm.registrationType,
-        registeredAt: new Date().toISOString().slice(0, 10),
-        debtAmount: Number.isFinite(debtAmount) ? debtAmount : 0,
-        status: this.createForm.status
-      },
-      ...this.residents
-    ];
+    const request$ =
+      this.isEditMode && this.editingRecordId
+        ? this.residenceRecordsService.update(this.editingRecordId, payload)
+        : this.residenceRecordsService.create(payload);
 
-    this.closeCreate();
+    request$
+      .pipe(
+        finalize(() => {
+          this.isFormSubmitting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.formErrorMessage = this.isEditMode
+              ? 'Не удалось изменить запись.'
+              : 'Не удалось создать запись.';
+            return;
+          }
+          this.showFormModal = false;
+          this.loadData();
+        },
+        error: () => {
+          this.formErrorMessage = this.isEditMode
+            ? 'Не удалось изменить запись.'
+            : 'Не удалось создать запись.';
+        },
+      });
   }
 
-  getStatusLabel(status: ResidenceStatus): string {
-    const labels: Record<ResidenceStatus, string> = {
-      registered: 'Зарегистрирован',
-      temporary: 'Временная регистрация',
-      removed: 'Снят с регистрации'
+  openDelete(row: ResidenceRecordItem): void {
+    this.deletingRecord = row;
+    this.deleteErrorMessage = '';
+    this.showDeleteModal = true;
+  }
+
+  closeDeleteModal(): void {
+    if (this.isDeleting) {
+      return;
+    }
+    this.showDeleteModal = false;
+    this.deletingRecord = null;
+    this.deleteErrorMessage = '';
+  }
+
+  confirmDelete(): void {
+    if (!this.deletingRecord || this.isDeleting) {
+      return;
+    }
+
+    this.isDeleting = true;
+    this.deleteErrorMessage = '';
+
+    this.residenceRecordsService
+      .delete(this.deletingRecord.id)
+      .pipe(
+        finalize(() => {
+          this.isDeleting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.deleteErrorMessage = 'Не удалось удалить запись.';
+            return;
+          }
+          this.showDeleteModal = false;
+          this.deletingRecord = null;
+          this.loadData();
+        },
+        error: () => {
+          this.deleteErrorMessage = 'Не удалось удалить запись.';
+        },
+      });
+  }
+
+  private mapRecord(record: ApiResidenceRecord): ResidenceRecordItem {
+    return {
+      id: record.id,
+      peopleId: record.peopleId,
+      peopleFullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
+      address: record.address?.trim() || '-',
+      registeredAt: this.formatDateTime(record.registeredAt),
+      registeredAtRaw: this.normalizeDateTimeInput(record.registeredAt),
+      unregisteredAt: this.formatDateTime(record.unregisteredAt),
+      unregisteredAtRaw: this.normalizeDateTimeInput(record.unregisteredAt),
+      isActive: record.isActive ? 'Активна' : 'Не активна',
+      userId: record.userId,
+      userName: record.userName?.trim() || `ID ${record.userId}`,
+      comment: record.comment?.trim() || '-',
     };
-    return labels[status];
+  }
+
+  private buildPayload(): CreateResidenceRecordRequest | null {
+    const peopleId = Number(this.formData.peopleId);
+    const userId = Number(this.formData.userId);
+
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      this.formErrorMessage = 'Выберите корректный peopleId.';
+      return null;
+    }
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      this.formErrorMessage = 'Выберите корректный userId.';
+      return null;
+    }
+
+    if (!this.formData.address.trim()) {
+      this.formErrorMessage = 'Укажите адрес.';
+      return null;
+    }
+
+    if (!this.formData.registeredAt) {
+      this.formErrorMessage = 'Укажите дату регистрации.';
+      return null;
+    }
+
+    return {
+      peopleId,
+      address: this.formData.address.trim(),
+      registeredAt: this.toIsoDateTime(this.formData.registeredAt),
+      unregisteredAt: this.formData.unregisteredAt ? this.toIsoDateTime(this.formData.unregisteredAt) : null,
+      userId,
+      comment: this.formData.comment.trim(),
+    };
+  }
+
+  private createDefaultForm(): ResidenceForm {
+    return {
+      peopleId: '',
+      address: '',
+      registeredAt: '',
+      unregisteredAt: '',
+      userId: '',
+      comment: '',
+    };
+  }
+
+  private normalizeDateTimeInput(value: string | null): string {
+    if (!value) {
+      return '';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
+  private toIsoDateTime(value: string): string {
+    return new Date(value).toISOString();
+  }
+
+  private formatDateTime(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleString('ru-RU');
   }
 }

@@ -3,7 +3,7 @@
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-3xl font-bold text-gray-900">Акт № {{ record()!.actNumber }}</h1>
-        <p class="mt-2 text-gray-600">{{ getTypeLabel(record()!.type) }} · {{ record()!.actDate }}</p>
+        <p class="mt-2 text-gray-600">{{ getTypeLabel(record()!.type) }} � {{ record()!.actDate }}</p>
       </div>
       <app-button variant="outline" (clicked)="goBack()">Назад к реестру</app-button>
     </div>

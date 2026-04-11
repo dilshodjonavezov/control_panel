@@ -32,7 +32,6 @@ export interface CreateSchoolRecordRequest {
   admissionDate: string | null;
   graduationDate: string | null;
   expulsionDate: string | null;
-  userId: number;
   comment: string;
 }
 

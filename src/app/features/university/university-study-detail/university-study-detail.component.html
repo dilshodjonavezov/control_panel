@@ -59,20 +59,13 @@
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <app-select
-          label="Гражданин (peopleId)"
+          label="Гражданин"
           [options]="peopleOptions"
           placeholder="Выберите гражданина"
           [(ngModel)]="formData.peopleId"
         ></app-select>
 
-        <app-input
-          type="number"
-          label="Пользователь (userId)"
-          placeholder="Например: 12"
-          [(ngModel)]="formData.userId"
-        ></app-input>
-
-        <app-input label="Форма обучения" placeholder="Очный" [(ngModel)]="formData.studyForm"></app-input>
+        <app-input label="Форма обучения" placeholder="Очная" [(ngModel)]="formData.studyForm"></app-input>
         <app-input label="Факультет" placeholder="Факультет..." [(ngModel)]="formData.faculty"></app-input>
         <app-input label="Специальность" placeholder="Специальность..." [(ngModel)]="formData.specialty"></app-input>
 

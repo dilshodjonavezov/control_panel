@@ -36,7 +36,7 @@
   <app-modal [show]="showModal" [title]="editing ? 'Редактировать пользователя' : 'Добавить пользователя'" size="lg" (closed)="closeModal()">
     <form class="space-y-4">
       <app-input label="ФИО" [(ngModel)]="formData.fullName" name="fullName"></app-input>
-      <app-input label="Email" [(ngModel)]="formData.email" name="email"></app-input>
+      <app-input label="Эл. почта" [(ngModel)]="formData.email" name="email"></app-input>
       <app-select label="Роль" [options]="roleOptions" [(ngModel)]="formData.role" name="role"></app-select>
       <div class="flex justify-end gap-2">
         <app-button variant="outline" type="button" (clicked)="closeModal()">Отмена</app-button>

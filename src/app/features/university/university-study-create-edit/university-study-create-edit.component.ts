@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CardComponent, InputComponent, SelectComponent, SelectOption, ButtonComponent } from '../../../shared/components';
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
+import { LocalPersonWorkflowService } from '../../../services/local-person-workflow.service';
 type StudyStatus = 'ENROLLED' | 'EXPELLED';
 type StudyForm = 'FULL_TIME' | 'PART_TIME';
 
@@ -114,7 +115,11 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
     }
   };
 
-  constructor(private route: ActivatedRoute, private router: Router) {}
+  constructor(
+    private route: ActivatedRoute,
+    private router: Router,
+    private readonly workflowService: LocalPersonWorkflowService,
+  ) {}
 
   ngOnInit(): void {
     const id = this.recordId || this.route.snapshot.paramMap.get('id');
@@ -133,12 +138,14 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
     this.status.set('SAVED');
     this.lastActionAt.set(this.getNowLabel());
     this.applyCitizenStatus();
+    this.applyWorkflowStatus();
   }
 
   update(): void {
     this.status.set('UPDATED');
     this.lastActionAt.set(this.getNowLabel());
     this.applyCitizenStatus();
+    this.applyWorkflowStatus();
   }
 
   goBack(): void {
@@ -197,6 +204,19 @@ export class UniversityStudyCreateEditComponent implements OnInit, OnChanges {
     const date = now.toLocaleDateString('ru-RU');
     const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     return `${date} ${time}`;
+  }
+
+  private applyWorkflowStatus(): void {
+    const fullName = [this.record.lastName, this.record.firstName, this.record.middleName]
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+      .join(' ');
+
+    if (!fullName) {
+      return;
+    }
+
+    this.workflowService.applyUniversityStatus(fullName, this.record.status, this.record.form);
   }
 }
 

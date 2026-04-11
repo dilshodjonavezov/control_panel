@@ -34,7 +34,7 @@
   <app-modal [show]="showRoleModal" [title]="'Добавить новую роль'" size="lg" (closed)="closeRoleModal()">
     <div class="space-y-4">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-input label="Код роли" placeholder="example-role" [(ngModel)]="roleForm.value"></app-input>
+        <app-input label="Код роли" placeholder="новая-роль" [(ngModel)]="roleForm.value"></app-input>
         <app-input label="Название роли" placeholder="Новая роль" [(ngModel)]="roleForm.label"></app-input>
       </div>
       <div class="flex items-center gap-2">

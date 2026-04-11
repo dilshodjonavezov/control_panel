@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-student',
@@ -10,6 +11,16 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
   styleUrl: './student.component.css'
 })
 export class StudentComponent {
+  constructor(
+    private readonly authService: AuthService,
+    private readonly router: Router,
+  ) {}
+
+  logout(): void {
+    this.authService.clearToken();
+    void this.router.navigate(['/login']);
+  }
+
   menuItems = [
     { path: '/student/dashboard', label: 'Панель студента', icon: '🧭' },
     { path: '/student/profile', label: 'Мой профиль', icon: '👤' },

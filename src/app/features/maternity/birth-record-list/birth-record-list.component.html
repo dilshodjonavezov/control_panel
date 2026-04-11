@@ -1,8 +1,7 @@
-<div class="space-y-6">
+﻿<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Реестр рождений</h1>
-      <p class="mt-2 text-gray-600">Данные из API `/api/maternity-records`.</p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadRecords()">Обновить</app-button>
@@ -28,23 +27,41 @@
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDateTime }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.childFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.motherFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fatherFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span class="inline-flex items-center rounded-full bg-indigo-100 px-2 py-1 text-xs font-medium text-indigo-700">
+            {{ row.childrenCount }}
+          </span>
+        </td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfBirth }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ getGenderLabel(row.gender) }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthWeight }}</td>
         <td class="px-6 py-4 text-sm">
           <span
-            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+            class="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium"
             [ngClass]="{
-              'bg-green-100 text-green-800': row.status === 'Registered',
-              'bg-yellow-100 text-yellow-800': row.status === 'Pending',
-              'bg-blue-100 text-blue-800': row.status === 'Transferred',
-              'bg-gray-100 text-gray-800': row.status === 'Archived',
+              'bg-green-100 text-green-800': row.status === 'Зарегистрирован' || row.status === 'Registered',
+              'bg-blue-100 text-blue-800': row.status === 'Отправлен в ЗАГС' || row.status === 'Transferred',
+              'bg-yellow-100 text-yellow-800': row.status === 'Черновик' || row.status === 'Pending',
             }"
           >
             {{ getStatusLabel(row.status) }}
           </span>
+        </td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          @if (row.zagsRecordId) {
+            <button
+              type="button"
+              class="rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              (click)="openLinkedZags(row)"
+            >
+              {{ row.zagsLink }}
+            </button>
+          } @else {
+            <span>—</span>
+          }
         </td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
       </ng-template>
@@ -92,9 +109,25 @@
     </app-table>
   </app-card>
 
+  <app-modal [show]="showZagsModal" [title]="'Связанный акт ЗАГС'" size="lg" (closed)="closeZagsModal()">
+    <div class="space-y-3 text-sm text-gray-800">
+      <div><span class="font-semibold">ID:</span> {{ selectedZagsRecord?.id ?? '-' }}</div>
+      <div><span class="font-semibold">Акт №:</span> {{ selectedZagsRecord?.actNumber || '-' }}</div>
+      <div><span class="font-semibold">Гражданин:</span> {{ selectedZagsRecord?.peopleFullName || '-' }}</div>
+      <div><span class="font-semibold">Дата регистрации:</span> {{ selectedZagsRecord?.registrationDate ? (selectedZagsRecord?.registrationDate | date:'dd.MM.yyyy') : '-' }}</div>
+      <div><span class="font-semibold">Место регистрации:</span> {{ selectedZagsRecord?.placeOfRegistration || '-' }}</div>
+      <div><span class="font-semibold">Отец:</span> {{ selectedZagsRecord?.fatherFullName || '-' }}</div>
+      <div><span class="font-semibold">Мать:</span> {{ selectedZagsRecord?.motherFullName || '-' }}</div>
+      <div><span class="font-semibold">Статус:</span> {{ selectedZagsRecord?.status || '-' }}</div>
+    </div>
+  </app-modal>
+
   <app-modal [show]="showFormModal" [title]="formModalTitle" size="xl" (closed)="closeFormModal()">
     @if (formErrorMessage) {
       <p class="mb-4 text-sm text-red-600">{{ formErrorMessage }}</p>
+    }
+    @if (formInfoMessage) {
+      <p class="mb-4 text-sm text-blue-700">{{ formInfoMessage }}</p>
     }
     <app-birth-record-create
       [initialData]="formInitialData"
@@ -121,9 +154,7 @@
         ?
       </p>
       <div class="flex justify-end gap-2">
-        <app-button variant="secondary" [disabled]="isDeleting" (clicked)="closeDeleteModal()"
-          >Отмена</app-button
-        >
+        <app-button variant="secondary" [disabled]="isDeleting" (clicked)="closeDeleteModal()">Отмена</app-button>
         <app-button
           variant="danger"
           [loading]="isDeleting"

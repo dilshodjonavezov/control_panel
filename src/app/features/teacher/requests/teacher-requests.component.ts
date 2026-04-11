@@ -13,7 +13,7 @@ interface IncomingRequest {
 }
 
 @Component({
-  selector: 'app-teacher-requests',
+  selector: 'teacher-requests',
   standalone: true,
   imports: [CommonModule, CardComponent, TableComponent, ButtonComponent],
   templateUrl: './teacher-requests.component.html',

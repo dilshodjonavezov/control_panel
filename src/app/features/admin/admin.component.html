@@ -4,7 +4,7 @@
     <div class="flex flex-col h-full">
       <!-- Logo -->
       <div class="flex items-center justify-center h-16 bg-blue-600 text-white">
-        <h1 class="text-xl font-bold">Панель управления</h1>
+        <h1 class="text-xl font-bold">Админ Системы</h1>
       </div>
 
       <!-- Navigation -->
@@ -28,8 +28,15 @@
             A
           </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">Администратор</p>
+            <p class="text-sm font-medium text-gray-900">Админ Системы</p>
             <p class="text-xs text-gray-500">admin@example.com</p>
+            <button
+              type="button"
+              (click)="logout()"
+              class="mt-2 text-xs font-medium text-red-600 hover:text-red-700"
+            >
+              Выйти
+            </button>
           </div>
         </div>
       </div>

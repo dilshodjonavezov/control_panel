@@ -1,8 +1,7 @@
-<div class="space-y-6">
+﻿<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Реестр обучения</h1>
-      <p class="mt-2 text-gray-600">Данные из API `/api/school-records`.</p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
@@ -37,6 +36,7 @@
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.institutionName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.classNumber }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.status }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.admissionDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.graduationDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.expulsionDate }}</td>
@@ -79,14 +79,45 @@
       }
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <app-input type="number" label="peopleId" placeholder="1" [(ngModel)]="formData.peopleId"></app-input>
-        <app-input type="number" label="institutionId" placeholder="1" [(ngModel)]="formData.institutionId"></app-input>
-        <app-input type="number" label="classNumber" placeholder="11" [(ngModel)]="formData.classNumber"></app-input>
-        <app-input type="number" label="userId" placeholder="1" [(ngModel)]="formData.userId"></app-input>
-        <app-input type="datetime-local" label="admissionDate" [(ngModel)]="formData.admissionDate"></app-input>
-        <app-input type="datetime-local" label="graduationDate" [(ngModel)]="formData.graduationDate"></app-input>
-        <app-input type="datetime-local" label="expulsionDate" [(ngModel)]="formData.expulsionDate"></app-input>
-        <app-input label="comment" placeholder="Комментарий" [(ngModel)]="formData.comment"></app-input>
+        <app-select
+          label="ФИО отца"
+          [options]="filteredFatherOptions"
+          [value]="formData.fatherFullName"
+          placeholder="Выберите отца"
+          (changed)="onFatherSelected($event)"
+        ></app-select>
+
+        <app-select
+          label="ФИО матери"
+          [options]="filteredMotherOptions"
+          [value]="formData.motherFullName"
+          placeholder="Выберите мать"
+          (changed)="onMotherSelected($event)"
+        ></app-select>
+
+        @if (parentLinkHint) {
+          <p class="md:col-span-2 text-xs text-blue-700">{{ parentLinkHint }}</p>
+        }
+
+        <app-select
+          label="ФИО ребенка"
+          [options]="childOptions"
+          [(ngModel)]="formData.maternityRecordId"
+          (changed)="onChildSelected($event)"
+          class="md:col-span-2"
+        ></app-select>
+
+        <div class="md:col-span-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
+          <div class="text-xs text-gray-500">Выбрано</div>
+          <div>Отец: {{ selectedFatherFullName || '—' }}</div>
+          <div>Мать: {{ selectedMotherFullName || '—' }}</div>
+          <div>Ребенок: {{ selectedChildFullName || '—' }}</div>
+        </div>
+
+        <app-select label="Какая школа" [options]="institutionOptions" [(ngModel)]="formData.institutionId"></app-select>
+        <app-input type="number" label="Класс" placeholder="11" [(ngModel)]="formData.classNumber"></app-input>
+        <app-select label="Статус" [options]="statusOptions" [(ngModel)]="formData.status"></app-select>
+        <app-input type="datetime-local" label="Дата зачисления" [(ngModel)]="formData.admissionDate"></app-input>
       </div>
 
       <div class="flex justify-end gap-2">

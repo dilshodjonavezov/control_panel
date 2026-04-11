@@ -1,24 +1,45 @@
-<div class="space-y-4">
+﻿<div class="space-y-4">
   @if (errorMessage) {
     <p class="text-sm text-red-600">{{ errorMessage }}</p>
   }
 
   <app-card>
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <app-input type="number" label="userId" placeholder="Например: 1" [(ngModel)]="form.userId"></app-input>
-      <app-input type="datetime-local" label="birthDateTime" [(ngModel)]="form.birthDateTime"></app-input>
+      <app-input type="datetime-local" label="Дата и время рождения" [(ngModel)]="form.birthDateTime"></app-input>
 
-      <app-input label="placeOfBirth" placeholder="khujand" [(ngModel)]="form.placeOfBirth"></app-input>
-      <app-select label="gender" [options]="genderOptions" [(ngModel)]="form.gender"></app-select>
+      <app-input label="Место рождения" placeholder="Например: г. Худжанд" [(ngModel)]="form.placeOfBirth"></app-input>
+      <app-select label="Пол" [options]="genderOptions" [(ngModel)]="form.gender"></app-select>
 
-      <app-input label="fatherFullName" placeholder="O.O" [(ngModel)]="form.fatherFullName"></app-input>
-      <app-input label="motherFullName" placeholder="A.A" [(ngModel)]="form.motherFullName"></app-input>
+      <app-input label="ФИО ребенка" placeholder="Иванов Али Петрович" [(ngModel)]="form.childFullName"></app-input>
 
-      <app-input type="number" label="birthWeight" placeholder="3" [(ngModel)]="form.birthWeight"></app-input>
-      <app-select label="status" [options]="statusOptions" [(ngModel)]="form.status"></app-select>
+      <app-select
+        label="Отец (из списка)"
+        [options]="filteredFatherOptions"
+        [value]="form.fatherFullName"
+        placeholder="Выберите отца"
+        (changed)="onFatherSelected($event)"
+      ></app-select>
+
+      <app-select
+        label="Мать (из списка)"
+        [options]="filteredMotherOptions"
+        [value]="form.motherFullName"
+        placeholder="Выберите мать"
+        (changed)="onMotherSelected($event)"
+      ></app-select>
+
+      <app-input label="ФИО отца" placeholder="Иванов Иван Иванович" [(ngModel)]="form.fatherFullName" (ngModelChange)="onFatherNameManualChange()"></app-input>
+      <app-input label="ФИО матери" placeholder="Иванова Мария Петровна" [(ngModel)]="form.motherFullName" (ngModelChange)="onMotherNameManualChange()"></app-input>
+
+      @if (parentLinkHint) {
+        <p class="md:col-span-2 text-xs text-blue-700">{{ parentLinkHint }}</p>
+      }
+
+      <app-input type="number" label="Вес при рождении (кг)" placeholder="3.2" [(ngModel)]="form.birthWeight"></app-input>
+      <app-select label="Статус" [options]="statusOptions" [(ngModel)]="form.status"></app-select>
 
       <div class="md:col-span-2">
-        <app-input label="comment" placeholder="Комментарий" [(ngModel)]="form.comment"></app-input>
+        <app-input label="Комментарий" placeholder="Комментарий" [(ngModel)]="form.comment"></app-input>
       </div>
     </div>
   </app-card>

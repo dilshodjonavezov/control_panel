@@ -2,7 +2,7 @@
   <aside class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg">
     <div class="flex flex-col h-full">
       <div class="flex items-center justify-center h-16 bg-rose-600 text-white">
-        <h1 class="text-xl font-bold">Медцентр/Поликлиника</h1>
+        <h1 class="text-xl font-bold">Поликлиника №1</h1>
       </div>
 
       <nav class="flex-1 px-4 py-6 space-y-2">
@@ -24,8 +24,15 @@
             М
           </div>
           <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">Поликлиника</p>
+            <p class="text-sm font-medium text-gray-900">Поликлиника №1</p>
             <p class="text-xs text-gray-500">clinic@example.com</p>
+            <button
+              type="button"
+              (click)="logout()"
+              class="mt-2 text-xs font-medium text-red-600 hover:text-red-700"
+            >
+              Выйти
+            </button>
           </div>
         </div>
       </div>

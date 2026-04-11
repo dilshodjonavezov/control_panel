@@ -2,7 +2,6 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
 import {
   ButtonComponent,
   CardComponent,
@@ -13,12 +12,6 @@ import {
   TableComponent,
   type TableColumn,
 } from '../../../shared/components';
-import {
-  type ApiEducationRecord,
-  type ApiPerson,
-  type CreateEducationRecordRequest,
-  EducationRecordsService,
-} from '../../../services/education-records.service';
 
 interface InstitutionEducationRecordRow {
   id: number;
@@ -48,7 +41,28 @@ interface RecordForm {
   expulsionDate: string;
   graduationDate: string;
   isDeferralActive: boolean;
-  userId: string;
+}
+
+interface LocalSchoolRecord {
+  peopleId: number;
+  peopleFullName: string;
+  status?: 'Учится' | 'Закончил' | 'Отчислен' | string;
+}
+
+interface LocalUniversityStudyRecord {
+  id: number;
+  peopleId: number;
+  peopleFullName: string;
+  institutionId: number;
+  studyForm: string;
+  faculty: string;
+  specialty: string;
+  admissionDate: string | null;
+  expulsionDate: string | null;
+  graduationDate: string | null;
+  isDeferralActive: boolean;
+  userId: number;
+  userName: string;
 }
 
 @Component({
@@ -68,6 +82,9 @@ interface RecordForm {
   styleUrl: './university-study-detail.component.css',
 })
 export class UniversityStudyDetailComponent implements OnInit {
+  private readonly localSchoolRecordsKey = 'local_school_records_v1';
+  private readonly localUniversityStudiesKey = 'local_university_studies_v1';
+
   institutionId: number | null = null;
   records: InstitutionEducationRecordRow[] = [];
   peopleOptions: SelectOption[] = [];
@@ -103,7 +120,6 @@ export class UniversityStudyDetailComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,
-    private readonly educationRecordsService: EducationRecordsService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -147,7 +163,6 @@ export class UniversityStudyDetailComponent implements OnInit {
       expulsionDate: row.expulsionDateRaw,
       graduationDate: row.graduationDateRaw,
       isDeferralActive: row.isDeferralActiveValue,
-      userId: row.userId.toString(),
     };
     this.showFormModal = true;
   }
@@ -173,36 +188,29 @@ export class UniversityStudyDetailComponent implements OnInit {
     this.isFormSubmitting = true;
     this.formErrorMessage = '';
 
-    const request$ =
-      this.isEditMode && this.editingRecordId
-        ? this.educationRecordsService.update(this.editingRecordId, payload)
-        : this.educationRecordsService.create(payload);
+    const all = this.readAllStudies();
 
-    request$
-      .pipe(
-        finalize(() => {
-          this.isFormSubmitting = false;
-          this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: (ok) => {
-          if (!ok) {
-            this.formErrorMessage = this.isEditMode
-              ? 'Не удалось изменить запись об образовании.'
-              : 'Не удалось создать запись об образовании.';
-            return;
-          }
-
-          this.showFormModal = false;
-          this.loadRecords(this.institutionId!);
-        },
-        error: () => {
-          this.formErrorMessage = this.isEditMode
-            ? 'Не удалось изменить запись об образовании.'
-            : 'Не удалось создать запись об образовании.';
-        },
+    if (this.isEditMode && this.editingRecordId) {
+      const idx = all.findIndex((item) => item.id === this.editingRecordId);
+      if (idx < 0) {
+        this.formErrorMessage = 'Запись не найдена.';
+        this.isFormSubmitting = false;
+        return;
+      }
+      all[idx] = { ...all[idx], ...payload };
+    } else {
+      const nextId = all.length > 0 ? Math.max(...all.map((item) => item.id)) + 1 : 1;
+      all.unshift({
+        id: nextId,
+        ...payload,
       });
+    }
+
+    this.writeAllStudies(all);
+    this.showFormModal = false;
+    this.isFormSubmitting = false;
+    this.loadRecords(this.institutionId);
+    this.cdr.detectChanges();
   }
 
   openDeleteModal(row: InstitutionEducationRecordRow): void {
@@ -228,95 +236,45 @@ export class UniversityStudyDetailComponent implements OnInit {
     this.isDeleting = true;
     this.deleteErrorMessage = '';
 
-    this.educationRecordsService
-      .delete(this.deletingRecord.id)
-      .pipe(
-        finalize(() => {
-          this.isDeleting = false;
-          this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: (ok) => {
-          if (!ok) {
-            this.deleteErrorMessage = 'Не удалось удалить запись.';
-            return;
-          }
+    const filtered = this.readAllStudies().filter((item) => item.id !== this.deletingRecord!.id);
+    this.writeAllStudies(filtered);
 
-          this.showDeleteModal = false;
-          this.deletingRecord = null;
-          this.loadRecords(this.institutionId!);
-        },
-        error: () => {
-          this.deleteErrorMessage = 'Не удалось удалить запись.';
-        },
-      });
+    this.isDeleting = false;
+    this.showDeleteModal = false;
+    this.deletingRecord = null;
+    this.loadRecords(this.institutionId!);
+    this.cdr.detectChanges();
   }
 
   private loadData(institutionId: number): void {
     this.isLoading = true;
     this.errorMessage = '';
-
-    forkJoin({
-      people: this.educationRecordsService.getPeople(),
-      records: this.educationRecordsService.getAll(),
-    })
-      .pipe(timeout(15000))
-      .subscribe({
-        next: ({ people, records }) => {
-          this.peopleOptions = this.mapPeopleOptions(people);
-          this.records = this.mapRecords(records, institutionId);
-          this.isLoading = false;
-          this.cdr.detectChanges();
-        },
-        error: (error: unknown) => {
-          if (error instanceof TimeoutError) {
-            this.errorMessage = 'Превышено время ожидания ответа API.';
-          } else {
-            this.errorMessage = 'Не удалось загрузить данные реестра обучения.';
-          }
-          this.peopleOptions = [];
-          this.records = [];
-          this.isLoading = false;
-          this.cdr.detectChanges();
-        },
-      });
+    this.peopleOptions = this.mapPeopleOptions(this.readPeopleFromLocalSchool());
+    this.records = this.mapRecords(this.readAllStudies(), institutionId);
+    this.isLoading = false;
+    this.cdr.detectChanges();
   }
 
   private loadRecords(institutionId: number): void {
     this.isLoading = true;
-    this.educationRecordsService
-      .getAll()
-      .pipe(timeout(15000))
-      .subscribe({
-        next: (records) => {
-          this.records = this.mapRecords(records, institutionId);
-          this.isLoading = false;
-          this.cdr.detectChanges();
-        },
-        error: (error: unknown) => {
-          if (error instanceof TimeoutError) {
-            this.errorMessage = 'Превышено время ожидания ответа API.';
-          } else {
-            this.errorMessage = 'Не удалось обновить список записей.';
-          }
-          this.isLoading = false;
-          this.cdr.detectChanges();
-        },
-      });
+    this.records = this.mapRecords(this.readAllStudies(), institutionId);
+    this.isLoading = false;
+    this.cdr.detectChanges();
   }
 
-  private mapPeopleOptions(people: ApiPerson[]): SelectOption[] {
-    return people.map((person) => ({
-      value: person.id.toString(),
-      label: person.fullName?.trim() || `ID ${person.id}`,
-    }));
+  private mapPeopleOptions(people: Array<{ id: number; fullName: string }>): SelectOption[] {
+    return people
+      .map((person) => ({
+        value: person.id.toString(),
+        label: person.fullName.trim() || `ID ${person.id}`,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
   }
 
-  private mapRecords(records: ApiEducationRecord[], institutionId: number): InstitutionEducationRecordRow[] {
+  private mapRecords(records: LocalUniversityStudyRecord[], institutionId: number): InstitutionEducationRecordRow[] {
     return records
-      .filter((item: ApiEducationRecord) => item.institutionId === institutionId)
-      .map((item: ApiEducationRecord) => ({
+      .filter((item) => item.institutionId === institutionId)
+      .map((item) => ({
         id: item.id,
         peopleId: item.peopleId,
         peopleFullName: item.peopleFullName?.trim() || `ID ${item.peopleId}`,
@@ -336,22 +294,21 @@ export class UniversityStudyDetailComponent implements OnInit {
       }));
   }
 
-  private buildPayload(institutionId: number): CreateEducationRecordRequest | null {
+  private buildPayload(institutionId: number): Omit<LocalUniversityStudyRecord, 'id'> | null {
     const peopleId = Number(this.formData.peopleId);
-    const userId = Number(this.formData.userId);
+    const userId = 1;
 
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      this.formErrorMessage = 'Выберите гражданина (peopleId).';
+      this.formErrorMessage = 'Выберите гражданина.';
       return null;
     }
 
-    if (!Number.isInteger(userId) || userId <= 0) {
-      this.formErrorMessage = 'Укажите корректный userId.';
-      return null;
-    }
+    const selectedPerson = this.peopleOptions.find((option) => Number(option.value) === peopleId);
+    const peopleFullName = selectedPerson?.label?.trim() || `ID ${peopleId}`;
 
     return {
       peopleId,
+      peopleFullName,
       institutionId,
       studyForm: this.formData.studyForm.trim(),
       faculty: this.formData.faculty.trim(),
@@ -361,6 +318,7 @@ export class UniversityStudyDetailComponent implements OnInit {
       graduationDate: this.formData.graduationDate || null,
       isDeferralActive: this.formData.isDeferralActive,
       userId,
+      userName: 'universityemployee',
     };
   }
 
@@ -374,8 +332,55 @@ export class UniversityStudyDetailComponent implements OnInit {
       expulsionDate: '',
       graduationDate: '',
       isDeferralActive: true,
-      userId: '',
     };
+  }
+
+  private readAllStudies(): LocalUniversityStudyRecord[] {
+    const raw = localStorage.getItem(this.localUniversityStudiesKey);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as LocalUniversityStudyRecord[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeAllStudies(records: LocalUniversityStudyRecord[]): void {
+    localStorage.setItem(this.localUniversityStudiesKey, JSON.stringify(records));
+  }
+
+  private readPeopleFromLocalSchool(): Array<{ id: number; fullName: string }> {
+    const raw = localStorage.getItem(this.localSchoolRecordsKey);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as LocalSchoolRecord[];
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+
+      const byId = new Map<number, string>();
+      parsed.forEach((item) => {
+        if ((item.status || '').trim() !== 'Закончил') {
+          return;
+        }
+        const id = Number(item.peopleId);
+        const name = (item.peopleFullName || '').trim();
+        if (Number.isInteger(id) && id > 0 && name) {
+          byId.set(id, name);
+        }
+      });
+
+      return Array.from(byId.entries()).map(([id, fullName]) => ({ id, fullName }));
+    } catch {
+      return [];
+    }
   }
 
   private normalizeDateInput(value: string | null): string {

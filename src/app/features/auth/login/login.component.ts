@@ -34,17 +34,17 @@ export class LoginComponent implements OnInit {
   private users: AuthUser[] = [];
 
   roleOptions: SelectOption[] = [
-    { value: 'admin', label: 'Админ' },
-    { value: 'maternity', label: 'Роддом' },
-    { value: 'zags', label: 'ЗАГС' },
-    { value: 'jek', label: 'ЖЭК' },
-    { value: 'passport', label: 'Паспортный стол' },
-    { value: 'school', label: 'Школа' },
-    { value: 'university', label: 'ВУЗ/Колледж' },
-    { value: 'clinic', label: 'Медцентр/Поликлиника' },
-    { value: 'vvk', label: 'Военкомат' },
+    { value: 'admin', label: 'Админ Системы' },
+    { value: 'maternity', label: 'ГКБ Роддом' },
+    { value: 'zags', label: 'ЗАГС Центральный' },
+    { value: 'jek', label: 'ЖЭК Центральный' },
+    { value: 'passport', label: 'Паспортный стол Центральный' },
+    { value: 'school', label: 'Школа №21' },
+    { value: 'university', label: 'Колледж №3' },
+    { value: 'clinic', label: 'Поликлиника №1' },
+    { value: 'vvk', label: 'ВВК Центральная' },
     { value: 'border', label: 'Пограничная служба' },
-    { value: 'superadmin', label: 'Суперадмин' },
+    { value: 'superadmin', label: 'Суперадмин Системы' },
   ];
 
   constructor(
@@ -94,6 +94,7 @@ export class LoginComponent implements OnInit {
           }
 
           this.authService.saveToken(token);
+          this.authService.saveCurrentUsername(username);
           this.applyRoleAfterLogin(username);
           this.navigateByRole();
         },
@@ -104,8 +105,10 @@ export class LoginComponent implements OnInit {
   }
 
   canSelectRole(): boolean {
-    return this.email.trim().toLowerCase() === this.adminUsernameMarker
-      && this.password.trim().toLowerCase() === this.adminPasswordMarker;
+    return (
+      this.email.trim().toLowerCase() === this.adminUsernameMarker &&
+      this.password.trim().toLowerCase() === this.adminPasswordMarker
+    );
   }
 
   onRoleChange(role: string): void {

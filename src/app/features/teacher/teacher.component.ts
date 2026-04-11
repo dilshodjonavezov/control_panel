@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-teacher',
@@ -10,6 +11,16 @@ import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
   styleUrl: './teacher.component.css'
 })
 export class TeacherComponent {
+  constructor(
+    private readonly authService: AuthService,
+    private readonly router: Router,
+  ) {}
+
+  logout(): void {
+    this.authService.clearToken();
+    void this.router.navigate(['/login']);
+  }
+
   menuItems = [
     { path: '/teacher/dashboard', label: 'Панель преподавателя', icon: '🧭' },
     { path: '/teacher/profile', label: 'Профиль', icon: '👤' },

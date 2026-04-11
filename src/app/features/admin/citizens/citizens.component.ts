@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { CitizenService } from '../../../services/citizen.service';
 import { Citizen, CitizenStatus, FitnessCategory } from '../../../models';
+import { LocalPersonWorkflowService } from '../../../services/local-person-workflow.service';
 import { TableComponent, TableColumn, ButtonComponent, InputComponent, CardComponent, ModalComponent, SelectComponent, SelectOption } from '../../../shared/components';
 
 @Component({
@@ -121,7 +122,8 @@ export class CitizensComponent implements OnInit {
 
   constructor(
     private citizenService: CitizenService,
-    private router: Router
+    private router: Router,
+    private workflowService: LocalPersonWorkflowService
   ) {}
 
   ngOnInit(): void {
@@ -129,7 +131,9 @@ export class CitizensComponent implements OnInit {
   }
 
   loadCitizens(): void {
-    this.citizens.set(this.citizenService.getCitizens()());
+    const baseCitizens = this.citizenService.getCitizens()();
+    const merged = this.mergeWorkflowEligibleCitizens(baseCitizens);
+    this.citizens.set(merged);
     this.applyFilters();
   }
 
@@ -273,6 +277,9 @@ export class CitizensComponent implements OnInit {
   }
 
   deleteCitizen(citizen: Citizen): void {
+    if (this.isReadonlyWorkflowCitizen(citizen)) {
+      return;
+    }
     if (confirm(`Вы уверены, что хотите удалить гражданина ${citizen.lastName} ${citizen.firstName}?`)) {
       this.citizenService.deleteCitizen(citizen.id);
       this.loadCitizens();
@@ -281,6 +288,10 @@ export class CitizensComponent implements OnInit {
 
   viewDetails(citizen: Citizen): void {
     this.router.navigate(['/admin/citizens', citizen.id]);
+  }
+
+  isReadonlyWorkflowCitizen(citizen: Citizen): boolean {
+    return citizen.id.startsWith('wf-fit-');
   }
 
   formatDate(date: Date | string): string {
@@ -312,5 +323,76 @@ export class CitizensComponent implements OnInit {
       value: value,
       label: this.statusLabels[value]
     }));
+  }
+
+  private mergeWorkflowEligibleCitizens(baseCitizens: Citizen[]): Citizen[] {
+    const result = [...baseCitizens];
+    const existingByName = new Map<string, Citizen>();
+    baseCitizens.forEach((citizen) => {
+      existingByName.set(this.normalizeFullName(this.joinFullName(citizen)), citizen);
+    });
+
+    const eligible = this.workflowService.getPeopleWithStatus('Годен к службе');
+    eligible.forEach((fullName) => {
+      const normalized = this.normalizeFullName(fullName);
+      const existing = existingByName.get(normalized);
+      if (existing) {
+        const patched: Citizen = {
+          ...existing,
+          status: CitizenStatus.CONSCRIPT,
+          fitnessCategory: existing.fitnessCategory || FitnessCategory.FIT,
+        };
+        const index = result.findIndex((item) => item.id === existing.id);
+        if (index >= 0) {
+          result[index] = patched;
+        }
+        return;
+      }
+
+      const parsed = this.parseFullName(fullName);
+      result.push({
+        id: `wf-fit-${normalized.replace(/\s+/g, '-')}`,
+        firstName: parsed.firstName,
+        lastName: parsed.lastName,
+        middleName: parsed.middleName,
+        birthDate: new Date('2005-01-01'),
+        status: CitizenStatus.CONSCRIPT,
+        fitnessCategory: FitnessCategory.FIT,
+        registrationAddress: 'Добавлен из поликлиники (призывной осмотр)',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+
+    return result;
+  }
+
+  private joinFullName(citizen: Citizen): string {
+    return [citizen.lastName, citizen.firstName, citizen.middleName || '']
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private parseFullName(fullName: string): { lastName: string; firstName: string; middleName?: string } {
+    const parts = (fullName || '').trim().split(/\s+/).filter((item) => item.length > 0);
+    if (parts.length === 0) {
+      return { lastName: 'Неизвестно', firstName: 'Неизвестно' };
+    }
+    if (parts.length === 1) {
+      return { lastName: parts[0], firstName: '—' };
+    }
+    if (parts.length === 2) {
+      return { lastName: parts[0], firstName: parts[1] };
+    }
+    return { lastName: parts[0], firstName: parts[1], middleName: parts.slice(2).join(' ') };
+  }
+
+  private normalizeFullName(value: string): string {
+    return (value || '')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/[.,]/g, '')
+      .trim();
   }
 }

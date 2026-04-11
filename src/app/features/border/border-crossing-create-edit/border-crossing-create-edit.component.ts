@@ -1,29 +1,8 @@
-﻿import { CommonModule } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
-import {
-  Component,
-  EventEmitter,
-  Input,
-  OnChanges,
-  OnDestroy,
-  OnInit,
-  Output,
-  SimpleChanges,
-  signal,
-} from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { asyncScheduler, finalize, observeOn } from 'rxjs';
-import {
-  BorderCrossingService,
-  CreateBorderCrossingRequest,
-} from '../../../services/border-crossing.service';
-import {
-  ButtonComponent,
-  CardComponent,
-  InputComponent,
-  SelectComponent,
-  SelectOption,
-} from '../../../shared/components';
+import { LocalPersonWorkflowService } from '../../../services/local-person-workflow.service';
+import { ButtonComponent, CardComponent, InputComponent, SelectComponent, SelectOption } from '../../../shared/components';
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
 
 interface BorderCrossingForm {
@@ -36,21 +15,41 @@ interface BorderCrossingForm {
   description: string;
 }
 
+interface LocalCrossingRecord {
+  id: number;
+  peopleId: number;
+  peopleName: string;
+  userId: number;
+  userName: string;
+  departureDate: string;
+  returnDate: string | null;
+  outsideBorder: boolean;
+  country: string;
+  description: string;
+}
+
+interface LocalMaternityItem {
+  id: number;
+  childFullName: string;
+}
+
+interface LocalSchoolRecord {
+  peopleId: number;
+  peopleFullName: string;
+}
+
 @Component({
   selector: 'app-border-crossing-create-edit',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    CardComponent,
-    InputComponent,
-    SelectComponent,
-    ButtonComponent,
-  ],
+  imports: [CommonModule, FormsModule, CardComponent, InputComponent, SelectComponent, ButtonComponent],
   templateUrl: './border-crossing-create-edit.component.html',
   styleUrl: './border-crossing-create-edit.component.css',
 })
 export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
+  private readonly crossingsStorageKey = 'local_border_crossings_v1';
+  private readonly schoolStorageKey = 'local_school_records_v1';
+  private readonly maternityStorageKey = 'local_maternity_seed_v1';
+
   @Input() citizen: CitizenReadCardData | null = null;
   @Input() recordId: string | null = null;
   @Input() embedded: boolean = false;
@@ -73,7 +72,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     { value: 'false', label: 'Нет' },
   ];
 
-  constructor(private readonly borderCrossingService: BorderCrossingService) {}
+  constructor(private readonly workflowService: LocalPersonWorkflowService) {}
 
   ngOnInit(): void {
     this.loadReferenceData();
@@ -94,32 +93,39 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
 
     this.errorMessage = '';
     this.isSubmitting = true;
+
+    const records = this.readCrossings();
     const recordId = Number(this.recordId);
     const isEdit = Number.isInteger(recordId) && recordId > 0;
 
-    const request$ = isEdit
-      ? this.borderCrossingService.update(recordId, payload)
-      : this.borderCrossingService.create(payload);
-
-    request$
-      .pipe(
-        finalize(() => {
-          this.isSubmitting = false;
-        }),
-      )
-      .subscribe({
-        next: () => {
-          this.status.set('SAVED');
-          this.lastActionAt.set(this.getNowLabel());
-          this.saved.emit();
-          if (this.embedded) {
-            this.closed.emit();
-          }
-        },
-        error: (error: HttpErrorResponse) => {
-          this.errorMessage = this.resolveApiError(error);
-        },
+    if (isEdit) {
+      const existingIndex = records.findIndex((item) => item.id === recordId);
+      if (existingIndex < 0) {
+        this.errorMessage = 'Запись не найдена.';
+        this.isSubmitting = false;
+        return;
+      }
+      records[existingIndex] = { ...records[existingIndex], ...payload };
+    } else {
+      const nextId = records.length > 0 ? Math.max(...records.map((item) => item.id)) + 1 : 1;
+      records.unshift({
+        id: nextId,
+        ...payload,
       });
+    }
+
+    this.writeCrossings(records);
+    this.workflowService.linkPersonIdToName(payload.peopleId, payload.peopleName);
+    this.workflowService.applyBorderState(payload.peopleName, payload.outsideBorder);
+
+    this.status.set('SAVED');
+    this.lastActionAt.set(this.getNowLabel());
+    this.saved.emit();
+    if (this.embedded) {
+      this.closed.emit();
+    }
+
+    this.isSubmitting = false;
   }
 
   close(): void {
@@ -149,85 +155,64 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       return;
     }
 
-    this.isLoading = true;
-    this.borderCrossingService
-      .getById(id)
-      .pipe(
-        observeOn(asyncScheduler),
-        finalize(() => {
-          this.isLoading = false;
-        }),
-      )
-      .subscribe({
-        next: (item) => {
-          if (!item) {
-            this.errorMessage = 'Запись не найдена.';
-            return;
-          }
+    const item = this.readCrossings().find((record) => record.id === id);
+    if (!item) {
+      this.errorMessage = 'Запись не найдена.';
+      return;
+    }
 
-          this.form = {
-            peopleId: item.peopleId.toString(),
-            userId: item.userId.toString(),
-            departureDate: this.toDateTimeLocal(item.departureDate),
-            returnDate: item.returnDate ? this.toDateTimeLocal(item.returnDate) : '',
-            outsideBorder: item.outsideBorder ? 'true' : 'false',
-            country: item.country ?? '',
-            description: item.description ?? '',
-          };
-        },
-        error: () => {
-          this.errorMessage = 'Не удалось загрузить запись.';
-        },
-      });
+    this.form = {
+      peopleId: item.peopleId.toString(),
+      userId: item.userId.toString(),
+      departureDate: this.toDateTimeLocal(item.departureDate),
+      returnDate: item.returnDate ? this.toDateTimeLocal(item.returnDate) : '',
+      outsideBorder: item.outsideBorder ? 'true' : 'false',
+      country: item.country ?? '',
+      description: item.description ?? '',
+    };
   }
 
   private loadReferenceData(): void {
     this.isReferenceLoading = true;
 
-    this.borderCrossingService.getPeople().subscribe({
-      next: (people) => {
-        this.peopleOptions.set(
-          people.map((item) => ({
-            value: item.id,
-            label: item.fullName?.trim() ? item.fullName : `${item.id}`,
-          })),
-        );
-      },
-      error: () => {
-        this.errorMessage = 'Не удалось загрузить список людей.';
-      },
+    const linkedFromWorkflow = this.readWorkflowPeople();
+    const fromSchool = this.readSchoolPeople();
+    const fromMaternity = this.readMaternityPeople();
+
+    const combined = new Map<number, string>();
+    [...linkedFromWorkflow, ...fromSchool, ...fromMaternity].forEach((item) => {
+      if (item.id > 0 && item.fullName.trim()) {
+        combined.set(item.id, item.fullName.trim());
+      }
     });
 
-    this.borderCrossingService
-      .getUsers()
-      .pipe(
-        finalize(() => {
-          this.isReferenceLoading = false;
-        }),
-      )
-      .subscribe({
-        next: (users) => {
-          this.userOptions.set(
-            users.map((item) => ({
-              value: item.id,
-              label: item.fullName?.trim() ? item.fullName : `${item.id}`,
-            })),
-          );
-        },
-        error: () => {
-          this.errorMessage = this.errorMessage
-            ? `${this.errorMessage} Не удалось загрузить список пользователей.`
-            : 'Не удалось загрузить список пользователей.';
-        },
-      });
+    this.peopleOptions.set(
+      Array.from(combined.entries())
+        .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
+        .map(([id, fullName]) => ({ value: id, label: fullName })),
+    );
+
+    this.userOptions.set([
+      { value: 1, label: 'admin' },
+      { value: 2, label: 'borderemployee' },
+    ]);
+
+    this.isReferenceLoading = false;
   }
 
-  private buildPayload(): CreateBorderCrossingRequest | null {
+  private buildPayload(): Omit<LocalCrossingRecord, 'id'> | null {
     const peopleId = Number(this.form.peopleId);
     const userId = Number(this.form.userId);
+    const peopleName = this.resolveSelectedPeopleName(peopleId);
+    const userName = this.resolveSelectedUserName(userId);
 
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
       this.errorMessage = 'Выберите гражданина.';
+      return null;
+    }
+
+    if (!peopleName) {
+      this.errorMessage = 'Не найдено имя гражданина.';
       return null;
     }
 
@@ -243,7 +228,9 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
 
     return {
       peopleId,
+      peopleName,
       userId,
+      userName,
       departureDate: new Date(this.form.departureDate).toISOString(),
       returnDate: this.form.returnDate ? new Date(this.form.returnDate).toISOString() : null,
       outsideBorder: this.form.outsideBorder === 'true',
@@ -255,13 +242,86 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   private createDefaultForm(): BorderCrossingForm {
     return {
       peopleId: '',
-      userId: '',
+      userId: '2',
       departureDate: '',
       returnDate: '',
       outsideBorder: 'true',
       country: '',
       description: '',
     };
+  }
+
+  private readCrossings(): LocalCrossingRecord[] {
+    const raw = localStorage.getItem(this.crossingsStorageKey);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as LocalCrossingRecord[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeCrossings(records: LocalCrossingRecord[]): void {
+    localStorage.setItem(this.crossingsStorageKey, JSON.stringify(records));
+  }
+
+  private readSchoolPeople(): Array<{ id: number; fullName: string }> {
+    const raw = localStorage.getItem(this.schoolStorageKey);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as LocalSchoolRecord[];
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .map((item) => ({ id: Number(item.peopleId), fullName: item.peopleFullName || '' }))
+        .filter((item) => Number.isInteger(item.id) && item.id > 0 && item.fullName.trim());
+    } catch {
+      return [];
+    }
+  }
+
+  private readMaternityPeople(): Array<{ id: number; fullName: string }> {
+    const raw = localStorage.getItem(this.maternityStorageKey);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as LocalMaternityItem[];
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .map((item) => ({ id: Number(item.id), fullName: item.childFullName || '' }))
+        .filter((item) => Number.isInteger(item.id) && item.id > 0 && item.fullName.trim());
+    } catch {
+      return [];
+    }
+  }
+
+  private readWorkflowPeople(): Array<{ id: number; fullName: string }> {
+    const raw = localStorage.getItem('local_person_workflow_v1');
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as { personNameById?: Record<string, string> };
+      const links = parsed.personNameById ?? {};
+      return Object.keys(links)
+        .map((idKey) => ({ id: Number(idKey), fullName: links[idKey] ?? '' }))
+        .filter((item) => Number.isInteger(item.id) && item.id > 0 && item.fullName.trim());
+    } catch {
+      return [];
+    }
   }
 
   private toDateTimeLocal(value: string): string {
@@ -286,27 +346,20 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     return Number.isInteger(peopleId) ? peopleId : null;
   }
 
+  private resolveSelectedPeopleName(peopleId: number): string {
+    const option = this.peopleOptions().find((item) => Number(item.value) === peopleId);
+    return option?.label?.trim() || '';
+  }
+
+  private resolveSelectedUserName(userId: number): string {
+    const option = this.userOptions().find((item) => Number(item.value) === userId);
+    return option?.label?.trim() || `ID ${userId}`;
+  }
+
   private getNowLabel(): string {
     const now = new Date();
     const date = now.toLocaleDateString('ru-RU');
     const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
     return `${date} ${time}`;
-  }
-
-  private resolveApiError(error: HttpErrorResponse | undefined): string {
-    const payload = error?.error;
-
-    if (payload && typeof payload === 'object') {
-      const message = (payload as Record<string, unknown>)['message'];
-      if (typeof message === 'string' && message.trim()) {
-        return message;
-      }
-    }
-
-    if (typeof payload === 'string' && payload.trim()) {
-      return payload;
-    }
-
-    return this.recordId ? 'Не удалось обновить запись.' : 'Не удалось создать запись.';
   }
 }

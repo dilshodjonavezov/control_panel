@@ -60,7 +60,7 @@
     }
   </app-modal>
 
-  <app-modal [show]="showMedicalModal" [title]="'История болезни (read-only)'" size="xl" (closed)="closeMedical()">
+  <app-modal [show]="showMedicalModal" [title]="'История болезни (только просмотр)'" size="xl" (closed)="closeMedical()">
     @if (showMedicalModal) {
       <app-medical-record-read-only [citizenName]="selectedCitizen()?.fullName || '—'"></app-medical-record-read-only>
     }

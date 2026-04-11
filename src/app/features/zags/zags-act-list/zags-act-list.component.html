@@ -1,8 +1,7 @@
-<div class="space-y-6">
+﻿<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Реестр актов</h1>
-      <p class="mt-2 text-gray-600">Данные из API `/api/zags-birth-records`.</p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadRecords()">Обновить</app-button>
@@ -14,7 +13,7 @@
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <app-input label="Акт №" placeholder="2" [(ngModel)]="filters.actNumber"></app-input>
       <app-input label="Гражданин" placeholder="ФИО" [(ngModel)]="filters.fullName"></app-input>
-      <app-input label="Статус" placeholder="test" [(ngModel)]="filters.status"></app-input>
+      <app-input label="Статус" placeholder="Например: Зарегистрирован" [(ngModel)]="filters.status"></app-input>
     </div>
   </app-card>
 
@@ -41,8 +40,24 @@
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfRegistration }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthPlace }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fatherPersonId ?? '—' }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fatherFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.motherFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          @if (row.childrenCount > 0) {
+            <button
+              type="button"
+              class="rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+              (click)="openChildren(row)"
+            >
+              {{ row.childrenInfo }}
+            </button>
+          } @else {
+            <span class="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+              0 детей
+            </span>
+          }
+        </td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.status }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
       </ng-template>
@@ -74,6 +89,25 @@
     </app-table>
   </app-card>
 
+  <app-modal [show]="showChildrenModal" [title]="childrenModalTitle" size="xl" (closed)="closeChildrenModal()">
+    <app-table
+      [columns]="childrenColumns"
+      [data]="selectedChildren"
+      [emptyMessage]="'У этой записи пока нет детей'"
+      [rowTemplate]="childrenRowTemplate"
+    >
+      <ng-template #childrenRowTemplate let-row>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.childFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfBirth }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getGenderLabel(row.gender) }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthWeight }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+      </ng-template>
+    </app-table>
+  </app-modal>
+
   <app-modal [show]="showFormModal" [title]="formModalTitle" size="lg" (closed)="closeFormModal()">
     <div class="space-y-4">
       @if (formErrorMessage) {
@@ -81,16 +115,33 @@
       }
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <app-input type="number" label="peopleId" placeholder="1" [(ngModel)]="formData.peopleId"></app-input>
-        <app-input type="number" label="userId" placeholder="1" [(ngModel)]="formData.userId"></app-input>
-        <app-input label="actNumber" placeholder="2" [(ngModel)]="formData.actNumber"></app-input>
-        <app-input type="date" label="registrationDate" [(ngModel)]="formData.registrationDate"></app-input>
-        <app-input type="date" label="birthDate" [(ngModel)]="formData.birthDate"></app-input>
-        <app-input label="placeOfRegistration" placeholder="ok" [(ngModel)]="formData.placeOfRegistration"></app-input>
-        <app-input label="birthPlace" placeholder="khujand" [(ngModel)]="formData.birthPlace"></app-input>
-        <app-input label="fatherFullName" placeholder="O.O" [(ngModel)]="formData.fatherFullName"></app-input>
-        <app-input label="motherFullName" placeholder="D.D" [(ngModel)]="formData.motherFullName"></app-input>
-        <app-input label="status" placeholder="test" [(ngModel)]="formData.status"></app-input>
+        <app-select label="Тип акта" [options]="typeOptions" [(ngModel)]="formData.actType" class="md:col-span-2"></app-select>
+        <app-input type="date" label="Дата регистрации" [(ngModel)]="formData.registrationDate"></app-input>
+        <app-input label="Место регистрации" placeholder="Отдел ЗАГС №1" [(ngModel)]="formData.placeOfRegistration"></app-input>
+
+        @if (isBirthType()) {
+          <app-input type="date" label="Дата рождения" [(ngModel)]="formData.birthDate"></app-input>
+          <app-input label="Место рождения" placeholder="г. Худжанд" [(ngModel)]="formData.birthPlace"></app-input>
+          <app-input label="ФИО ребенка" placeholder="Иванов Иван Иванович" [(ngModel)]="formData.childFullName"></app-input>
+          <app-input label="ФИО отца" placeholder="Иванов Петр Алиевич" [(ngModel)]="formData.fatherFullName"></app-input>
+          <app-input label="ФИО матери" placeholder="Иванова Мария Петровна" [(ngModel)]="formData.motherFullName"></app-input>
+        }
+
+        @if (isMarriageType()) {
+          <app-input type="date" label="Дата регистрации брака" [(ngModel)]="formData.marriageDate"></app-input>
+          <app-input label="Место заключения брака" placeholder="Отдел ЗАГС №1" [(ngModel)]="formData.marriagePlace"></app-input>
+          <app-input label="Супруг(а) 1" placeholder="ФИО" [(ngModel)]="formData.spouseOneFullName"></app-input>
+          <app-input label="Супруг(а) 2" placeholder="ФИО" [(ngModel)]="formData.spouseTwoFullName"></app-input>
+        }
+
+        @if (isDeathType()) {
+          <app-input type="date" label="Дата смерти" [(ngModel)]="formData.deathDate"></app-input>
+          <app-input label="Место смерти" placeholder="г. Худжанд" [(ngModel)]="formData.deathPlace"></app-input>
+          <app-input label="ФИО умершего" placeholder="ФИО" [(ngModel)]="formData.deceasedFullName"></app-input>
+          <app-input label="Причина смерти" placeholder="Причина" [(ngModel)]="formData.deathReason"></app-input>
+        }
+
+        <app-input label="Статус" placeholder="Например: Зарегистрирован" [(ngModel)]="formData.status"></app-input>
       </div>
 
       <div class="flex justify-end gap-2">

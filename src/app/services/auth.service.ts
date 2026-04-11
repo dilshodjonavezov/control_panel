@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 export interface LoginRequest {
@@ -40,6 +40,41 @@ export class AuthService {
   private readonly apiUrl = `${environment.apiBaseUrl}/api/Auth`;
   private readonly usersApiUrl = `${environment.apiBaseUrl}/api/users`;
   private readonly tokenStorageKey = 'auth_token';
+  private readonly usernameStorageKey = 'auth_username';
+  private readonly localUsers: AuthUser[] = [
+    {
+      id: 1,
+      fullName: 'Администратор системы',
+      username: 'admin',
+      email: 'admin@example.com',
+      roleId: 1,
+      lastLogin: null,
+    },
+    {
+      id: 2,
+      fullName: 'Сотрудник роддома',
+      username: 'maternity',
+      email: 'maternity@example.com',
+      roleId: 2,
+      lastLogin: null,
+    },
+    {
+      id: 3,
+      fullName: 'Сотрудник ЗАГС',
+      username: 'zags',
+      email: 'zags@example.com',
+      roleId: 3,
+      lastLogin: null,
+    },
+    {
+      id: 4,
+      fullName: 'Сотрудник погранслужбы',
+      username: 'borderemployee',
+      email: 'border@example.com',
+      roleId: 4,
+      lastLogin: null,
+    },
+  ];
 
   constructor(private readonly http: HttpClient) {}
 
@@ -55,7 +90,10 @@ export class AuthService {
   getUsers(): Observable<AuthUser[]> {
     return this.http
       .get<ApiResponse<AuthUser[]> | AuthUser[]>(this.usersApiUrl)
-      .pipe(map((response) => this.unwrapArray<AuthUser>(response)));
+      .pipe(
+        map((response) => this.unwrapArray<AuthUser>(response)),
+        catchError(() => of(this.localUsers)),
+      );
   }
 
   saveToken(token: string): void {
@@ -68,6 +106,19 @@ export class AuthService {
 
   clearToken(): void {
     localStorage.removeItem(this.tokenStorageKey);
+    localStorage.removeItem(this.usernameStorageKey);
+  }
+
+  saveCurrentUsername(username: string): void {
+    if (!username.trim()) {
+      return;
+    }
+    localStorage.setItem(this.usernameStorageKey, username.trim());
+  }
+
+  getCurrentUsername(): string | null {
+    const value = localStorage.getItem(this.usernameStorageKey);
+    return value?.trim() ? value.trim() : null;
   }
 
   private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {

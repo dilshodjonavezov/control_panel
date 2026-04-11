@@ -1,6 +1,7 @@
 ﻿import { Component } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-admin',
@@ -10,6 +11,16 @@ import { CommonModule } from '@angular/common';
   styleUrl: './admin.component.css'
 })
 export class AdminComponent {
+  constructor(
+    private readonly authService: AuthService,
+    private readonly router: Router,
+  ) {}
+
+  logout(): void {
+    this.authService.clearToken();
+    void this.router.navigate(['/login']);
+  }
+
   menuItems = [
     { path: '/admin/dashboard', label: 'Панель управления', icon: '📊' },
     { path: '/admin/citizens', label: 'Призывники', icon: '🧑‍✈️' },

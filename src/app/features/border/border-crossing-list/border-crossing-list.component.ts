@@ -1,8 +1,6 @@
-﻿import { CommonModule } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { TimeoutError, catchError, finalize, forkJoin, of, timeout } from 'rxjs';
-import { BorderCrossingService } from '../../../services/border-crossing.service';
 import {
   ButtonComponent,
   CardComponent,
@@ -28,6 +26,19 @@ interface BorderCrossingItem {
   description: string;
 }
 
+interface LocalCrossingRecord {
+  id: number;
+  peopleId: number;
+  peopleName: string;
+  userId: number;
+  userName: string;
+  departureDate: string;
+  returnDate: string | null;
+  outsideBorder: boolean;
+  country: string;
+  description: string;
+}
+
 @Component({
   selector: 'app-border-crossing-list',
   standalone: true,
@@ -46,6 +57,8 @@ interface BorderCrossingItem {
   styleUrl: './border-crossing-list.component.css',
 })
 export class BorderCrossingListComponent implements OnInit {
+  private readonly crossingsStorageKey = 'local_border_crossings_v1';
+
   filters = {
     id: '',
     outsideBorder: 'all',
@@ -78,10 +91,7 @@ export class BorderCrossingListComponent implements OnInit {
   selectedRecordId: string | null = null;
   deletingRecord: BorderCrossingItem | null = null;
 
-  constructor(
-    private readonly borderCrossingService: BorderCrossingService,
-    private readonly cdr: ChangeDetectorRef,
-  ) {}
+  constructor(private readonly cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
     this.loadCrossings();
@@ -106,50 +116,22 @@ export class BorderCrossingListComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    forkJoin({
-      crossings: this.borderCrossingService.getAll().pipe(timeout(15000)),
-      people: this.borderCrossingService.getPeople().pipe(catchError(() => of([]))),
-      users: this.borderCrossingService.getUsers().pipe(catchError(() => of([]))),
-    }).subscribe({
-      next: ({ crossings, people, users }) => {
-        const peopleMap = new Map<number, string>(
-          people.map((item) => [item.id, item.fullName?.trim() || `ID ${item.id}`]),
-        );
-        const usersMap = new Map<number, string>(
-          users.map((item) => [item.id, item.fullName?.trim() || `ID ${item.id}`]),
-        );
+    const records = this.readCrossings();
+    this.crossings = records.map((item) => ({
+      id: item.id,
+      peopleId: item.peopleId,
+      peopleName: item.peopleName || `ID ${item.peopleId}`,
+      userId: item.userId,
+      userName: item.userName || `ID ${item.userId}`,
+      departureDate: this.formatDateTime(item.departureDate),
+      returnDate: item.returnDate ? this.formatDateTime(item.returnDate) : '-',
+      outsideBorder: item.outsideBorder ? 'Да' : 'Нет',
+      country: item.country || '-',
+      description: item.description || '-',
+    }));
 
-        this.crossings = crossings.map((item) => ({
-          id: item.id,
-          peopleId: item.peopleId,
-          peopleName: peopleMap.get(item.peopleId) ?? `ID ${item.peopleId}`,
-          userId: item.userId,
-          userName: usersMap.get(item.userId) ?? `ID ${item.userId}`,
-          departureDate: this.formatDateTime(item.departureDate),
-          returnDate: item.returnDate ? this.formatDateTime(item.returnDate) : '-',
-          outsideBorder: item.outsideBorder ? 'Да' : 'Нет',
-          country: item.country ?? '-',
-          description: item.description ?? '-',
-        }));
-
-        this.isLoading = false;
-        this.cdr.detectChanges();
-      },
-      error: (error: unknown) => {
-        this.isLoading = false;
-        if (error instanceof TimeoutError) {
-          this.errorMessage = 'Превышено время ожидания ответа API.';
-        } else {
-          this.errorMessage = 'Не удалось загрузить данные пересечений.';
-        }
-        this.crossings = [];
-        this.cdr.detectChanges();
-      },
-      complete: () => {
-        this.isLoading = false;
-        this.cdr.detectChanges();
-      },
-    });
+    this.isLoading = false;
+    this.cdr.detectChanges();
   }
 
   openCreate(): void {
@@ -185,27 +167,35 @@ export class BorderCrossingListComponent implements OnInit {
     this.isDeleting = true;
     this.errorMessage = '';
 
-    this.borderCrossingService
-      .delete(this.deletingRecord.id)
-      .pipe(
-        finalize(() => {
-          this.isDeleting = false;
-        }),
-      )
-      .subscribe({
-        next: () => {
-          this.closeDeleteModal();
-          this.loadCrossings();
-        },
-        error: () => {
-          this.errorMessage = 'Не удалось удалить запись.';
-        },
-      });
+    const updated = this.readCrossings().filter((item) => item.id !== this.deletingRecord!.id);
+    this.writeCrossings(updated);
+
+    this.isDeleting = false;
+    this.closeDeleteModal();
+    this.loadCrossings();
   }
 
   onRecordSaved(): void {
     this.closeModal();
     this.loadCrossings();
+  }
+
+  private readCrossings(): LocalCrossingRecord[] {
+    const raw = localStorage.getItem(this.crossingsStorageKey);
+    if (!raw) {
+      return [];
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as LocalCrossingRecord[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private writeCrossings(records: LocalCrossingRecord[]): void {
+    localStorage.setItem(this.crossingsStorageKey, JSON.stringify(records));
   }
 
   private formatDateTime(dateValue: string | null | undefined): string {

@@ -1,16 +1,16 @@
-﻿<div class="space-y-6">
+<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Электронная карта пациента</h1>
-      <p class="mt-2 text-gray-600">Просмотр карты и истории посещений.</p>
+      <p class="mt-2 text-gray-600">Просмотр карты и истории осмотров.</p>
     </div>
-    <app-button variant="primary" (clicked)="addVisit()">Добавить посещение</app-button>
+    <app-button variant="primary" (clicked)="openCreateExamModal()">Призывной осмотр</app-button>
   </div>
 
-  <app-card title="Фильтры посещений">
+  <app-card title="Фильтры">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
       <app-input label="Врач" placeholder="Фамилия врача" [(ngModel)]="draftFilters.doctor"></app-input>
-      <app-input label="Диагноз" placeholder="Например, ОРВИ" [(ngModel)]="draftFilters.diagnosis"></app-input>
+      <app-input label="Диагноз" placeholder="Например, Годен" [(ngModel)]="draftFilters.diagnosis"></app-input>
       <app-select label="Статус" [options]="statusFilterOptions" [(ngModel)]="draftFilters.status"></app-select>
       <app-input label="Дата с" type="date" [(ngModel)]="draftFilters.dateFrom"></app-input>
       <app-input label="Дата по" type="date" [(ngModel)]="draftFilters.dateTo"></app-input>
@@ -23,54 +23,122 @@
     </div>
   </app-card>
 
-  @if (recordStatus() === 'EXISTS') {
-    <app-card>
-      <app-table
-        [columns]="columns"
-        [data]="filteredVisits"
-        [rowTemplate]="rowTemplate"
-        [actionsTemplate]="actionsTemplate"
-        [emptyMessage]="'Посещений нет'"
-      >
-        <ng-template #rowTemplate let-row>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.patientFullName }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.date }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.doctor }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.diagnosis }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
-        </ng-template>
+  <app-card>
+    <app-table
+      [columns]="columns"
+      [data]="filteredVisits"
+      [rowTemplate]="rowTemplate"
+      [actionsTemplate]="actionsTemplate"
+      [emptyMessage]="'Осмотров нет'"
+    >
+      <ng-template #rowTemplate let-row>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.patientFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.date }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.doctor }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.diagnosis }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+      </ng-template>
 
-        <ng-template #actionsTemplate let-row>
-          <div class="flex items-center gap-2">
-            <app-button variant="outline" size="sm" (clicked)="openVisit(row)">Открыть</app-button>
-          </div>
-        </ng-template>
-      </app-table>
-    </app-card>
-  }
+      <ng-template #actionsTemplate let-row>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
+            title="Изменить"
+            (click)="openEditExamModal(row)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.707 8.707a2 2 0 0 1-.878.497l-2.425.693a.75.75 0 0 1-.928-.928l.693-2.425a2 2 0 0 1 .497-.878l8.92-8.494Z"/>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 text-red-600 hover:bg-red-50"
+            title="Удалить"
+            (click)="openDeleteModal(row)"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
+              <path fill-rule="evenodd" d="M8.75 2.5a1 1 0 0 0-1 1V4h4.5v-.5a1 1 0 0 0-1-1h-2.5Zm-3 3a.75.75 0 0 0 0 1.5h.53l.53 9.28A2 2 0 0 0 8.806 18h2.388a2 2 0 0 0 1.996-1.72l.53-9.28h.53a.75.75 0 0 0 0-1.5h-8.5Z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+      </ng-template>
+    </app-table>
+  </app-card>
 
-  <app-modal [show]="showVisitModal" [title]="'Посещение'" size="xl" (closed)="closeVisitModal()">
-    @if (showVisitModal) {
-      <div class="max-h-[70vh] overflow-y-auto pr-1">
-        <app-medical-visit-add-edit
-          [recordId]="selectedVisitId"
-          [embedded]="true"
-          (closed)="closeVisitModal()"
-          (saved)="handleVisitSaved($event)"
-        ></app-medical-visit-add-edit>
+  <app-modal [show]="showExamModal" [title]="examModalTitle" size="xl" (closed)="closeExamModal()">
+    @if (showExamModal) {
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <app-select
+            label="Кандидат (школа: Закончил)"
+            [options]="candidateOptions"
+            placeholder="Выберите кандидата"
+            [(ngModel)]="selectedCandidateId"
+            (changed)="onCandidateChanged($event)"
+          ></app-select>
+
+          <app-input
+            type="date"
+            label="Дата осмотра"
+            [(ngModel)]="examForm.examDate"
+          ></app-input>
+
+          <app-input
+            label="Врач, который осмотрел"
+            placeholder="ФИО врача"
+            [(ngModel)]="examForm.doctor"
+          ></app-input>
+
+          <app-select
+            label="Решение комиссии"
+            [options]="decisionOptions"
+            placeholder="Выберите решение"
+            [(ngModel)]="examForm.decision"
+            (changed)="onDecisionChanged($event)"
+          ></app-select>
+
+          <app-select
+            label="Причина"
+            [options]="reasonOptions"
+            placeholder="Выберите причину"
+            [disabled]="!examForm.decision"
+            [(ngModel)]="examForm.reason"
+          ></app-select>
+        </div>
+
+        <app-input label="Комментарий врача (опционально)" [(ngModel)]="examForm.note"></app-input>
+
+        @if (examErrorMessage) {
+          <p class="text-sm text-red-600">{{ examErrorMessage }}</p>
+        }
+        @if (examSuccessMessage) {
+          <p class="text-sm text-green-700">{{ examSuccessMessage }}</p>
+        }
+
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <app-button variant="secondary" (clicked)="closeExamModal()">Закрыть</app-button>
+          <app-button variant="primary" (clicked)="saveFitnessDecision()">
+            {{ isEditExamMode ? 'Сохранить изменения' : 'Сохранить' }}
+          </app-button>
+        </div>
       </div>
     }
   </app-modal>
 
-  <app-modal [show]="showAttachmentsModal" [title]="'Вложения'" size="lg" (closed)="closeAttachments()">
-    @if (showAttachmentsModal) {
-      <app-attachments-upload></app-attachments-upload>
-    }
-  </app-modal>
-
-  <app-modal [show]="showRecordModal" [title]="'Медицинская карта'" size="lg" (closed)="closeRecordModal()">
-    @if (showRecordModal) {
-      <app-medical-record-create-edit [citizen]="citizen()" [embedded]="true" (closed)="closeRecordModal()"></app-medical-record-create-edit>
-    }
+  <app-modal [show]="showDeleteModal" [title]="'Удаление осмотра'" size="md" (closed)="closeDeleteModal()">
+    <div class="space-y-4">
+      <p class="text-sm text-gray-700">
+        Удалить запись осмотра
+        @if (deletingVisit) {
+          <span class="font-semibold">({{ deletingVisit.patientFullName }}, {{ deletingVisit.date }})</span>
+        }
+        ?
+      </p>
+      <div class="flex justify-end gap-2">
+        <app-button variant="secondary" (clicked)="closeDeleteModal()">Отмена</app-button>
+        <app-button variant="danger" (clicked)="confirmDeleteVisit()">Удалить</app-button>
+      </div>
+    </div>
   </app-modal>
 </div>

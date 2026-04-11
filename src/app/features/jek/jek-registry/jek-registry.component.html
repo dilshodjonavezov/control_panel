@@ -2,7 +2,6 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Реестр ЖЭК</h1>
-      <p class="mt-2 text-gray-600">Данные из API `/api/residence-records`.</p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
@@ -79,14 +78,14 @@
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <app-select
-          label="Гражданин (peopleId)"
+          label="Гражданин (ID)"
           [options]="peopleOptions"
           placeholder="Выберите гражданина"
           [(ngModel)]="formData.peopleId"
         ></app-select>
 
         <app-select
-          label="Пользователь (userId)"
+          label="Пользователь (ID)"
           [options]="userOptions"
           placeholder="Выберите пользователя"
           [(ngModel)]="formData.userId"

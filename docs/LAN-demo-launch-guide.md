@@ -49,7 +49,7 @@ git --version
 Откройте `PowerShell` в нужной папке и выполните:
 
 ```powershell
-git clone <ССЫЛКА_НА_ВАШ_GIT_РЕПОЗИТОРИЙ>
+git clone https://github.com/dilshodjonavezov/control_panel.git
 cd control_panel
 ```
 

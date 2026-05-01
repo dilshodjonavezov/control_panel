@@ -11,7 +11,8 @@ declare global {
 function resolveApiBaseUrl(): string {
   const runtimeValue = window.__CONTROL_PANEL_CONFIG__?.apiBaseUrl?.trim();
   if (runtimeValue) {
-    return runtimeValue.replace(/\/$/, '');
+    const normalized = runtimeValue.replace(/\/$/, '');
+    return normalized.endsWith('/api') ? normalized.slice(0, -4) : normalized;
   }
 
   const currentHostname = window.location.hostname?.trim();

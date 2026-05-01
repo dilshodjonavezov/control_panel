@@ -20,7 +20,9 @@ export class MedicalVisitsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
   }
 
   async create(dto: CreateMedicalVisitDto): Promise<Record<string, unknown>> {
@@ -181,3 +183,4 @@ export class MedicalVisitsService implements OnModuleInit {
     return numericId;
   }
 }
+

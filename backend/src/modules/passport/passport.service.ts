@@ -20,7 +20,9 @@ export class PassportService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
     await this.backfillExpireDates();
   }
 
@@ -227,3 +229,4 @@ export class PassportService implements OnModuleInit {
     return numericId;
   }
 }
+

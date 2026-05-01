@@ -20,7 +20,9 @@ export class VvkResultsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
   }
 
   async create(dto: CreateVvkResultDto): Promise<Record<string, unknown>> {
@@ -208,3 +210,4 @@ export class VvkResultsService implements OnModuleInit {
     return numericId;
   }
 }
+

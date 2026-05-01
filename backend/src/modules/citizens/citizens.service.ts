@@ -16,7 +16,9 @@ export class CitizensService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     await this.backfillMissingIds();
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
   }
 
   async create(createCitizenDto: CreateCitizenDto): Promise<Record<string, unknown>> {
@@ -214,3 +216,4 @@ export class CitizensService implements OnModuleInit {
     }
   }
 }
+

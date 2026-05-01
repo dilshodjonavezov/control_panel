@@ -20,7 +20,9 @@ export class BorderService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
   }
 
   async create(dto: CreateBorderCrossingDto): Promise<Record<string, unknown>> {
@@ -223,3 +225,4 @@ export class BorderService implements OnModuleInit {
     return numericId;
   }
 }
+

@@ -31,7 +31,9 @@ export class EducationRecordsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
   }
 
   async create(dto: CreateEducationRecordDto): Promise<Record<string, unknown>> {
@@ -478,3 +480,4 @@ export class EducationRecordsService implements OnModuleInit {
     return `${normalizedCurrent}\n${next}`;
   }
 }
+

@@ -19,7 +19,9 @@ export class EducationInstitutionsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
   }
 
   async create(dto: CreateEducationInstitutionDto): Promise<Record<string, unknown>> {
@@ -115,3 +117,4 @@ export class EducationInstitutionsService implements OnModuleInit {
     return numericId;
   }
 }
+

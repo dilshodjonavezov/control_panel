@@ -26,7 +26,9 @@ export class ZagsService implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    await this.seedDefaults();
+    if (process.env.ENABLE_DOMAIN_SEEDS === 'true') {
+      await this.seedDefaults();
+    }
     await this.backfillBirthLinks();
   }
 
@@ -675,3 +677,4 @@ export class ZagsService implements OnModuleInit {
     }
   }
 }
+

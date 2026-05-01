@@ -1,6 +1,7 @@
 ﻿import { CommonModule } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, ViewChild } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import { catchError, finalize, forkJoin, of, TimeoutError, timeout } from 'rxjs';
 import { ButtonComponent, CardComponent, ModalComponent, TableComponent, TableColumn } from '../../../shared/components';
 import { BirthRecordCreateComponent, type BirthRecordCreatePayload } from '../birth-record-create/birth-record-create.component';
@@ -37,6 +38,8 @@ interface BirthRecordItem {
   styleUrl: './birth-record-list.component.css',
 })
 export class BirthRecordListComponent implements OnInit {
+  @ViewChild(BirthRecordCreateComponent) private birthRecordCreateComponent?: BirthRecordCreateComponent;
+
   columns: TableColumn[] = [
     { key: 'id', label: 'ID', sortable: true },
     { key: 'birthDateTime', label: 'Дата рождения', sortable: true },
@@ -80,11 +83,29 @@ export class BirthRecordListComponent implements OnInit {
   constructor(
     private readonly maternityRecordsService: MaternityRecordsService,
     private readonly zagsBirthRecordsService: ZagsBirthRecordsService,
+    private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.loadRecords();
+    this.route.queryParamMap.subscribe((params) => {
+      const action = params.get('action');
+      if (!action) {
+        return;
+      }
+
+      if (action === 'create') {
+        this.openCreate();
+        return;
+      }
+
+      this.openCreate();
+      this.formInfoMessage =
+        action === 'father-check'
+          ? 'Проверьте связь ребенка с отцом и семейной моделью перед сохранением.'
+          : 'Проверьте, что мальчик будет поставлен на первичный воинский учет автоматически.';
+    });
   }
 
   get formModalTitle(): string {
@@ -206,6 +227,7 @@ export class BirthRecordListComponent implements OnInit {
     this.formErrorMessage = '';
     this.formInfoMessage = '';
     this.showFormModal = true;
+    queueMicrotask(() => this.birthRecordCreateComponent?.refreshLookups());
   }
 
   openEdit(row: BirthRecordItem): void {
@@ -236,7 +258,7 @@ export class BirthRecordListComponent implements OnInit {
       const childrenCount = this.childrenCountByFatherId.get(source.fatherPersonId) ?? 1;
       this.formInfoMessage = `Родитель fatherPersonId: ${source.fatherPersonId}. Детей у родителя: ${childrenCount}.`;
     } else {
-      this.formInfoMessage = 'Для этой записи fatherPersonId пока не определен.';
+      this.formInfoMessage = 'Для этой записи не найден связанный отец. Это не мешает редактированию записи.';
     }
 
     this.showFormModal = true;
@@ -367,15 +389,15 @@ export class BirthRecordListComponent implements OnInit {
       });
   }
 
-  getGenderLabel(gender: MaternityGender): string {
-    return gender === 'F' || gender === 'Женский' ? 'Женский' : 'Мужской';
+  getGenderLabel(gender: string | null): string {
+    return gender === 'FEMALE' || gender === 'F' ? 'Женский' : 'Мужской';
   }
 
-  getStatusLabel(status: MaternityStatus): string {
-    if (status === 'Зарегистрирован' || status === 'Registered') {
+  getStatusLabel(status: string | null): string {
+    if (status === 'REGISTERED_BY_ZAGS' || status === 'Registered') {
       return 'Зарегистрирован';
     }
-    if (status === 'Отправлен в ЗАГС' || status === 'Transferred' || status === 'Передан') {
+    if (status === 'SUBMITTED_TO_ZAGS' || status === 'Transferred' || status === 'Передан') {
       return 'Отправлен в ЗАГС';
     }
     return 'Черновик';
@@ -383,29 +405,29 @@ export class BirthRecordListComponent implements OnInit {
 
   private normalizeStatus(status: string | null): MaternityStatus {
     if (!status) {
-      return 'Черновик';
+      return 'DRAFT';
     }
 
-    if (status === 'Черновик' || status === 'Отправлен в ЗАГС' || status === 'Зарегистрирован') {
+    if (status === 'DRAFT' || status === 'SUBMITTED_TO_ZAGS' || status === 'REGISTERED_BY_ZAGS') {
       return status;
     }
 
-    if (status === 'Registered' || status === 'Архив' || status === 'Архивирован') {
-      return 'Зарегистрирован';
+    if (status === 'Registered') {
+      return 'REGISTERED_BY_ZAGS';
     }
 
-    if (status === 'Transferred' || status === 'Передан') {
-      return 'Отправлен в ЗАГС';
+    if (status === 'Transferred') {
+      return 'SUBMITTED_TO_ZAGS';
     }
 
-    return 'Черновик';
+    return 'DRAFT';
   }
 
   private normalizeGender(gender: string | null): MaternityGender {
-    if (gender === 'F' || gender === 'Женский') {
-      return 'F';
+    if (gender === 'FEMALE' || gender === 'F') {
+      return 'FEMALE';
     }
-    return 'M';
+    return 'MALE';
   }
 
   private formatDateTime(value: string | null): string {

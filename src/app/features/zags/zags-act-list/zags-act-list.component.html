@@ -33,11 +33,11 @@
       [emptyMessage]="'Акты не найдены'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.actNumber }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getTypeLabel(row.actType) }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.registrationDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfRegistration }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthPlace }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fatherPersonId ?? '—' }}</td>
@@ -58,7 +58,17 @@
             </span>
           }
         </td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.status }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': getStatusLabel(row.status) === 'Зарегистрирован',
+              'bg-sky-100 text-sky-800 ring-sky-200': getStatusLabel(row.status) === 'Отправлен',
+              'bg-amber-100 text-amber-800 ring-amber-200': getStatusLabel(row.status) === 'Черновик',
+              'bg-slate-100 text-slate-700 ring-slate-200': getStatusLabel(row.status) === 'Архив'
+            }">
+            {{ getStatusLabel(row.status) }}
+          </span>
+        </td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
       </ng-template>
 
@@ -97,13 +107,23 @@
       [rowTemplate]="childrenRowTemplate"
     >
       <ng-template #childrenRowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.childFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfBirth }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ getGenderLabel(row.gender) }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthWeight }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': getStatusLabel(row.status) === 'Зарегистрирован',
+              'bg-sky-100 text-sky-800 ring-sky-200': getStatusLabel(row.status) === 'Отправлен',
+              'bg-amber-100 text-amber-800 ring-amber-200': getStatusLabel(row.status) === 'Черновик',
+              'bg-slate-100 text-slate-700 ring-slate-200': getStatusLabel(row.status) === 'Архив'
+            }">
+            {{ getStatusLabel(row.status) }}
+          </span>
+        </td>
       </ng-template>
     </app-table>
   </app-modal>
@@ -120,9 +140,56 @@
         <app-input label="Место регистрации" placeholder="Отдел ЗАГС №1" [(ngModel)]="formData.placeOfRegistration"></app-input>
 
         @if (isBirthType()) {
+          <div class="space-y-2 md:col-span-2">
+            <div class="flex items-end justify-between gap-3">
+              <div>
+                <p class="text-sm font-medium text-gray-700">Запись роддома</p>
+                <p class="text-xs text-gray-500">Выбор делается в отдельном окне, потом данные автоматически подставляются в форму.</p>
+              </div>
+              <div class="flex items-center gap-2">
+                @if (selectedMaternityRecord) {
+                  <button
+                    type="button"
+                    class="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100"
+                    (click)="clearMaternityRecordSelection()"
+                  >
+                    Очистить
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="inline-flex items-center rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100"
+                  (click)="openMaternityPicker()"
+                >
+                  {{ selectedMaternityRecord ? 'Изменить запись' : 'Выбрать запись' }}
+                </button>
+              </div>
+            </div>
+
+            <div class="maternity-summary-card" [class.maternity-summary-card--empty]="!selectedMaternityRecord">
+              @if (selectedMaternityRecord) {
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                  <div class="space-y-2">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="maternity-chip maternity-chip--neutral">Запись роддома #{{ selectedMaternityRecord.id }}</span>
+                      <span class="maternity-chip maternity-chip--info">{{ selectedMaternityRecordSummary }}</span>
+                    </div>
+                    <div class="grid gap-2 text-sm text-slate-700 md:grid-cols-2">
+                      <div><span class="font-medium text-slate-900">Ребёнок:</span> {{ formData.childFullName || '—' }}</div>
+                      <div><span class="font-medium text-slate-900">Дата рождения:</span> {{ formData.birthDate || '—' }}</div>
+                      <div><span class="font-medium text-slate-900">Мать:</span> {{ formData.motherFullName || '—' }}</div>
+                      <div><span class="font-medium text-slate-900">Отец:</span> {{ formData.fatherFullName || '—' }}</div>
+                    </div>
+                  </div>
+                </div>
+              } @else {
+                <p class="text-sm text-slate-500">Сначала выберите запись роддома. После подтверждения поля ниже заполнятся автоматически.</p>
+              }
+            </div>
+          </div>
           <app-input type="date" label="Дата рождения" [(ngModel)]="formData.birthDate"></app-input>
           <app-input label="Место рождения" placeholder="г. Худжанд" [(ngModel)]="formData.birthPlace"></app-input>
-          <app-input label="ФИО ребенка" placeholder="Иванов Иван Иванович" [(ngModel)]="formData.childFullName"></app-input>
+          <app-input label="ФИО ребенка" placeholder="Обязательно для ЗАГС" [(ngModel)]="formData.childFullName"></app-input>
           <app-input label="ФИО отца" placeholder="Иванов Петр Алиевич" [(ngModel)]="formData.fatherFullName"></app-input>
           <app-input label="ФИО матери" placeholder="Иванова Мария Петровна" [(ngModel)]="formData.motherFullName"></app-input>
         }
@@ -141,7 +208,12 @@
           <app-input label="Причина смерти" placeholder="Причина" [(ngModel)]="formData.deathReason"></app-input>
         }
 
-        <app-input label="Статус" placeholder="Например: Зарегистрирован" [(ngModel)]="formData.status"></app-input>
+        <app-select
+          label="Статус"
+          [options]="statusOptions"
+          placeholder="Выберите статус"
+          [(ngModel)]="formData.status"
+        ></app-select>
       </div>
 
       <div class="flex justify-end gap-2">
@@ -166,6 +238,63 @@
       <div class="flex justify-end gap-2">
         <app-button variant="secondary" [disabled]="isDeleting" (clicked)="closeDeleteModal()">Отмена</app-button>
         <app-button variant="danger" [loading]="isDeleting" [disabled]="isDeleting" (clicked)="confirmDelete()">Удалить</app-button>
+      </div>
+    </div>
+  </app-modal>
+
+  <app-modal [show]="showMaternityPickerModal" [title]="'Выбор записи роддома'" size="lg" (closed)="closeMaternityPicker()">
+    <div class="space-y-4">
+      <div class="space-y-1">
+        <p class="text-sm font-medium text-slate-700">Найдите нужную запись и подтвердите выбор.</p>
+        <p class="text-xs text-slate-500">Зелёная отметка означает, что по этой записи уже создан акт ЗАГС.</p>
+      </div>
+
+      <input
+        type="text"
+        [(ngModel)]="maternityPickerFilter"
+        placeholder="Поиск по ФИО ребёнка, родителям, месту или ID"
+        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+      />
+
+      <div class="maternity-picker-list">
+        @for (record of filteredMaternityPickerRecords; track record.id) {
+          <button
+            type="button"
+            class="maternity-picker-item"
+            [class.maternity-picker-item--selected]="isPendingMaternityRecordSelected(record.id)"
+            (click)="selectPendingMaternityRecord(record.id)"
+          >
+            <div class="flex flex-wrap items-start justify-between gap-3">
+              <div class="space-y-2 text-left">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="maternity-chip maternity-chip--neutral">Запись #{{ record.id }}</span>
+                  <span class="maternity-chip maternity-chip--info">{{ record.birthDate }}</span>
+                  <span class="maternity-chip maternity-chip--info">{{ record.gender }}</span>
+                  @if (record.isAlreadyInZags) {
+                    <span class="maternity-chip maternity-chip--success">Уже в ЗАГС @if (record.linkedZagsActId) { • акт #{{ record.linkedZagsActId }} }</span>
+                  }
+                </div>
+                <div class="text-base font-semibold text-slate-900">{{ record.childFullName }}</div>
+                <div class="grid gap-1 text-sm text-slate-600 md:grid-cols-2">
+                  <div><span class="font-medium text-slate-900">Мать:</span> {{ record.motherFullName }}</div>
+                  <div><span class="font-medium text-slate-900">Отец:</span> {{ record.fatherFullName }}</div>
+                  <div><span class="font-medium text-slate-900">Место рождения:</span> {{ record.birthPlace }}</div>
+                  <div><span class="font-medium text-slate-900">Статус:</span> {{ record.status }}</div>
+                </div>
+              </div>
+              <div class="maternity-picker-radio" [class.maternity-picker-radio--selected]="isPendingMaternityRecordSelected(record.id)"></div>
+            </div>
+          </button>
+        } @empty {
+          <div class="rounded-2xl border border-dashed border-slate-300 px-4 py-8 text-center text-sm text-slate-500">
+            Ничего не найдено.
+          </div>
+        }
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <app-button variant="secondary" (clicked)="closeMaternityPicker()">Отмена</app-button>
+        <app-button variant="primary" (clicked)="confirmMaternityPicker()">Подтвердить выбор</app-button>
       </div>
     </div>
   </app-modal>

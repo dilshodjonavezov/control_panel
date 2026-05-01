@@ -1,7 +1,8 @@
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+﻿import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
 import {
   ButtonComponent,
   CardComponent,
@@ -10,59 +11,56 @@ import {
   SelectComponent,
   SelectOption,
   TableComponent,
-  type TableColumn,
+  TableColumn,
 } from '../../../shared/components';
+import { AuthService } from '../../../services/auth.service';
+import {
+  ApiEducationRecord,
+  CreateEducationRecordRequest,
+  EducationRecordsService,
+} from '../../../services/education-records.service';
+import {
+  ApiEducationInstitution,
+  EducationInstitutionsService,
+} from '../../../services/education-institutions.service';
+import { ApiSchoolRecord, SchoolRecordsService } from '../../../services/school-records.service';
+import { ApiMedicalRecord, MedicalRecordsService } from '../../../services/medical-records.service';
+import { AddressesService, ApiAddress, ApiCitizen } from '../../../services/addresses.service';
+import { PassportRecordsService, ApiPassportRecord } from '../../../services/passport-records.service';
 
-interface InstitutionEducationRecordRow {
+interface EducationRecordRow {
   id: number;
   peopleId: number;
   peopleFullName: string;
+  schoolRecordId: number | null;
+  schoolGraduationDate: string;
+  medicalRecordId: number | null;
+  medicalDecision: string;
+  fatherFullName: string;
+  motherFullName: string;
   studyForm: string;
   faculty: string;
   specialty: string;
   admissionDate: string;
-  expulsionDate: string;
-  graduationDate: string;
   admissionDateRaw: string;
-  expulsionDateRaw: string;
+  graduationDate: string;
   graduationDateRaw: string;
-  isDeferralActive: 'Активна' | 'Не активна';
+  expulsionDate: string;
+  expulsionDateRaw: string;
+  isDeferralActive: 'Да' | 'Нет';
   isDeferralActiveValue: boolean;
-  userId: number;
   userName: string;
 }
 
-interface RecordForm {
+interface StudyFormData {
   peopleId: string;
   studyForm: string;
   faculty: string;
   specialty: string;
   admissionDate: string;
-  expulsionDate: string;
   graduationDate: string;
+  expulsionDate: string;
   isDeferralActive: boolean;
-}
-
-interface LocalSchoolRecord {
-  peopleId: number;
-  peopleFullName: string;
-  status?: 'Учится' | 'Закончил' | 'Отчислен' | string;
-}
-
-interface LocalUniversityStudyRecord {
-  id: number;
-  peopleId: number;
-  peopleFullName: string;
-  institutionId: number;
-  studyForm: string;
-  faculty: string;
-  specialty: string;
-  admissionDate: string | null;
-  expulsionDate: string | null;
-  graduationDate: string | null;
-  isDeferralActive: boolean;
-  userId: number;
-  userName: string;
 }
 
 @Component({
@@ -82,12 +80,15 @@ interface LocalUniversityStudyRecord {
   styleUrl: './university-study-detail.component.css',
 })
 export class UniversityStudyDetailComponent implements OnInit {
-  private readonly localSchoolRecordsKey = 'local_school_records_v1';
-  private readonly localUniversityStudiesKey = 'local_university_studies_v1';
-
   institutionId: number | null = null;
-  records: InstitutionEducationRecordRow[] = [];
+  institution: ApiEducationInstitution | null = null;
+  records: EducationRecordRow[] = [];
   peopleOptions: SelectOption[] = [];
+  private graduates: ApiSchoolRecord[] = [];
+  private medicalRecords: ApiMedicalRecord[] = [];
+  private citizens: ApiCitizen[] = [];
+  private addresses: ApiAddress[] = [];
+  private passports: ApiPassportRecord[] = [];
 
   isLoading = false;
   errorMessage = '';
@@ -97,22 +98,26 @@ export class UniversityStudyDetailComponent implements OnInit {
   editingRecordId: number | null = null;
   isFormSubmitting = false;
   formErrorMessage = '';
-  formData: RecordForm = this.createDefaultForm();
+  formData: StudyFormData = this.createDefaultForm();
 
   showDeleteModal = false;
-  deletingRecord: InstitutionEducationRecordRow | null = null;
+  deletingRecord: EducationRecordRow | null = null;
   isDeleting = false;
   deleteErrorMessage = '';
 
   educationColumns: TableColumn[] = [
     { key: 'id', label: 'ID записи', sortable: true },
     { key: 'peopleFullName', label: 'ФИО', sortable: true },
+    { key: 'fatherFullName', label: 'ФИО отца', sortable: true },
+    { key: 'motherFullName', label: 'ФИО матери', sortable: true },
+    { key: 'schoolGraduationDate', label: 'Выпуск школы', sortable: true },
+    { key: 'medicalDecision', label: 'Медосмотр', sortable: true },
     { key: 'studyForm', label: 'Форма обучения', sortable: true },
     { key: 'faculty', label: 'Факультет', sortable: true },
     { key: 'specialty', label: 'Специальность', sortable: true },
     { key: 'admissionDate', label: 'Поступление', sortable: true },
+    { key: 'graduationDate', label: 'Выпуск', sortable: true },
     { key: 'expulsionDate', label: 'Отчисление', sortable: true },
-    { key: 'graduationDate', label: 'Окончание', sortable: true },
     { key: 'isDeferralActive', label: 'Отсрочка', sortable: true },
     { key: 'userName', label: 'Пользователь', sortable: true },
   ];
@@ -120,6 +125,13 @@ export class UniversityStudyDetailComponent implements OnInit {
   constructor(
     private readonly route: ActivatedRoute,
     private readonly router: Router,
+    private readonly authService: AuthService,
+    private readonly educationRecordsService: EducationRecordsService,
+    private readonly educationInstitutionsService: EducationInstitutionsService,
+    private readonly schoolRecordsService: SchoolRecordsService,
+    private readonly medicalRecordsService: MedicalRecordsService,
+    private readonly addressesService: AddressesService,
+    private readonly passportRecordsService: PassportRecordsService,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -135,7 +147,68 @@ export class UniversityStudyDetailComponent implements OnInit {
   }
 
   get formModalTitle(): string {
-    return this.isEditMode ? 'Изменение записи об образовании' : 'Добавление записи об образовании';
+    return this.isEditMode ? 'Изменение записи об обучении' : 'Добавление записи об обучении';
+  }
+
+  get pageTitle(): string {
+    const institutionName = this.institution?.name?.trim();
+    const institutionType = this.getInstitutionTypeLabel(this.institution?.type ?? null);
+    if (institutionName) {
+      return `Реестр студентов: ${institutionName}${institutionType ? ` (${institutionType})` : ''}`;
+    }
+    return institutionType ? `Реестр студентов (${institutionType})` : 'Реестр студентов';
+  }
+
+  get pageDescription(): string {
+    return 'В списке отображаются только выпускники школы, которые прошли медосмотр с решением FIT.';
+  }
+
+  get currentSelectedFather(): string {
+    const graduate = this.findSelectedGraduate();
+    return graduate?.fatherFullName?.trim() || '';
+  }
+
+  get currentSelectedMother(): string {
+    const graduate = this.findSelectedGraduate();
+    return graduate?.motherFullName?.trim() || '';
+  }
+
+  get currentSelectedPersonName(): string {
+    const graduate = this.findSelectedGraduate();
+    return graduate?.peopleFullName?.trim() || '';
+  }
+
+  get currentSelectedGraduationDate(): string {
+    const graduate = this.findSelectedGraduate();
+    return graduate?.graduationDate ? this.formatDate(graduate.graduationDate) : '';
+  }
+
+  get currentSelectedSchoolRecordId(): number | null {
+    const graduate = this.findSelectedGraduate();
+    return graduate?.id ?? null;
+  }
+
+  get currentSelectedMedicalRecordId(): number | null {
+    const record = this.findSelectedMedicalRecord();
+    return record?.id ?? null;
+  }
+
+  get currentSelectedMedicalDecision(): string {
+    const record = this.findSelectedMedicalRecord();
+    if (!record?.decision) {
+      return '';
+    }
+    return record.decision.toUpperCase() === 'FIT' ? 'Годен' : record.decision;
+  }
+
+  get currentSelectedAddress(): string {
+    const address = this.findSelectedAddress();
+    return address?.fullAddress?.trim() || '';
+  }
+
+  get currentSelectedPassport(): string {
+    const passport = this.findSelectedPassport();
+    return passport?.passportNumber?.trim() || '';
   }
 
   goBack(): void {
@@ -150,7 +223,7 @@ export class UniversityStudyDetailComponent implements OnInit {
     this.showFormModal = true;
   }
 
-  openEditModal(row: InstitutionEducationRecordRow): void {
+  openEditModal(row: EducationRecordRow): void {
     this.isEditMode = true;
     this.editingRecordId = row.id;
     this.formErrorMessage = '';
@@ -160,8 +233,8 @@ export class UniversityStudyDetailComponent implements OnInit {
       faculty: row.faculty === '-' ? '' : row.faculty,
       specialty: row.specialty === '-' ? '' : row.specialty,
       admissionDate: row.admissionDateRaw,
-      expulsionDate: row.expulsionDateRaw,
       graduationDate: row.graduationDateRaw,
+      expulsionDate: row.expulsionDateRaw,
       isDeferralActive: row.isDeferralActiveValue,
     };
     this.showFormModal = true;
@@ -188,32 +261,38 @@ export class UniversityStudyDetailComponent implements OnInit {
     this.isFormSubmitting = true;
     this.formErrorMessage = '';
 
-    const all = this.readAllStudies();
+    const request$ =
+      this.isEditMode && this.editingRecordId
+        ? this.educationRecordsService.update(this.editingRecordId, payload)
+        : this.educationRecordsService.create(payload);
 
-    if (this.isEditMode && this.editingRecordId) {
-      const idx = all.findIndex((item) => item.id === this.editingRecordId);
-      if (idx < 0) {
-        this.formErrorMessage = 'Запись не найдена.';
-        this.isFormSubmitting = false;
-        return;
-      }
-      all[idx] = { ...all[idx], ...payload };
-    } else {
-      const nextId = all.length > 0 ? Math.max(...all.map((item) => item.id)) + 1 : 1;
-      all.unshift({
-        id: nextId,
-        ...payload,
+    request$
+      .pipe(
+        finalize(() => {
+          this.isFormSubmitting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.formErrorMessage = this.isEditMode
+              ? 'Не удалось изменить запись.'
+              : 'Не удалось создать запись.';
+            return;
+          }
+          this.showFormModal = false;
+          this.loadData(this.institutionId!);
+        },
+        error: () => {
+          this.formErrorMessage = this.isEditMode
+            ? 'Не удалось изменить запись.'
+            : 'Не удалось создать запись.';
+        },
       });
-    }
-
-    this.writeAllStudies(all);
-    this.showFormModal = false;
-    this.isFormSubmitting = false;
-    this.loadRecords(this.institutionId);
-    this.cdr.detectChanges();
   }
 
-  openDeleteModal(row: InstitutionEducationRecordRow): void {
+  openDeleteModal(row: EducationRecordRow): void {
     this.deletingRecord = row;
     this.deleteErrorMessage = '';
     this.showDeleteModal = true;
@@ -236,158 +315,355 @@ export class UniversityStudyDetailComponent implements OnInit {
     this.isDeleting = true;
     this.deleteErrorMessage = '';
 
-    const filtered = this.readAllStudies().filter((item) => item.id !== this.deletingRecord!.id);
-    this.writeAllStudies(filtered);
-
-    this.isDeleting = false;
-    this.showDeleteModal = false;
-    this.deletingRecord = null;
-    this.loadRecords(this.institutionId!);
-    this.cdr.detectChanges();
+    this.educationRecordsService
+      .delete(this.deletingRecord.id)
+      .pipe(
+        finalize(() => {
+          this.isDeleting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.deleteErrorMessage = 'Не удалось удалить запись.';
+            return;
+          }
+          this.showDeleteModal = false;
+          this.deletingRecord = null;
+          this.loadData(this.institutionId!);
+        },
+        error: () => {
+          this.deleteErrorMessage = 'Не удалось удалить запись.';
+        },
+      });
   }
 
   private loadData(institutionId: number): void {
     this.isLoading = true;
     this.errorMessage = '';
-    this.peopleOptions = this.mapPeopleOptions(this.readPeopleFromLocalSchool());
-    this.records = this.mapRecords(this.readAllStudies(), institutionId);
-    this.isLoading = false;
-    this.cdr.detectChanges();
+
+    forkJoin({
+      institution: this.educationInstitutionsService.getById(institutionId),
+      records: this.educationRecordsService.getAll(),
+      graduates: this.schoolRecordsService.getAll(),
+      medicalRecords: this.medicalRecordsService.getAll(),
+      citizens: this.schoolRecordsService.getCitizens(),
+      addresses: this.addressesService.getAll(),
+      passports: this.passportRecordsService.getAll(),
+    })
+      .pipe(timeout(15000))
+      .subscribe({
+        next: ({ institution, records, graduates, medicalRecords, citizens, addresses, passports }) => {
+          this.institution = institution;
+          this.graduates = graduates;
+          this.medicalRecords = medicalRecords;
+          this.citizens = citizens;
+          this.addresses = addresses;
+          this.passports = passports;
+          this.peopleOptions = this.buildPeopleOptions(
+            citizens,
+            graduates,
+            medicalRecords,
+            records,
+            institutionId,
+          );
+          this.records = records
+            .filter((item) => item.institutionId === institutionId)
+            .map((item) => this.mapRecord(item));
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (error: unknown) => {
+          this.institution = null;
+          this.records = [];
+          this.peopleOptions = [];
+          this.errorMessage =
+            error instanceof TimeoutError
+              ? 'Превышено время ожидания ответа API.'
+              : 'Не удалось загрузить записи обучения.';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
-  private loadRecords(institutionId: number): void {
-    this.isLoading = true;
-    this.records = this.mapRecords(this.readAllStudies(), institutionId);
-    this.isLoading = false;
-    this.cdr.detectChanges();
-  }
+  private buildPeopleOptions(
+    citizens: ApiCitizen[],
+    graduates: ApiSchoolRecord[],
+    medicalRecords: ApiMedicalRecord[],
+    educationRecords: ApiEducationRecord[],
+    institutionId: number,
+  ): SelectOption[] {
+    const medicalByPeopleId = new Map<number, ApiMedicalRecord>();
+    medicalRecords.forEach((record) => {
+      medicalByPeopleId.set(record.peopleId, record);
+    });
 
-  private mapPeopleOptions(people: Array<{ id: number; fullName: string }>): SelectOption[] {
-    return people
-      .map((person) => ({
-        value: person.id.toString(),
-        label: person.fullName.trim() || `ID ${person.id}`,
+    const alreadyEnrolledPeopleIds = new Set(
+      educationRecords
+        .filter((record) => record.institutionId === institutionId)
+        .map((record) => record.peopleId),
+    );
+
+    const graduatesByPeopleId = new Map(graduates.map((graduate) => [graduate.peopleId, graduate]));
+
+    return citizens
+      .filter((citizen) => graduatesByPeopleId.has(citizen.id))
+      .map((citizen) => ({
+        citizen,
+        graduate: graduatesByPeopleId.get(citizen.id)!,
+        medical: medicalByPeopleId.get(citizen.id) ?? null,
+      }))
+      .filter(({ graduate }) => Boolean(graduate.graduationDate))
+      .filter(({ medical }) => (medical?.decision ?? '').toUpperCase() === 'FIT')
+      .filter(({ citizen }) => !alreadyEnrolledPeopleIds.has(citizen.id))
+      .map(({ citizen, graduate, medical }) => ({
+        value: citizen.id.toString(),
+        label: this.formatGraduateLabelFromCitizen(citizen, graduate, medical),
       }))
       .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
   }
 
-  private mapRecords(records: LocalUniversityStudyRecord[], institutionId: number): InstitutionEducationRecordRow[] {
-    return records
-      .filter((item) => item.institutionId === institutionId)
-      .map((item) => ({
-        id: item.id,
-        peopleId: item.peopleId,
-        peopleFullName: item.peopleFullName?.trim() || `ID ${item.peopleId}`,
-        studyForm: item.studyForm?.trim() || '-',
-        faculty: item.faculty?.trim() || '-',
-        specialty: item.specialty?.trim() || '-',
-        admissionDate: this.formatDate(item.admissionDate),
-        expulsionDate: this.formatDate(item.expulsionDate),
-        graduationDate: this.formatDate(item.graduationDate),
-        admissionDateRaw: this.normalizeDateInput(item.admissionDate),
-        expulsionDateRaw: this.normalizeDateInput(item.expulsionDate),
-        graduationDateRaw: this.normalizeDateInput(item.graduationDate),
-        isDeferralActive: item.isDeferralActive ? 'Активна' : 'Не активна',
-        isDeferralActiveValue: item.isDeferralActive,
-        userId: item.userId,
-        userName: item.userName?.trim() || `ID ${item.userId}`,
-      }));
+  getInstitutionTypeLabel(type: string | null | undefined): string {
+    const normalized = (type ?? '').trim().toUpperCase();
+    if (normalized === 'UNIVERSITY') {
+      return 'ВУЗ';
+    }
+    if (normalized === 'COLLEGE') {
+      return 'Колледж';
+    }
+    return '';
   }
 
-  private buildPayload(institutionId: number): Omit<LocalUniversityStudyRecord, 'id'> | null {
+  private formatGraduateLabel(
+    record: ApiSchoolRecord,
+    medicalRecord: ApiMedicalRecord | null = null,
+  ): string {
+    const name = record.peopleFullName?.trim() || `ID ${record.peopleId}`;
+    const parents: string[] = [];
+    if (record.fatherFullName?.trim()) {
+      parents.push(`отец: ${record.fatherFullName.trim()}`);
+    }
+    if (record.motherFullName?.trim()) {
+      parents.push(`мать: ${record.motherFullName.trim()}`);
+    }
+    const details: string[] = [];
+    if (record.graduationDate) {
+      details.push(`выпуск: ${this.formatDate(record.graduationDate)}`);
+    }
+    if (medicalRecord?.decision) {
+      details.push(
+        `медосмотр: ${medicalRecord.decision.toUpperCase() === 'FIT' ? 'годен' : medicalRecord.decision}`,
+      );
+    }
+    const segments = [...parents, ...details];
+    return segments.length > 0 ? `${name} (${segments.join(', ')})` : name;
+  }
+
+  private formatGraduateLabelFromCitizen(
+    citizen: ApiCitizen,
+    graduate: ApiSchoolRecord,
+    medicalRecord: ApiMedicalRecord | null = null,
+  ): string {
+    const name = citizen.fullName?.trim() || graduate.peopleFullName?.trim() || `ID ${citizen.id}`;
+    const parents: string[] = [];
+    if (citizen.fatherFullName?.trim()) {
+      parents.push(`отец: ${citizen.fatherFullName.trim()}`);
+    }
+    if (citizen.motherFullName?.trim()) {
+      parents.push(`мать: ${citizen.motherFullName.trim()}`);
+    }
+    const details: string[] = [];
+    if (graduate.graduationDate) {
+      details.push(`выпуск: ${this.formatDate(graduate.graduationDate)}`);
+    }
+    if (medicalRecord?.decision) {
+      details.push(`медосмотр: ${medicalRecord.decision.toUpperCase() === 'FIT' ? 'годен' : medicalRecord.decision}`);
+    }
+    return [...parents, ...details].length > 0 ? `${name} (${[...parents, ...details].join(', ')})` : name;
+  }
+
+  private mapRecord(record: ApiEducationRecord): EducationRecordRow {
+    const graduate = this.findGraduateByPeopleId(record.peopleId);
+    const medical = this.findMedicalRecordByPeopleId(record.peopleId);
+    const schoolGraduationSource = record.schoolGraduationDate ?? graduate?.graduationDate ?? null;
+    return {
+      id: record.id,
+      peopleId: record.peopleId,
+      peopleFullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
+      schoolRecordId: record.schoolRecordId ?? graduate?.id ?? null,
+      schoolGraduationDate: schoolGraduationSource ? this.formatDate(schoolGraduationSource) : '-',
+      medicalRecordId: record.medicalRecordId ?? medical?.id ?? null,
+      medicalDecision: record.medicalDecision ?? medical?.decision ?? '-',
+      fatherFullName: graduate?.fatherFullName?.trim() || '-',
+      motherFullName: graduate?.motherFullName?.trim() || '-',
+      studyForm: record.studyForm?.trim() || '-',
+      faculty: record.faculty?.trim() || '-',
+      specialty: record.specialty?.trim() || '-',
+      admissionDate: this.formatDate(record.admissionDate),
+      admissionDateRaw: this.normalizeDateInput(record.admissionDate),
+      graduationDate: this.formatDate(record.graduationDate),
+      graduationDateRaw: this.normalizeDateInput(record.graduationDate),
+      expulsionDate: this.formatDate(record.expulsionDate),
+      expulsionDateRaw: this.normalizeDateInput(record.expulsionDate),
+      isDeferralActive: record.isDeferralActive ? 'Да' : 'Нет',
+      isDeferralActiveValue: record.isDeferralActive,
+      userName: record.userName?.trim() || '-',
+    };
+  }
+
+  private buildPayload(institutionId: number): CreateEducationRecordRequest | null {
     const peopleId = Number(this.formData.peopleId);
-    const userId = 1;
+    const userId = this.authService.resolveCurrentUserId();
 
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      this.formErrorMessage = 'Выберите гражданина.';
+      this.formErrorMessage = 'Выберите выпускника школы.';
       return null;
     }
 
-    const selectedPerson = this.peopleOptions.find((option) => Number(option.value) === peopleId);
-    const peopleFullName = selectedPerson?.label?.trim() || `ID ${peopleId}`;
+    const selectedGraduate = this.findSelectedGraduate();
+    const selectedMedicalRecord = this.findSelectedMedicalRecord();
+
+    if (!selectedGraduate) {
+      this.formErrorMessage = 'Не удалось найти выпускника школы.';
+      return null;
+    }
+
+    if (!selectedMedicalRecord) {
+      this.formErrorMessage = 'Не удалось найти медосмотр FIT для выпускника.';
+      return null;
+    }
+
+    if (!userId) {
+      this.formErrorMessage = 'Не удалось определить текущего пользователя.';
+      return null;
+    }
+
+    if (!this.formData.studyForm.trim()) {
+      this.formErrorMessage = 'Укажите форму обучения.';
+      return null;
+    }
+
+    if (!this.formData.faculty.trim()) {
+      this.formErrorMessage = 'Укажите факультет.';
+      return null;
+    }
+
+    if (!this.formData.specialty.trim()) {
+      this.formErrorMessage = 'Укажите специальность.';
+      return null;
+    }
+
+    if (!this.formData.admissionDate.trim()) {
+      this.formErrorMessage = 'Укажите дату поступления.';
+      return null;
+    }
+
+    const graduationDate = this.formData.graduationDate.trim()
+      ? this.toIsoDate(this.formData.graduationDate)
+      : null;
+    const expulsionDate = this.formData.expulsionDate.trim()
+      ? this.toIsoDate(this.formData.expulsionDate)
+      : null;
+    const isDeferralActive =
+      graduationDate || expulsionDate ? false : this.formData.isDeferralActive;
 
     return {
       peopleId,
-      peopleFullName,
+      schoolRecordId: selectedGraduate.id,
+      medicalRecordId: selectedMedicalRecord.id,
       institutionId,
       studyForm: this.formData.studyForm.trim(),
       faculty: this.formData.faculty.trim(),
       specialty: this.formData.specialty.trim(),
-      admissionDate: this.formData.admissionDate || null,
-      expulsionDate: this.formData.expulsionDate || null,
-      graduationDate: this.formData.graduationDate || null,
-      isDeferralActive: this.formData.isDeferralActive,
+      admissionDate: this.toIsoDate(this.formData.admissionDate),
+      expulsionDate,
+      graduationDate,
+      isDeferralActive,
       userId,
-      userName: 'universityemployee',
     };
   }
 
-  private createDefaultForm(): RecordForm {
+  private findSelectedGraduate(): ApiSchoolRecord | null {
+    const peopleId = Number(this.formData.peopleId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      return null;
+    }
+
+    return this.findGraduateByPeopleId(peopleId);
+  }
+
+  private findSelectedMedicalRecord(): ApiMedicalRecord | null {
+    const graduate = this.findSelectedGraduate();
+    if (!graduate) {
+      return null;
+    }
+
+    return this.findMedicalRecordByPeopleId(graduate.peopleId);
+  }
+
+  private findGraduateByPeopleId(peopleId: number): ApiSchoolRecord | null {
+    return (
+      this.graduates.find(
+        (graduate) => graduate.peopleId === peopleId && Boolean(graduate.graduationDate),
+      ) ?? null
+    );
+  }
+
+  private findMedicalRecordByPeopleId(peopleId: number): ApiMedicalRecord | null {
+    return (
+      this.medicalRecords.find(
+        (record) => record.peopleId === peopleId && (record.decision ?? '').toUpperCase() === 'FIT',
+      ) ?? null
+    );
+  }
+
+  private findSelectedAddress(): ApiAddress | null {
+    const peopleId = Number(this.formData.peopleId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      return null;
+    }
+
+    return this.addresses.find((address) => address.citizenId === peopleId && address.isActive) ?? null;
+  }
+
+  private findSelectedPassport(): ApiPassportRecord | null {
+    const peopleId = Number(this.formData.peopleId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      return null;
+    }
+
+    return this.passports.find((passport) => passport.peopleId === peopleId) ?? null;
+  }
+
+  private createDefaultForm(): StudyFormData {
     return {
       peopleId: '',
-      studyForm: '',
+      studyForm: 'Очная',
       faculty: '',
       specialty: '',
       admissionDate: '',
-      expulsionDate: '',
       graduationDate: '',
+      expulsionDate: '',
       isDeferralActive: true,
     };
-  }
-
-  private readAllStudies(): LocalUniversityStudyRecord[] {
-    const raw = localStorage.getItem(this.localUniversityStudiesKey);
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as LocalUniversityStudyRecord[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private writeAllStudies(records: LocalUniversityStudyRecord[]): void {
-    localStorage.setItem(this.localUniversityStudiesKey, JSON.stringify(records));
-  }
-
-  private readPeopleFromLocalSchool(): Array<{ id: number; fullName: string }> {
-    const raw = localStorage.getItem(this.localSchoolRecordsKey);
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as LocalSchoolRecord[];
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-
-      const byId = new Map<number, string>();
-      parsed.forEach((item) => {
-        if ((item.status || '').trim() !== 'Закончил') {
-          return;
-        }
-        const id = Number(item.peopleId);
-        const name = (item.peopleFullName || '').trim();
-        if (Number.isInteger(id) && id > 0 && name) {
-          byId.set(id, name);
-        }
-      });
-
-      return Array.from(byId.entries()).map(([id, fullName]) => ({ id, fullName }));
-    } catch {
-      return [];
-    }
   }
 
   private normalizeDateInput(value: string | null): string {
     if (!value) {
       return '';
     }
-    return value.length >= 10 ? value.slice(0, 10) : value;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  }
+
+  private toIsoDate(value: string): string {
+    return new Date(value).toISOString();
   }
 
   private formatDate(value: string | null): string {

@@ -12,6 +12,9 @@ export interface LoginApiResponse {
   success?: boolean;
   message?: string;
   data?: unknown;
+  user?: unknown;
+  accessToken?: string;
+  token?: string;
   [key: string]: unknown;
 }
 
@@ -27,7 +30,41 @@ export interface AuthUser {
   username: string;
   email: string | null;
   roleId: number | null;
+  roleCode?: string | null;
+  roleName?: string | null;
+  organizationId?: number | null;
+  organizationName?: string | null;
+  isActive?: boolean;
   lastLogin: string | null;
+}
+
+export interface AuthRole {
+  id: number;
+  code: string;
+  name: string;
+  isActive?: boolean;
+}
+
+export interface CreateAuthUserRequest {
+  username: string;
+  password: string;
+  fullName: string;
+  email?: string | null;
+  phone?: string | null;
+  roleId: number;
+  organizationId?: number | null;
+  isActive?: boolean;
+}
+
+export interface UpdateAuthUserRequest {
+  username?: string;
+  password?: string;
+  fullName?: string;
+  email?: string | null;
+  phone?: string | null;
+  roleId?: number;
+  organizationId?: number | null;
+  isActive?: boolean;
 }
 
 export interface LoginResult {
@@ -37,44 +74,13 @@ export interface LoginResult {
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly apiUrl = `${environment.apiBaseUrl}/api/Auth`;
+  private readonly apiUrl = `${environment.apiBaseUrl}/api/auth`;
   private readonly usersApiUrl = `${environment.apiBaseUrl}/api/users`;
+  private readonly rolesApiUrl = `${environment.apiBaseUrl}/api/roles`;
   private readonly tokenStorageKey = 'auth_token';
   private readonly usernameStorageKey = 'auth_username';
-  private readonly localUsers: AuthUser[] = [
-    {
-      id: 1,
-      fullName: 'Администратор системы',
-      username: 'admin',
-      email: 'admin@example.com',
-      roleId: 1,
-      lastLogin: null,
-    },
-    {
-      id: 2,
-      fullName: 'Сотрудник роддома',
-      username: 'maternity',
-      email: 'maternity@example.com',
-      roleId: 2,
-      lastLogin: null,
-    },
-    {
-      id: 3,
-      fullName: 'Сотрудник ЗАГС',
-      username: 'zags',
-      email: 'zags@example.com',
-      roleId: 3,
-      lastLogin: null,
-    },
-    {
-      id: 4,
-      fullName: 'Сотрудник погранслужбы',
-      username: 'borderemployee',
-      email: 'border@example.com',
-      roleId: 4,
-      lastLogin: null,
-    },
-  ];
+  private readonly userStorageKey = 'auth_user';
+  private readonly impersonatedUserIdStorageKey = 'auth_impersonated_user_id';
 
   constructor(private readonly http: HttpClient) {}
 
@@ -90,10 +96,29 @@ export class AuthService {
   getUsers(): Observable<AuthUser[]> {
     return this.http
       .get<ApiResponse<AuthUser[]> | AuthUser[]>(this.usersApiUrl)
-      .pipe(
-        map((response) => this.unwrapArray<AuthUser>(response)),
-        catchError(() => of(this.localUsers)),
-      );
+      .pipe(map((response) => this.unwrapArray<AuthUser>(response)), catchError(() => of([])));
+  }
+
+  getRoles(): Observable<AuthRole[]> {
+    return this.http
+      .get<ApiResponse<AuthRole[]> | AuthRole[]>(this.rolesApiUrl)
+      .pipe(map((response) => this.unwrapArray<AuthRole>(response)), catchError(() => of([])));
+  }
+
+  createUser(payload: CreateAuthUserRequest): Observable<AuthUser> {
+    return this.http
+      .post<ApiResponse<AuthUser> | AuthUser>(this.usersApiUrl, payload)
+      .pipe(map((response) => this.unwrapItem<AuthUser>(response)));
+  }
+
+  updateUser(id: number, payload: UpdateAuthUserRequest): Observable<AuthUser> {
+    return this.http
+      .patch<ApiResponse<AuthUser> | AuthUser>(`${this.usersApiUrl}/${id}`, payload)
+      .pipe(map((response) => this.unwrapItem<AuthUser>(response)));
+  }
+
+  deleteUser(id: number): Observable<boolean> {
+    return this.http.delete(`${this.usersApiUrl}/${id}`, { observe: 'response', responseType: 'text' }).pipe(map((response) => response.ok));
   }
 
   saveToken(token: string): void {
@@ -107,6 +132,8 @@ export class AuthService {
   clearToken(): void {
     localStorage.removeItem(this.tokenStorageKey);
     localStorage.removeItem(this.usernameStorageKey);
+    localStorage.removeItem(this.userStorageKey);
+    localStorage.removeItem(this.impersonatedUserIdStorageKey);
   }
 
   saveCurrentUsername(username: string): void {
@@ -117,8 +144,154 @@ export class AuthService {
   }
 
   getCurrentUsername(): string | null {
+    const currentUser = this.getCurrentUser();
+    if (currentUser?.username?.trim()) {
+      return currentUser.username.trim();
+    }
+
     const value = localStorage.getItem(this.usernameStorageKey);
     return value?.trim() ? value.trim() : null;
+  }
+
+  saveCurrentUser(user: AuthUser): void {
+    localStorage.setItem(this.userStorageKey, JSON.stringify(user));
+    this.saveCurrentUsername(user.username);
+  }
+
+  getCurrentUser(): AuthUser | null {
+    const raw = localStorage.getItem(this.userStorageKey);
+    if (!raw) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as AuthUser;
+      if (!parsed || typeof parsed !== 'object' || !parsed.id || !parsed.username) {
+        return null;
+      }
+
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  hasActiveSession(): boolean {
+    return !!this.getToken() || this.getImpersonatedUserId() !== null;
+  }
+
+  resolveStoredRole(): string | null {
+    const currentUser = this.getCurrentUser();
+    if (currentUser?.roleCode?.trim()) {
+      return currentUser.roleCode.trim().toLowerCase();
+    }
+
+    const impersonatedUserId = this.getImpersonatedUserId();
+    if (impersonatedUserId !== null) {
+      return this.resolveRoleByUserId(impersonatedUserId);
+    }
+
+    const username = this.getCurrentUsername();
+    if (!username) {
+      return null;
+    }
+
+    return this.resolveRoleByUsername(username);
+  }
+
+  resolveCurrentUserId(username?: string | null): number | null {
+    const currentUser = this.getCurrentUser();
+    if (currentUser?.id) {
+      return currentUser.id;
+    }
+
+    const value = (username ?? this.getCurrentUsername() ?? '').trim().toLowerCase();
+    if (!value) {
+      return null;
+    }
+
+    const userIdByUsername: Record<string, number> = {
+      admin: 1,
+      superadmin: 2,
+      maternity: 3,
+      zags: 4,
+      jek: 5,
+      passport: 6,
+      school: 7,
+      university: 8,
+      clinic: 9,
+      vvk: 10,
+      border: 11,
+    };
+
+    return userIdByUsername[value] ?? null;
+  }
+
+  saveImpersonatedUserId(userId: number | null): void {
+    if (!userId) {
+      localStorage.removeItem(this.impersonatedUserIdStorageKey);
+      return;
+    }
+
+    localStorage.setItem(this.impersonatedUserIdStorageKey, String(userId));
+  }
+
+  getImpersonatedUserId(): number | null {
+    const value = localStorage.getItem(this.impersonatedUserIdStorageKey);
+    if (!value) {
+      return null;
+    }
+
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  private resolveRoleByUserId(userId: number): string | null {
+    const roleByUserId: Record<number, string> = {
+      1: 'admin',
+      2: 'superadmin',
+      3: 'maternity',
+      4: 'zags',
+      5: 'jek',
+      6: 'passport',
+      7: 'school',
+      8: 'university',
+      9: 'clinic',
+      10: 'vvk',
+      11: 'border',
+    };
+
+    return roleByUserId[userId] ?? null;
+  }
+
+  private resolveRoleByUsername(username: string): string | null {
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!normalizedUsername) {
+      return null;
+    }
+
+    const roleByUsername: Record<string, string> = {
+      admin: 'admin',
+      superadmin: 'superadmin',
+      maternity: 'maternity',
+      zags: 'zags',
+      jek: 'jek',
+      passport: 'passport',
+      school: 'school',
+      university: 'university',
+      clinic: 'clinic',
+      vvk: 'vvk',
+      border: 'border',
+      zagsemployee: 'zags',
+      passportofficer: 'passport',
+      highereducation: 'university',
+      medicalcenter: 'clinic',
+      militaryofficer: 'vvk',
+      borderservice: 'border',
+      borderservice2: 'border',
+    };
+
+    return roleByUsername[normalizedUsername] ?? null;
   }
 
   private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {
@@ -127,6 +300,14 @@ export class AuthService {
     }
 
     return response.data ?? [];
+  }
+
+  private unwrapItem<T>(response: ApiResponse<T> | T): T {
+    if (response && typeof response === 'object' && 'data' in response) {
+      return (response as ApiResponse<T>).data as T;
+    }
+
+    return response as T;
   }
 
   private extractToken(response: LoginApiResponse): string | null {
@@ -152,12 +333,7 @@ export class AuthService {
     }
 
     const record = value as Record<string, unknown>;
-    const candidates: unknown[] = [
-      record['token'],
-      record['accessToken'],
-      record['jwt'],
-      record['result'],
-    ];
+    const candidates: unknown[] = [record['token'], record['accessToken'], record['jwt'], record['result']];
 
     for (const candidate of candidates) {
       if (typeof candidate === 'string' && candidate.trim()) {

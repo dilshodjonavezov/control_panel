@@ -1,4 +1,4 @@
-﻿import { Component } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -48,8 +48,8 @@ export class AccessControlComponent {
   };
 
   private readonly defaultRoleLabels: Record<string, string> = {
-    superadmin: 'Суперадмин Системы',
-    admin: 'Админ Системы',
+    superadmin: 'Админ',
+    admin: 'Военкомат',
     teacher: 'Преподаватель',
     student: 'Студент',
     maternity: 'ГКБ Роддом',
@@ -67,8 +67,8 @@ export class AccessControlComponent {
 
   roleOptions: SelectOption[] = [
     { value: 'all', label: 'Все роли' },
-    { value: 'superadmin', label: 'Суперадмин Системы' },
-    { value: 'admin', label: 'Админ Системы' },
+    { value: 'superadmin', label: 'Админ' },
+    { value: 'admin', label: 'Военкомат' },
     { value: 'teacher', label: 'Преподаватель' },
     { value: 'student', label: 'Студент' },
     { value: 'maternity', label: 'ГКБ Роддом' },
@@ -93,7 +93,7 @@ export class AccessControlComponent {
   users: AccessUser[] = [
     {
       id: 'sa-1',
-      fullName: 'Суперадмин Системы',
+      fullName: 'Админ',
       email: 'superadmin@example.com',
       role: 'superadmin',
       status: 'active',
@@ -101,7 +101,7 @@ export class AccessControlComponent {
     },
     {
       id: 'u-1',
-      fullName: 'Админ Системы',
+      fullName: 'Военкомат',
       email: 'admin@example.com',
       role: 'admin',
       status: 'active',

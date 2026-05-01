@@ -1,69 +1,106 @@
-﻿<div class="max-w-full overflow-x-auto shadow-md rounded-lg">
-  <table class="min-w-max w-full divide-y divide-gray-200 bg-white">
-    <thead class="bg-gray-50">
-      <tr>
-        @for (column of columns; track column.key) {
-          <th
-            [style.width]="column.width"
-            [class.cursor-pointer]="column.sortable"
-            [class.select-none]="column.sortable"
-            (click)="onSort(column)"
-            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hover:bg-gray-100 whitespace-nowrap"
-          >
-            <div class="flex items-center gap-2">
-              <span>{{ column.label }}</span>
-              @if (column.sortable) {
-                <span class="text-gray-400">{{ getSortIcon(column) }}</span>
+<div class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+  <div class="max-w-full overflow-x-auto">
+    <table class="min-w-max w-full divide-y divide-slate-200 bg-white">
+      <thead class="bg-slate-50/90">
+        <tr>
+          @for (column of columns; track column.key) {
+            <th
+              [style.width]="column.width"
+              [class.cursor-pointer]="column.sortable"
+              [class.select-none]="column.sortable"
+              (click)="onSort(column)"
+              class="px-6 py-4 text-left text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 hover:bg-slate-100 whitespace-nowrap"
+            >
+              <div class="flex items-center gap-2">
+                <span>{{ column.label }}</span>
+                @if (column.sortable) {
+                  <span class="text-slate-400">{{ getSortIcon(column) }}</span>
+                }
+              </div>
+            </th>
+          }
+          @if (actionsTemplate) {
+            <th class="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500 whitespace-nowrap">
+              Действия
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100 bg-white">
+        @if (loading === true) {
+          <tr>
+            <td [attr.colspan]="columns.length + (actionsTemplate ? 1 : 0)" class="px-6 py-12 text-center">
+              <div class="flex justify-center items-center">
+                <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span class="ml-3 text-slate-600 text-sm font-medium">Загрузка...</span>
+              </div>
+            </td>
+          </tr>
+        } @else if (data.length === 0) {
+          <tr>
+            <td [attr.colspan]="columns.length + (actionsTemplate ? 1 : 0)" class="px-6 py-12 text-center text-slate-500 text-sm">
+              {{ emptyMessage }}
+            </td>
+          </tr>
+        } @else {
+          @for (row of paginatedData; track $index) {
+            <tr class="transition hover:bg-slate-50/80">
+              @if (rowTemplate) {
+                <ng-container *ngTemplateOutlet="rowTemplate; context: { $implicit: row, index: $index }"></ng-container>
+              } @else {
+                @for (column of columns; track column.key) {
+                  <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">
+                    @if (isStatusColumn(column)) {
+                      <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1" [ngClass]="getStatusClasses(row[column.key])">
+                        {{ row[column.key] }}
+                      </span>
+                    } @else {
+                      {{ row[column.key] }}
+                    }
+                  </td>
+                }
               }
-            </div>
-          </th>
-        }
-        @if (actionsTemplate) {
-          <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-            Действия
-          </th>
-        }
-      </tr>
-    </thead>
-    <tbody class="bg-white divide-y divide-gray-200">
-      @if (loading === true) {
-        <tr>
-          <td [attr.colspan]="columns.length + (actionsTemplate ? 1 : 0)" class="px-6 py-12 text-center">
-            <div class="flex justify-center items-center">
-              <svg class="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              <span class="ml-3 text-gray-600">Загрузка...</span>
-            </div>
-          </td>
-        </tr>
-      } @else if (data.length === 0) {
-        <tr>
-          <td [attr.colspan]="columns.length + (actionsTemplate ? 1 : 0)" class="px-6 py-12 text-center text-gray-500">
-            {{ emptyMessage }}
-          </td>
-        </tr>
-      } @else {
-        @for (row of data; track $index) {
-          <tr class="hover:bg-gray-50">
-            @if (rowTemplate) {
-              <ng-container *ngTemplateOutlet="rowTemplate; context: { $implicit: row, index: $index }"></ng-container>
-            } @else {
-              @for (column of columns; track column.key) {
-                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {{ row[column.key] }}
+              @if (actionsTemplate) {
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row, index: $index }"></ng-container>
                 </td>
               }
-            }
-            @if (actionsTemplate) {
-              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                <ng-container *ngTemplateOutlet="actionsTemplate; context: { $implicit: row, index: $index }"></ng-container>
-              </td>
-            }
-          </tr>
+            </tr>
+          }
         }
-      }
-    </tbody>
-  </table>
+      </tbody>
+    </table>
+  </div>
+
+  @if (!loading && totalItems > pageSize) {
+    <div class="flex items-center justify-between border-t border-slate-200 bg-slate-50/70 px-5 py-3">
+      <div class="text-sm font-medium text-slate-600">
+        Показано {{ pageStart }}-{{ pageEnd }} из {{ totalItems }}
+      </div>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          [disabled]="currentPage === 1"
+          (click)="goToPreviousPage()"
+        >
+          ← Назад
+        </button>
+        <div class="min-w-20 text-center text-sm font-semibold text-slate-700">
+          {{ currentPage }} / {{ totalPages }}
+        </div>
+        <button
+          type="button"
+          class="inline-flex items-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+          [disabled]="currentPage === totalPages"
+          (click)="goToNextPage()"
+        >
+          Вперед →
+        </button>
+      </div>
+    </div>
+  }
 </div>

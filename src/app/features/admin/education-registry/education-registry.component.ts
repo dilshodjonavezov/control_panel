@@ -1,21 +1,20 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CardComponent, TableComponent, TableColumn, InputComponent, SelectComponent, SelectOption, ButtonComponent, ModalComponent } from '../../../shared/components';
+import { Router } from '@angular/router';
+import {
+  ButtonComponent,
+  CardComponent,
+  InputComponent,
+  ModalComponent,
+  SelectComponent,
+  SelectOption,
+  TableColumn,
+  TableComponent
+} from '../../../shared/components';
+import { VoenkomatDataService, VoenkomatEducationRow } from '../../../services/voenkomat-data.service';
 
-type StudyStatus = 'school' | 'student' | 'expelled';
-
-interface EducationRegistryRow {
-  id: string;
-  fullName: string;
-  documentId: string;
-  status: StudyStatus;
-  institution: string;
-  form: string;
-  startDate: string;
-  endDate?: string;
-  defermentActive: boolean;
-}
+type StudyStatusFilter = 'all' | 'Школьник' | 'Студент' | 'Выпускник' | 'Отчислен';
 
 @Component({
   selector: 'app-education-registry',
@@ -33,102 +32,105 @@ interface EducationRegistryRow {
   templateUrl: './education-registry.component.html',
   styleUrl: './education-registry.component.css'
 })
-export class EducationRegistryComponent {
+export class EducationRegistryComponent implements OnInit {
+  readonly rows = signal<VoenkomatEducationRow[]>([]);
+  readonly filteredRows = signal<VoenkomatEducationRow[]>([]);
+  readonly isLoading = signal(false);
+  readonly errorMessage = signal('');
+
   searchQuery = '';
   docQuery = '';
-  statusFilter: StudyStatus | 'all' = 'all';
+  statusFilter: StudyStatusFilter = 'all';
   institutionQuery = '';
-  formFilter: 'all' | 'Очная' | 'Заочная' | 'Дистанционная' = 'all';
+  formFilter = 'all';
   startDate = '';
   endDate = '';
 
-  selected: EducationRegistryRow | null = null;
+  selected: VoenkomatEducationRow | null = null;
   showCard = false;
 
-  statusOptions: SelectOption[] = [
-    { value: 'all', label: 'Все статусы' },
-    { value: 'school', label: 'Школьник' },
-    { value: 'student', label: 'Студент' },
-    { value: 'expelled', label: 'Отчислен' }
-  ];
-
-  formOptions: SelectOption[] = [
-    { value: 'all', label: 'Все формы' },
-    { value: 'Очная', label: 'Очная' },
-    { value: 'Заочная', label: 'Заочная' },
-    { value: 'Дистанционная', label: 'Дистанционная' }
-  ];
-
-  columns: TableColumn[] = [
-    { key: 'fullName', label: 'ФИО', sortable: true },
-    { key: 'documentId', label: 'ID/паспорт', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true },
+  readonly columns: TableColumn[] = [
+    { key: 'fullName', label: 'Гражданин', sortable: true },
+    { key: 'documentId', label: 'Паспорт', sortable: true },
+    { key: 'status', label: 'Статус учебы', sortable: true },
     { key: 'institution', label: 'Учреждение', sortable: true },
     { key: 'form', label: 'Форма', sortable: true },
-    { key: 'startDate', label: 'Зачисление', sortable: true },
-    { key: 'endDate', label: 'Отчисление', sortable: true }
+    { key: 'startDate', label: 'Начало', sortable: true },
+    { key: 'endDate', label: 'Окончание', sortable: true }
   ];
 
-  rows: EducationRegistryRow[] = [
-    {
-      id: 'er1',
-      fullName: 'Иванов Иван Иванович',
-      documentId: 'AA123456',
-      status: 'student',
-      institution: 'МГТУ им. Баумана',
-      form: 'Очная',
-      startDate: '2023-09-01',
-      endDate: '',
-      defermentActive: true
-    },
-    {
-      id: 'er2',
-      fullName: 'Петров Петр Сергеевич',
-      documentId: 'BB987654',
-      status: 'expelled',
-      institution: 'Колледж №4',
-      form: 'Очная',
-      startDate: '2021-09-01',
-      endDate: '2024-03-10',
-      defermentActive: false
-    }
-  ];
+  constructor(
+    private readonly voenkomatDataService: VoenkomatDataService,
+    private readonly router: Router,
+  ) {}
 
-  get filteredRows(): EducationRegistryRow[] {
-    return this.rows.filter(row => {
-      const matchesName = this.searchQuery
-        ? row.fullName.toLowerCase().includes(this.searchQuery.toLowerCase())
-        : true;
-      const matchesDoc = this.docQuery
-        ? row.documentId.toLowerCase().includes(this.docQuery.toLowerCase())
-        : true;
-      const matchesStatus = this.statusFilter === 'all' || row.status === this.statusFilter;
-      const matchesInstitution = this.institutionQuery
-        ? row.institution.toLowerCase().includes(this.institutionQuery.toLowerCase())
-        : true;
-      const matchesForm = this.formFilter === 'all' || row.form === this.formFilter;
-      const matchesStart = this.startDate ? row.startDate >= this.startDate : true;
-      const matchesEnd = this.endDate ? (row.endDate || '') <= this.endDate : true;
-      return matchesName && matchesDoc && matchesStatus && matchesInstitution && matchesForm && matchesStart && matchesEnd;
+  ngOnInit(): void {
+    this.loadRows();
+  }
+
+  loadRows(): void {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.voenkomatDataService.getEducationRegistry().subscribe({
+      next: (rows) => {
+        this.rows.set(rows);
+        this.applyFilters();
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('Не удалось загрузить учебные связки военкомата.');
+        this.isLoading.set(false);
+      },
     });
   }
 
-  getStatusLabel(status: StudyStatus): string {
-    const labels: Record<StudyStatus, string> = {
-      school: 'Школьник',
-      student: 'Студент',
-      expelled: 'Отчислен'
-    };
-    return labels[status] || status;
+  applyFilters(): void {
+    const query = this.searchQuery.trim().toLowerCase();
+    const docQuery = this.docQuery.trim().toLowerCase();
+    const institutionQuery = this.institutionQuery.trim().toLowerCase();
+
+    const filtered = this.rows().filter((row) => {
+      const matchesName = !query || row.fullName.toLowerCase().includes(query);
+      const matchesDoc = !docQuery || row.documentId.toLowerCase().includes(docQuery);
+      const matchesStatus = this.statusFilter === 'all' || row.status === this.statusFilter;
+      const matchesInstitution = !institutionQuery || row.institution.toLowerCase().includes(institutionQuery);
+      const matchesForm = this.formFilter === 'all' || row.form === this.formFilter;
+      const matchesStart = !this.startDate || row.startDate >= this.startDate;
+      const matchesEnd = !this.endDate || row.endDate === '-' || row.endDate <= this.endDate;
+      return matchesName && matchesDoc && matchesStatus && matchesInstitution && matchesForm && matchesStart && matchesEnd;
+    });
+
+    this.filteredRows.set(filtered);
   }
 
-  openCard(row: EducationRegistryRow): void {
+  openCard(row: VoenkomatEducationRow): void {
     this.selected = row;
     this.showCard = true;
+  }
+
+  openCitizen(row: VoenkomatEducationRow): void {
+    this.showCard = false;
+    this.router.navigate(['/admin/citizens', row.citizenId]);
   }
 
   closeCard(): void {
     this.showCard = false;
     this.selected = null;
+  }
+
+  getStatusOptions(): SelectOption[] {
+    return [
+      { value: 'all', label: 'Все статусы' },
+      { value: 'Школьник', label: 'Школьник' },
+      { value: 'Студент', label: 'Студент' },
+      { value: 'Выпускник', label: 'Выпускник' },
+      { value: 'Отчислен', label: 'Отчислен' },
+    ];
+  }
+
+  getFormOptions(): SelectOption[] {
+    const forms = Array.from(new Set(this.rows().map((row) => row.form))).sort((a, b) => a.localeCompare(b, 'ru'));
+    return [{ value: 'all', label: 'Все формы' }, ...forms.map((form) => ({ value: form, label: form }))];
   }
 }

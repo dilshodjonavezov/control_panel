@@ -1,18 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CardComponent, TableComponent, TableColumn, ButtonComponent, InputComponent, ModalComponent } from '../../../shared/components';
 import { FormsModule } from '@angular/forms';
+import { ButtonComponent, CardComponent, InputComponent, ModalComponent, TableColumn, TableComponent } from '../../../shared/components';
+import { AuthService } from '../../../services/auth.service';
+import { VoenkomatDataService, VoenkomatDefermentRow } from '../../../services/voenkomat-data.service';
 
-type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'needs_work';
+type ReviewStatus = 'На проверке' | 'Подтверждено' | 'Отказано' | 'Доработка';
 
-interface ReviewItem {
-  id: string;
-  student: string;
-  institution: string;
-  document: string;
-  submittedAt: string;
-  status: ReviewStatus;
-}
+type ReviewItem = VoenkomatDefermentRow & { reviewStatus: ReviewStatus };
 
 @Component({
   selector: 'app-deferment-review',
@@ -21,31 +16,50 @@ interface ReviewItem {
   templateUrl: './deferment-review.component.html',
   styleUrl: './deferment-review.component.css'
 })
-export class DefermentReviewComponent {
-  columns: TableColumn[] = [
-    { key: 'student', label: 'Студент', sortable: true },
-    { key: 'institution', label: 'Учреждение', sortable: true },
+export class DefermentReviewComponent implements OnInit {
+  readonly items = signal<ReviewItem[]>([]);
+  readonly isLoading = signal(false);
+  readonly isSubmitting = signal(false);
+  readonly errorMessage = signal('');
+
+  readonly columns: TableColumn[] = [
+    { key: 'fullName', label: 'Гражданин', sortable: true },
+    { key: 'basis', label: 'Основание', sortable: true },
+    { key: 'institution', label: 'Источник', sortable: true },
     { key: 'document', label: 'Документ', sortable: true },
     { key: 'submittedAt', label: 'Дата', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true }
-  ];
-
-  statusLabels: Record<ReviewStatus, string> = {
-    pending: 'На проверке',
-    approved: 'Подтверждено',
-    rejected: 'Отказ',
-    needs_work: 'Доработка'
-  };
-
-  items: ReviewItem[] = [
-    { id: 'r1', student: 'Иванов Иван', institution: 'МГТУ', document: 'Справка №14', submittedAt: '12.01.2026', status: 'pending' },
-    { id: 'r2', student: 'Петров Петр', institution: 'Колледж №4', document: 'Приказ №11', submittedAt: '11.01.2026', status: 'pending' }
+    { key: 'reviewStatus', label: 'Статус проверки', sortable: true }
   ];
 
   showModal = false;
   comment = '';
   selected: ReviewItem | null = null;
   action: ReviewStatus | null = null;
+
+  constructor(
+    private readonly voenkomatDataService: VoenkomatDataService,
+    private readonly authService: AuthService,
+  ) {}
+
+  ngOnInit(): void {
+    this.loadItems();
+  }
+
+  loadItems(): void {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.voenkomatDataService.getDefermentReview().subscribe({
+      next: (items) => {
+        this.items.set(items.map((item) => ({ ...item, reviewStatus: item.status as ReviewStatus })));
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('Не удалось загрузить основания отсрочек.');
+        this.isLoading.set(false);
+      },
+    });
+  }
 
   openDecision(item: ReviewItem, action: ReviewStatus): void {
     this.selected = item;
@@ -55,20 +69,61 @@ export class DefermentReviewComponent {
   }
 
   closeModal(): void {
+    if (this.isSubmitting()) {
+      return;
+    }
     this.showModal = false;
     this.selected = null;
     this.action = null;
   }
 
   applyDecision(): void {
-    if (!this.selected || !this.action) return;
-    this.items = this.items.map(item =>
-      item.id === this.selected!.id ? { ...item, status: this.action! } : item
-    );
-    this.closeModal();
-  }
+    if (!this.selected || !this.action) {
+      return;
+    }
 
-  getStatusLabel(status: ReviewStatus): string {
-    return this.statusLabels[status] || status;
+    const userId = this.authService.getImpersonatedUserId() ?? this.authService.resolveCurrentUserId();
+    if (!userId) {
+      this.errorMessage.set('Не удалось определить сотрудника военкомата.');
+      return;
+    }
+
+    const decisionMap: Record<Exclude<ReviewStatus, 'На проверке'>, 'APPROVED' | 'REJECTED' | 'NEEDS_WORK'> = {
+      'Подтверждено': 'APPROVED',
+      'Отказано': 'REJECTED',
+      'Доработка': 'NEEDS_WORK',
+    };
+
+    if (this.action === 'На проверке') {
+      return;
+    }
+
+    const request =
+      this.selected.sourceType === 'education'
+        ? this.voenkomatDataService.reviewEducationDeferment(this.selected.sourceId, {
+            decision: decisionMap[this.action],
+            userId,
+            comment: this.comment || null,
+          })
+        : this.voenkomatDataService.reviewMilitaryDeferment(this.selected.sourceId, {
+            decision: decisionMap[this.action],
+            userId,
+            comment: this.comment || null,
+          });
+
+    this.isSubmitting.set(true);
+    request.subscribe({
+      next: () => {
+        this.isSubmitting.set(false);
+        this.showModal = false;
+        this.selected = null;
+        this.action = null;
+        this.loadItems();
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.errorMessage.set('Не удалось сохранить решение военкомата.');
+      },
+    });
   }
 }

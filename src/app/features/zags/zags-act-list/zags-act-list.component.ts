@@ -1,6 +1,7 @@
 ﻿import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
 import {
   ButtonComponent,
@@ -13,10 +14,11 @@ import {
   TableColumn,
 } from '../../../shared/components';
 import {
-  ApiZagsBirthRecord,
-  CreateZagsBirthRecordRequest,
-  ZagsBirthRecordsService,
-} from '../../../services/zags-birth-records.service';
+  ApiZagsActRecord,
+  CreateZagsActRequest,
+  ZagsActsService,
+  type ZagsActType,
+} from '../../../services/zags-acts.service';
 import { ApiMaternityRecord, MaternityRecordsService, type MaternityGender, type MaternityStatus } from '../../../services/maternity-records.service';
 import { AuthService } from '../../../services/auth.service';
 
@@ -32,6 +34,7 @@ interface ZagsChildItem {
 
 interface ZagsActItem {
   id: number;
+  actType: ZagsActType;
   fatherPersonId: number | null;
   peopleId: number;
   peopleFullName: string;
@@ -51,14 +54,31 @@ interface ZagsActItem {
   parentsChildrenCount: number;
   childrenRecords: ZagsChildItem[];
   status: string;
+  source: ApiZagsActRecord;
+}
+
+interface MaternityPickerItem {
+  id: number;
+  childFullName: string;
+  motherFullName: string;
+  fatherFullName: string;
+  birthDate: string;
+  birthPlace: string;
+  status: string;
+  gender: string;
+  isAlreadyInZags: boolean;
+  linkedZagsActId: number | null;
+  searchText: string;
 }
 
 interface ZagsActForm {
-  actType: ZagsActType;
+  actType: ZagsFormActType;
   actNumber: string;
   registrationDate: string;
   placeOfRegistration: string;
   status: string;
+  birthScenario: BirthScenario;
+  maternityRecordId: string;
   birthDate: string;
   birthPlace: string;
   childFullName: string;
@@ -74,7 +94,9 @@ interface ZagsActForm {
   deathReason: string;
 }
 
-type ZagsActType = 'BirthCertificate' | 'Marriage' | 'Death';
+type ZagsFormActType = 'BirthCertificate' | 'Marriage' | 'Death';
+type BirthScenario = 'standard' | 'outside_marriage' | 'unregistered_marriage' | 'relative_without_zags' | 'guardianship';
+type ZagsActStatus = 'DRAFT' | 'REGISTERED' | 'UPDATED' | 'CANCELLED' | 'ARCHIVED';
 
 @Component({
   selector: 'app-zags-act-list',
@@ -93,12 +115,12 @@ export class ZagsActListComponent implements OnInit {
   columns: TableColumn[] = [
     { key: 'id', label: 'ID', sortable: true },
     { key: 'actNumber', label: 'Акт №', sortable: true },
+    { key: 'actType', label: 'Тип', sortable: true },
     { key: 'registrationDate', label: 'Дата регистрации', sortable: true },
     { key: 'birthDate', label: 'Дата рождения', sortable: true },
-    { key: 'peopleFullName', label: 'Гражданин', sortable: true },
     { key: 'placeOfRegistration', label: 'Место регистрации', sortable: true },
     { key: 'birthPlace', label: 'Место рождения', sortable: true },
-    { key: 'fatherPersonId', label: 'fatherPersonId', sortable: true },
+    { key: 'fatherPersonId', label: 'ID отца', sortable: true },
     { key: 'fatherFullName', label: 'Отец', sortable: true },
     { key: 'motherFullName', label: 'Мать', sortable: true },
     { key: 'childrenInfo', label: 'Детей у отца', sortable: false },
@@ -131,11 +153,21 @@ export class ZagsActListComponent implements OnInit {
   editingRecordId: number | null = null;
   isFormSubmitting = false;
   formErrorMessage = '';
+  showMaternityPickerModal = false;
+  maternityPickerFilter = '';
+  pendingMaternityRecordId = '';
   formData: ZagsActForm = this.createDefaultForm();
   typeOptions: SelectOption[] = [
     { value: 'Marriage', label: 'Брак' },
     { value: 'BirthCertificate', label: 'Рождение' },
     { value: 'Death', label: 'Смерть' },
+  ];
+  statusOptions: SelectOption[] = [
+    { value: 'DRAFT', label: 'Черновик' },
+    { value: 'REGISTERED', label: 'Зарегистрирован' },
+    { value: 'UPDATED', label: 'Обновлен' },
+    { value: 'CANCELLED', label: 'Отменен' },
+    { value: 'ARCHIVED', label: 'Архив' },
   ];
 
   showDeleteModal = false;
@@ -144,15 +176,36 @@ export class ZagsActListComponent implements OnInit {
   deleteErrorMessage = '';
 
   constructor(
-    private readonly zagsBirthRecordsService: ZagsBirthRecordsService,
+    private readonly zagsActsService: ZagsActsService,
     private readonly maternityRecordsService: MaternityRecordsService,
     private readonly authService: AuthService,
+    private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
     this.resolveCurrentUserId();
     this.loadRecords();
+    this.route.queryParamMap.subscribe((params) => {
+      const action = params.get('action');
+      if (!action) {
+        return;
+      }
+
+      if (action === 'birth') {
+        this.openCreate();
+        this.formData.actType = 'BirthCertificate';
+        return;
+      }
+
+      if (action === 'marriage') {
+        this.openCreate();
+        this.formData.actType = 'Marriage';
+        return;
+      }
+
+      this.filters = { actNumber: '', fullName: '', status: '' };
+    });
   }
 
   get filteredRecords(): ZagsActItem[] {
@@ -172,12 +225,30 @@ export class ZagsActListComponent implements OnInit {
     return this.isEditMode ? 'Изменить запись ЗАГС' : 'Добавить запись ЗАГС';
   }
 
+  openChildren(row: ZagsActItem): void {
+    if (row.childrenCount === 0) {
+      return;
+    }
+
+    this.childrenModalTitle = row.fatherPersonId
+      ? `Дети по ID отца ${row.fatherPersonId}`
+      : `Дети по акту №${row.actNumber}`;
+    this.selectedChildren = row.childrenRecords;
+    this.showChildrenModal = true;
+  }
+
+  closeChildrenModal(): void {
+    this.showChildrenModal = false;
+    this.selectedChildren = [];
+    this.childrenModalTitle = '';
+  }
+
   loadRecords(): void {
     this.isLoading = true;
     this.errorMessage = '';
 
     forkJoin({
-      zagsRecords: this.zagsBirthRecordsService.getAll(),
+      zagsRecords: this.zagsActsService.getAll(),
       maternityRecords: this.maternityRecordsService.getAll(),
     })
       .pipe(timeout(15000))
@@ -201,24 +272,6 @@ export class ZagsActListComponent implements OnInit {
       });
   }
 
-  openChildren(row: ZagsActItem): void {
-    if (row.childrenCount === 0) {
-      return;
-    }
-
-    this.childrenModalTitle = row.fatherPersonId
-      ? `Дети по fatherPersonId=${row.fatherPersonId}`
-      : `Дети по акту №${row.actNumber}`;
-    this.selectedChildren = row.childrenRecords;
-    this.showChildrenModal = true;
-  }
-
-  closeChildrenModal(): void {
-    this.showChildrenModal = false;
-    this.selectedChildren = [];
-    this.childrenModalTitle = '';
-  }
-
   openCreate(): void {
     this.isEditMode = false;
     this.editingRecordId = null;
@@ -230,26 +283,33 @@ export class ZagsActListComponent implements OnInit {
   openEdit(row: ZagsActItem): void {
     this.isEditMode = true;
     this.editingRecordId = row.id;
+    const source = row.source;
     this.formData = {
-      actType: 'BirthCertificate',
-      actNumber: row.actNumber,
+      actType: this.toFormActType(source.actType),
+      actNumber: row.actNumber === '-' ? this.generateActNumber() : row.actNumber,
       registrationDate: row.registrationDateRaw,
       placeOfRegistration: row.placeOfRegistration === '-' ? '' : row.placeOfRegistration,
-      status: row.status === '-' ? '' : row.status,
-      birthDate: row.birthDateRaw,
-      birthPlace: row.birthPlace === '-' ? '' : row.birthPlace,
-      childFullName: row.childrenRecords[0]?.childFullName || '',
-      fatherFullName: row.fatherFullName === '-' ? '' : row.fatherFullName,
-      motherFullName: row.motherFullName === '-' ? '' : row.motherFullName,
-      marriageDate: '',
-      marriagePlace: '',
-      spouseOneFullName: '',
-      spouseTwoFullName: '',
-      deathDate: '',
-      deceasedFullName: '',
-      deathPlace: '',
-      deathReason: '',
+      status: this.normalizeActStatus(row.status),
+      maternityRecordId: source.maternityRecordId?.toString() ?? '',
+      birthDate: source.birthDetails?.birthDate?.slice(0, 10) ?? row.birthDateRaw,
+      birthPlace: source.birthDetails?.birthPlace?.trim() ?? (row.birthPlace === '-' ? '' : row.birthPlace),
+      childFullName: source.birthDetails?.childFullName?.trim() ?? row.childrenRecords[0]?.childFullName ?? '',
+      fatherFullName: source.birthDetails?.fatherFullName?.trim() ?? (row.fatherFullName === '-' ? '' : row.fatherFullName),
+      motherFullName: source.birthDetails?.motherFullName?.trim() ?? (row.motherFullName === '-' ? '' : row.motherFullName),
+      birthScenario: this.inferBirthScenario(source),
+      marriageDate: source.marriageDetails?.marriageDate?.slice(0, 10) ?? '',
+      marriagePlace: source.marriageDetails?.marriagePlace?.trim() ?? '',
+      spouseOneFullName: source.marriageDetails?.spouseOneFullName?.trim() ?? '',
+      spouseTwoFullName: source.marriageDetails?.spouseTwoFullName?.trim() ?? '',
+      deathDate: source.deathDetails?.deathDate?.slice(0, 10) ?? '',
+      deceasedFullName: source.deathDetails?.deceasedFullName?.trim() ?? '',
+      deathPlace: source.deathDetails?.deathPlace?.trim() ?? '',
+      deathReason: source.deathDetails?.deathReason?.trim() ?? '',
     };
+    const matchedMaternityRecord = this.findMaternityRecordForSource(source);
+    if (matchedMaternityRecord && !this.formData.maternityRecordId) {
+      this.formData.maternityRecordId = matchedMaternityRecord.id.toString();
+    }
     this.formErrorMessage = '';
     this.showFormModal = true;
   }
@@ -259,6 +319,38 @@ export class ZagsActListComponent implements OnInit {
       return;
     }
     this.showFormModal = false;
+  }
+
+  openMaternityPicker(): void {
+    this.pendingMaternityRecordId = this.formData.maternityRecordId;
+    this.maternityPickerFilter = '';
+    this.showMaternityPickerModal = true;
+  }
+
+  closeMaternityPicker(): void {
+    this.showMaternityPickerModal = false;
+    this.pendingMaternityRecordId = '';
+    this.maternityPickerFilter = '';
+  }
+
+  selectPendingMaternityRecord(recordId: number): void {
+    this.pendingMaternityRecordId = recordId.toString();
+  }
+
+  confirmMaternityPicker(): void {
+    if (!this.pendingMaternityRecordId) {
+      this.formErrorMessage = 'Выберите запись роддома.';
+      return;
+    }
+
+    this.onMaternityRecordSelected(this.pendingMaternityRecordId);
+    this.showMaternityPickerModal = false;
+    this.pendingMaternityRecordId = '';
+    this.maternityPickerFilter = '';
+  }
+
+  clearMaternityRecordSelection(): void {
+    this.onMaternityRecordSelected(null);
   }
 
   saveForm(): void {
@@ -272,8 +364,8 @@ export class ZagsActListComponent implements OnInit {
 
     const request$ =
       this.isEditMode && this.editingRecordId
-        ? this.zagsBirthRecordsService.update(this.editingRecordId, payload)
-        : this.zagsBirthRecordsService.create(payload);
+        ? this.zagsActsService.update(this.editingRecordId, payload)
+        : this.zagsActsService.create(payload);
 
     request$
       .pipe(
@@ -324,7 +416,7 @@ export class ZagsActListComponent implements OnInit {
     this.isDeleting = true;
     this.deleteErrorMessage = '';
 
-    this.zagsBirthRecordsService
+    this.zagsActsService
       .delete(this.deletingRecord.id)
       .pipe(
         finalize(() => {
@@ -348,21 +440,55 @@ export class ZagsActListComponent implements OnInit {
       });
   }
 
-  getGenderLabel(gender: MaternityGender): string {
-    return gender === 'F' || gender === 'Женский' ? 'Женский' : 'Мужской';
+  getGenderLabel(gender: string | null): string {
+    return gender === 'FEMALE' || gender === 'F' ? 'Женский' : 'Мужской';
   }
 
-  getStatusLabel(status: MaternityStatus): string {
-    if (status === 'Registered' || status === 'Зарегистрирован') {
+  getStatusLabel(status: string | null): string {
+    const normalized = (status || '').trim().toUpperCase();
+    const labels: Record<string, string> = {
+      DRAFT: 'Черновик',
+      REGISTERED: 'Зарегистрирован',
+      UPDATED: 'Исправлен',
+      CANCELLED: 'Отменен',
+      ARCHIVED: 'Архив',
+      REGISTERED_BY_ZAGS: 'Зарегистрирован',
+      SUBMITTED_TO_ZAGS: 'Передан',
+    };
+
+    if (labels[normalized]) {
+      return labels[normalized];
+    }
+
+    if (status === 'Registered') {
       return 'Зарегистрирован';
     }
-    if (status === 'Transferred' || status === 'Передан') {
+    if (status === 'Transferred') {
       return 'Передан';
     }
-    if (status === 'Archived' || status === 'Архив') {
+    if (status === 'Archived') {
       return 'Архив';
     }
-    return 'В ожидании';
+
+    return 'Черновик';
+  }
+
+  getTypeLabel(type: ZagsActType): string {
+    const labels: Record<ZagsActType, string> = {
+      BIRTH: 'Рождение',
+      MARRIAGE: 'Брак',
+      DEATH: 'Смерть',
+    };
+    return labels[type];
+  }
+
+  private toFormActType(type: ZagsActType): ZagsActForm['actType'] {
+    const mapping: Record<ZagsActType, ZagsActForm['actType']> = {
+      BIRTH: 'BirthCertificate',
+      MARRIAGE: 'Marriage',
+      DEATH: 'Death',
+    };
+    return mapping[type];
   }
 
   isBirthType(): boolean {
@@ -377,41 +503,151 @@ export class ZagsActListComponent implements OnInit {
     return this.formData.actType === 'Death';
   }
 
-  private mapRecord(record: ApiZagsBirthRecord, maternityRecords: ApiMaternityRecord[]): ZagsActItem {
+  get selectedMaternityRecord(): ApiMaternityRecord | null {
+    return this.getSelectedMaternityRecord();
+  }
+
+  get selectedMaternityRecordSummary(): string {
+    const record = this.selectedMaternityRecord;
+    if (!record) {
+      return 'Запись роддома не выбрана';
+    }
+
+    const childName = record.childFullName?.trim() || 'ФИО ребёнка не указано';
+    const birthDate = this.formatDate(record.birthDateTime);
+    const birthPlace = record.placeOfBirth?.trim() || 'место не указано';
+    return `${childName}, ${birthDate}, ${birthPlace}`;
+  }
+
+  get maternityPickerRecords(): MaternityPickerItem[] {
+    return this.maternityRecords
+      .slice()
+      .sort((a, b) => b.id - a.id)
+      .map((record) => {
+        const linkedAct = this.findZagsActForMaternityRecord(record);
+        const childFullName = record.childFullName?.trim() || 'ФИО ребёнка не указано';
+        const motherFullName = record.motherFullName?.trim() || 'не указана';
+        const fatherFullName = record.fatherFullName?.trim() || 'не указан';
+        const birthDate = this.formatDate(record.birthDateTime);
+        const birthPlace = record.placeOfBirth?.trim() || 'не указано';
+        const status = this.getStatusLabel(this.normalizeStatus(record.status));
+        const gender = this.getGenderLabel(this.normalizeGender(record.gender));
+        const searchText = [
+          record.id,
+          childFullName,
+          motherFullName,
+          fatherFullName,
+          birthPlace,
+          birthDate,
+        ]
+          .join(' ')
+          .toLowerCase();
+
+        return {
+          id: record.id,
+          childFullName,
+          motherFullName,
+          fatherFullName,
+          birthDate,
+          birthPlace,
+          status,
+          gender,
+          isAlreadyInZags: !!linkedAct,
+          linkedZagsActId: linkedAct?.id ?? null,
+          searchText,
+        };
+      });
+  }
+
+  get filteredMaternityPickerRecords(): MaternityPickerItem[] {
+    const query = this.maternityPickerFilter.trim().toLowerCase();
+    if (!query) {
+      return this.maternityPickerRecords;
+    }
+
+    return this.maternityPickerRecords.filter((record) => record.searchText.includes(query));
+  }
+
+  isPendingMaternityRecordSelected(recordId: number): boolean {
+    return this.pendingMaternityRecordId === recordId.toString();
+  }
+
+  private mapRecord(record: ApiZagsActRecord, maternityRecords: ApiMaternityRecord[]): ZagsActItem {
+    const birthDetails = record.birthDetails ?? null;
+    const marriageDetails = record.marriageDetails ?? null;
+    const deathDetails = record.deathDetails ?? null;
     const { fatherPersonId, childrenRecords } = this.buildChildrenRecords(record, maternityRecords);
     const parentsChildrenCount = childrenRecords.length;
+    const primaryDisplay =
+      birthDetails?.childFullName?.trim() ||
+      marriageDetails?.spouseOneFullName?.trim() ||
+      deathDetails?.deceasedFullName?.trim() ||
+      (record.actType === 'BIRTH' ? 'Новорожденный' : `ID ${record.id}`);
 
     return {
       id: record.id,
+      actType: record.actType,
       fatherPersonId,
-      peopleId: record.peopleId,
-      peopleFullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
+      peopleId: record.citizenId ?? record.id,
+      peopleFullName: primaryDisplay,
       userId: record.userId,
       userName: record.userName?.trim() || `ID ${record.userId}`,
       actNumber: record.actNumber?.trim() || '-',
-      birthDate: this.formatDate(record.birthDate),
-      birthDateRaw: this.normalizeDateInput(record.birthDate),
+      birthDate: this.formatDate(
+        birthDetails?.birthDate ??
+          marriageDetails?.marriageDate ??
+          deathDetails?.deathDate ??
+          record.registrationDate,
+      ),
+      birthDateRaw:
+        this.normalizeDateInput(
+          birthDetails?.birthDate ??
+            marriageDetails?.marriageDate ??
+            deathDetails?.deathDate ??
+            record.registrationDate,
+        ),
       registrationDate: this.formatDate(record.registrationDate),
       registrationDateRaw: this.normalizeDateInput(record.registrationDate),
       placeOfRegistration: record.placeOfRegistration?.trim() || '-',
-      birthPlace: record.birthPlace?.trim() || '-',
-      fatherFullName: record.fatherFullName?.trim() || '-',
-      motherFullName: record.motherFullName?.trim() || '-',
-      childrenInfo: parentsChildrenCount > 0 ? `${parentsChildrenCount} детей` : '0',
-      childrenCount: parentsChildrenCount,
-      parentsChildrenCount,
-      childrenRecords,
+      birthPlace:
+        birthDetails?.birthPlace?.trim() ||
+        marriageDetails?.marriagePlace?.trim() ||
+        deathDetails?.deathPlace?.trim() ||
+        '-',
+      fatherFullName:
+        birthDetails?.fatherFullName?.trim() ||
+        marriageDetails?.spouseOneFullName?.trim() ||
+        deathDetails?.deceasedFullName?.trim() ||
+        '-',
+      motherFullName:
+        birthDetails?.motherFullName?.trim() ||
+        marriageDetails?.spouseTwoFullName?.trim() ||
+        deathDetails?.deathReason?.trim() ||
+        '-',
+      childrenInfo: record.actType === 'BIRTH' && parentsChildrenCount > 0 ? `${parentsChildrenCount} детей` : '0',
+      childrenCount: record.actType === 'BIRTH' ? parentsChildrenCount : 0,
+      parentsChildrenCount: record.actType === 'BIRTH' ? parentsChildrenCount : 0,
+      childrenRecords: record.actType === 'BIRTH' ? childrenRecords : [],
       status: record.status?.trim() || '-',
+      source: record,
     };
   }
 
   private buildChildrenRecords(
-    record: ApiZagsBirthRecord,
+    record: ApiZagsActRecord,
     maternityRecords: ApiMaternityRecord[],
   ): { fatherPersonId: number | null; childrenRecords: ZagsChildItem[] } {
-    let fatherPersonId = record.fatherPersonId && record.fatherPersonId > 0 ? record.fatherPersonId : null;
-    const father = this.normalizeName(record.fatherFullName);
-    const mother = this.normalizeName(record.motherFullName);
+    if (record.actType !== 'BIRTH') {
+      return { fatherPersonId: null, childrenRecords: [] };
+    }
+
+    let fatherPersonId = record.birthDetails?.fatherCitizenId && record.birthDetails.fatherCitizenId > 0
+      ? record.birthDetails.fatherCitizenId
+      : record.citizenId && record.citizenId > 0
+        ? record.citizenId
+        : null;
+    const father = this.normalizeName(record.birthDetails?.fatherFullName ?? null);
+    const mother = this.normalizeName(record.birthDetails?.motherFullName ?? null);
 
     let linked: ApiMaternityRecord[] = [];
 
@@ -419,13 +655,14 @@ export class ZagsActListComponent implements OnInit {
       linked = maternityRecords.filter((item) => item.fatherPersonId === fatherPersonId);
     }
 
-    if (linked.length === 0) {
-      linked = maternityRecords.filter((item) => this.extractZagsId(item.comment) === record.id);
+    if (linked.length === 0 && record.maternityRecordId) {
+      linked = maternityRecords.filter((item) => item.id === record.maternityRecordId);
     }
 
-    if (linked.length === 0 && father && mother) {
+    if (linked.length === 0 && record.birthDetails?.childFullName) {
       linked = maternityRecords.filter(
         (item) =>
+          this.normalizeName(item.childFullName) === this.normalizeName(record.birthDetails?.childFullName ?? '') &&
           this.normalizeName(item.fatherFullName) === father &&
           this.normalizeName(item.motherFullName) === mother,
       );
@@ -474,23 +711,13 @@ export class ZagsActListComponent implements OnInit {
       .trim();
   }
 
-  private buildPayload(): CreateZagsBirthRecordRequest | null {
+  private buildPayload(): CreateZagsActRequest | null {
     if (this.resolvedUserId === null) {
       this.formErrorMessage = 'Не удалось определить текущего пользователя.';
       return null;
     }
 
     const actNumber = this.formData.actNumber.trim() || this.generateActNumber();
-    const payloadFields = this.buildPayloadFieldsByType();
-    if (!payloadFields) {
-      return null;
-    }
-
-    const linkage = this.resolveActLinkage(payloadFields);
-    if (!linkage) {
-      return null;
-    }
-
     if (!this.formData.registrationDate) {
       this.formErrorMessage = 'Укажите дату регистрации.';
       return null;
@@ -501,21 +728,79 @@ export class ZagsActListComponent implements OnInit {
       return null;
     }
 
+    if (this.formData.actType === 'BirthCertificate') {
+      const payloadFields = this.buildBirthPayloadFields();
+      if (!payloadFields) {
+        return null;
+      }
+      const maternityRecord = this.getSelectedMaternityRecord();
+      if (!maternityRecord) {
+        this.formErrorMessage = 'Выберите запись роддома.';
+        return null;
+      }
+
+      return {
+        actNumber,
+        actType: 'BIRTH',
+        status: this.normalizeActStatus(this.formData.status),
+        registrationDate: this.formData.registrationDate,
+        placeOfRegistration: this.formData.placeOfRegistration.trim(),
+        userId: this.resolvedUserId,
+        citizenId: maternityRecord.childCitizenId ?? null,
+        maternityRecordId: maternityRecord.id,
+        birthDetails: {
+          childCitizenId: maternityRecord.childCitizenId ?? null,
+          birthCaseType: this.mapBirthScenarioToCaseType(this.formData.birthScenario as BirthScenario),
+          childFullName: this.formData.childFullName.trim(),
+          birthDate: payloadFields.eventDate,
+          birthPlace: payloadFields.place,
+          motherFullName: payloadFields.secondaryPerson,
+          fatherFullName: payloadFields.primaryPerson,
+          fatherCitizenId: maternityRecord.fatherPersonId ?? null,
+        },
+      };
+    }
+
+    if (this.formData.actType === 'Marriage') {
+      const payloadFields = this.buildMarriagePayloadFields();
+      if (!payloadFields) {
+        return null;
+      }
+
+      return {
+        actNumber,
+        actType: 'MARRIAGE',
+        status: this.normalizeActStatus(this.formData.status),
+        registrationDate: this.formData.registrationDate,
+        placeOfRegistration: this.formData.placeOfRegistration.trim(),
+        userId: this.resolvedUserId,
+        marriageDetails: {
+          spouseOneFullName: payloadFields.primaryPerson,
+          spouseTwoFullName: payloadFields.secondaryPerson,
+          marriageDate: payloadFields.eventDate,
+          marriagePlace: payloadFields.place,
+        },
+      };
+    }
+
+    const payloadFields = this.buildDeathPayloadFields();
+    if (!payloadFields) {
+      return null;
+    }
+
     return {
-      maternityRecordId: linkage.maternityRecordId,
-      peopleId: linkage.peopleId,
-      peopleFullName: linkage.peopleFullName,
-      userId: this.resolvedUserId,
       actNumber,
-      childFullName: linkage.childFullName,
+      actType: 'DEATH',
+      status: this.normalizeActStatus(this.formData.status),
       registrationDate: this.formData.registrationDate,
-      birthDate: payloadFields.eventDate,
       placeOfRegistration: this.formData.placeOfRegistration.trim(),
-      birthPlace: payloadFields.place,
-      fatherFullName: payloadFields.primaryPerson,
-      motherFullName: payloadFields.secondaryPerson,
-      fatherPersonId: linkage.fatherPersonId,
-      status: this.formData.status.trim(),
+      userId: this.resolvedUserId,
+      deathDetails: {
+        deceasedFullName: payloadFields.primaryPerson,
+        deathDate: payloadFields.eventDate,
+        deathPlace: payloadFields.place,
+        deathReason: payloadFields.secondaryPerson,
+      },
     };
   }
 
@@ -525,7 +810,9 @@ export class ZagsActListComponent implements OnInit {
       actNumber: this.generateActNumber(),
       registrationDate: '',
       placeOfRegistration: '',
-      status: '',
+      status: 'DRAFT',
+      birthScenario: 'standard',
+      maternityRecordId: '',
       birthDate: '',
       birthPlace: '',
       childFullName: '',
@@ -542,139 +829,96 @@ export class ZagsActListComponent implements OnInit {
     };
   }
 
-  private resolveActLinkage(payloadFields: {
-    eventDate: string;
-    place: string;
-    primaryPerson: string;
-    secondaryPerson: string;
-  }):
-    | {
-        maternityRecordId: number;
-        peopleId: number;
-        peopleFullName: string;
-        fatherPersonId: number;
-        childFullName: string;
-      }
-    | null {
-    const childName = this.formData.childFullName.trim();
-    const father = this.formData.fatherFullName.trim();
-    const mother = this.formData.motherFullName.trim();
-    const birthDate = this.formData.birthDate;
-
-    if (this.formData.actType === 'BirthCertificate') {
-      const match = this.maternityRecords.find((item) => {
-        const childMatches = this.normalizeName(item.childFullName) === this.normalizeName(childName);
-        const fatherMatches = this.normalizeName(item.fatherFullName) === this.normalizeName(father);
-        const motherMatches = this.normalizeName(item.motherFullName) === this.normalizeName(mother);
-        const birthMatches = this.isSameDate(item.birthDateTime, birthDate);
-        return childMatches && fatherMatches && motherMatches && birthMatches;
-      });
-
-      if (match && match.fatherPersonId && match.fatherPersonId > 0) {
-        return {
-          maternityRecordId: match.id,
-          peopleId: match.fatherPersonId,
-          peopleFullName: match.childFullName?.trim() || childName || father,
-          fatherPersonId: match.fatherPersonId,
-          childFullName: match.childFullName?.trim() || childName,
-        };
-      }
-    }
-
-    const seed = [
-      this.formData.actType,
-      payloadFields.primaryPerson,
-      payloadFields.secondaryPerson,
-      payloadFields.eventDate,
-      childName,
-    ]
-      .join('|')
-      .trim();
-    const syntheticId = this.buildSyntheticId(seed);
-    const displayName =
-      this.formData.actType === 'BirthCertificate'
-        ? childName || payloadFields.primaryPerson
-        : payloadFields.primaryPerson;
-
-    return {
-      maternityRecordId: this.formData.actType === 'BirthCertificate' ? syntheticId : 0,
-      peopleId: syntheticId,
-      peopleFullName: displayName,
-      fatherPersonId: syntheticId,
-      childFullName: childName || displayName,
-    };
-  }
-
-  private resolveCurrentUserId(): void {
-    const username = this.authService.getCurrentUsername();
-    if (!username) {
-      this.resolvedUserId = null;
+  onMaternityRecordSelected(value: string | number | null): void {
+    const selected = this.getSelectedMaternityRecord(value);
+    if (!selected) {
+      this.formData.maternityRecordId = '';
+      this.formData.birthDate = '';
+      this.formData.birthPlace = '';
+      this.formData.childFullName = '';
+      this.formData.fatherFullName = '';
+      this.formData.motherFullName = '';
       return;
     }
 
-    this.authService.getUsers().subscribe({
-      next: (users) => {
-        const matched = users.find((user) => user.username.trim().toLowerCase() === username.toLowerCase());
-        this.resolvedUserId = matched?.id ?? this.resolveLocalUserId(username);
-      },
-      error: () => {
-        this.resolvedUserId = this.resolveLocalUserId(username);
-      },
-    });
+    this.formData.maternityRecordId = selected.id.toString();
+    this.formData.birthDate = this.normalizeDateInput(selected.birthDateTime);
+    this.formData.birthPlace = selected.placeOfBirth?.trim() ?? '';
+    this.formData.childFullName = selected.childFullName?.trim() ?? '';
+    this.formData.fatherFullName = selected.fatherFullName?.trim() ?? '';
+    this.formData.motherFullName = selected.motherFullName?.trim() ?? '';
+    this.formData.birthScenario = this.inferBirthScenario(selected);
   }
 
-  private isSameDate(value: string | null, dateInput: string): boolean {
-    if (!value || !dateInput) {
-      return false;
-    }
-    return this.normalizeDateInput(value) === this.normalizeDateInput(dateInput);
+  private resolveCurrentUserId(): void {
+    this.resolvedUserId = this.authService.resolveCurrentUserId();
   }
 
-  private buildPayloadFieldsByType(): { eventDate: string; place: string; primaryPerson: string; secondaryPerson: string } | null {
+  private buildBirthPayloadFields(): { eventDate: string; place: string; primaryPerson: string; secondaryPerson: string } | null {
     if (this.formData.actType === 'BirthCertificate') {
-      if (!this.formData.birthDate) {
+      const selected = this.getSelectedMaternityRecord();
+      if (!selected) {
+        this.formErrorMessage = 'Выберите запись роддома.';
+        return null;
+      }
+
+      if (!this.formData.childFullName.trim()) {
+        this.formErrorMessage = 'Укажите ФИО ребенка.';
+        return null;
+      }
+
+      const birthDate = this.formData.birthDate || this.normalizeDateInput(selected.birthDateTime);
+      const birthPlace = this.formData.birthPlace.trim() || selected.placeOfBirth?.trim() || '';
+      const fatherFullName = this.formData.fatherFullName.trim() || selected.fatherFullName?.trim() || '';
+      const motherFullName = this.formData.motherFullName.trim() || selected.motherFullName?.trim() || '';
+
+      if (!birthDate) {
         this.formErrorMessage = 'Укажите дату рождения.';
         return null;
       }
-      if (!this.formData.birthPlace.trim()) {
+      if (!birthPlace) {
         this.formErrorMessage = 'Укажите место рождения.';
         return null;
       }
-      if (!this.formData.fatherFullName.trim() || !this.formData.motherFullName.trim()) {
+      if (!fatherFullName || !motherFullName) {
         this.formErrorMessage = 'Укажите ФИО отца и матери.';
         return null;
       }
 
       return {
-        eventDate: this.formData.birthDate,
-        place: this.formData.birthPlace.trim(),
-        primaryPerson: this.formData.fatherFullName.trim(),
-        secondaryPerson: this.formData.motherFullName.trim(),
+        eventDate: birthDate,
+        place: birthPlace,
+        primaryPerson: fatherFullName,
+        secondaryPerson: motherFullName,
       };
     }
 
-    if (this.formData.actType === 'Marriage') {
-      if (!this.formData.marriageDate) {
-        this.formErrorMessage = 'Укажите дату регистрации брака.';
-        return null;
-      }
-      if (!this.formData.marriagePlace.trim()) {
-        this.formErrorMessage = 'Укажите место заключения брака.';
-        return null;
-      }
-      if (!this.formData.spouseOneFullName.trim() || !this.formData.spouseTwoFullName.trim()) {
-        this.formErrorMessage = 'Укажите ФИО обоих супругов.';
-        return null;
-      }
+    return null;
+  }
 
-      return {
-        eventDate: this.formData.marriageDate,
-        place: this.formData.marriagePlace.trim(),
-        primaryPerson: this.formData.spouseOneFullName.trim(),
-        secondaryPerson: this.formData.spouseTwoFullName.trim(),
-      };
+  private buildMarriagePayloadFields(): { eventDate: string; place: string; primaryPerson: string; secondaryPerson: string } | null {
+    if (!this.formData.marriageDate) {
+      this.formErrorMessage = 'Укажите дату регистрации брака.';
+      return null;
+    }
+    if (!this.formData.marriagePlace.trim()) {
+      this.formErrorMessage = 'Укажите место заключения брака.';
+      return null;
+    }
+    if (!this.formData.spouseOneFullName.trim() || !this.formData.spouseTwoFullName.trim()) {
+      this.formErrorMessage = 'Укажите ФИО обоих супругов.';
+      return null;
     }
 
+    return {
+      eventDate: this.formData.marriageDate,
+      place: this.formData.marriagePlace.trim(),
+      primaryPerson: this.formData.spouseOneFullName.trim(),
+      secondaryPerson: this.formData.spouseTwoFullName.trim(),
+    };
+  }
+
+  private buildDeathPayloadFields(): { eventDate: string; place: string; primaryPerson: string; secondaryPerson: string } | null {
     if (!this.formData.deathDate) {
       this.formErrorMessage = 'Укажите дату смерти.';
       return null;
@@ -694,6 +938,113 @@ export class ZagsActListComponent implements OnInit {
       primaryPerson: this.formData.deceasedFullName.trim(),
       secondaryPerson: this.formData.deathReason.trim() || 'Причина не указана',
     };
+  }
+
+  private getSelectedMaternityRecord(value?: string | number | null): ApiMaternityRecord | null {
+    const rawValue = value ?? this.formData.maternityRecordId;
+    const maternityRecordId = Number(rawValue);
+    if (!Number.isInteger(maternityRecordId) || maternityRecordId <= 0) {
+      return null;
+    }
+
+    return this.maternityRecords.find((record) => record.id === maternityRecordId) ?? null;
+  }
+
+  private findMaternityRecordForSource(source: ApiZagsActRecord): ApiMaternityRecord | null {
+    if (source.maternityRecordId && source.maternityRecordId > 0) {
+      const byId = this.maternityRecords.find((record) => record.id === source.maternityRecordId);
+      if (byId) {
+        return byId;
+      }
+    }
+
+    if (source.actType !== 'BIRTH') {
+      return null;
+    }
+
+    const childName = this.normalizeName(source.birthDetails?.childFullName ?? null);
+    const fatherName = this.normalizeName(source.birthDetails?.fatherFullName ?? null);
+    const motherName = this.normalizeName(source.birthDetails?.motherFullName ?? null);
+    const birthDate = this.normalizeDateInput(source.birthDetails?.birthDate ?? null);
+
+    return (
+      this.maternityRecords.find((record) => {
+        const recordChild = this.normalizeName(record.childFullName ?? null);
+        const recordFather = this.normalizeName(record.fatherFullName ?? null);
+        const recordMother = this.normalizeName(record.motherFullName ?? null);
+        const recordBirthDate = this.normalizeDateInput(record.birthDateTime);
+
+        const childMatches = !childName || recordChild === childName || !recordChild;
+        const fatherMatches = !fatherName || recordFather === fatherName;
+        const motherMatches = !motherName || recordMother === motherName;
+        const birthMatches = !birthDate || recordBirthDate === birthDate;
+
+        return childMatches && fatherMatches && motherMatches && birthMatches;
+      }) ?? null
+    );
+  }
+
+  private findZagsActForMaternityRecord(record: ApiMaternityRecord): ZagsActItem | null {
+    const matchedById = this.records.find(
+      (item) =>
+        item.actType === 'BIRTH' &&
+        item.source.maternityRecordId === record.id &&
+        (!this.isEditMode || item.id !== this.editingRecordId),
+    );
+
+    if (matchedById) {
+      return matchedById;
+    }
+
+    const recordChild = this.normalizeName(record.childFullName ?? null);
+    const recordFather = this.normalizeName(record.fatherFullName ?? null);
+    const recordMother = this.normalizeName(record.motherFullName ?? null);
+    const recordBirthDate = this.normalizeDateInput(record.birthDateTime);
+
+    return (
+      this.records.find((item) => {
+        if (item.actType !== 'BIRTH' || (this.isEditMode && item.id === this.editingRecordId)) {
+          return false;
+        }
+
+        const source = item.source.birthDetails;
+        return (
+          this.normalizeName(source?.childFullName ?? null) === recordChild &&
+          this.normalizeName(source?.fatherFullName ?? null) === recordFather &&
+          this.normalizeName(source?.motherFullName ?? null) === recordMother &&
+          this.normalizeDateInput(source?.birthDate ?? null) === recordBirthDate
+        );
+      }) ?? null
+    );
+  }
+
+  private inferBirthScenario(record: { birthDetails?: { birthCaseType?: string | null } | null; birthCaseType?: string | null }): BirthScenario {
+    const birthCaseType = record.birthDetails?.birthCaseType ?? record.birthCaseType ?? null;
+    if (birthCaseType === 'OUT_OF_WEDLOCK') {
+      return 'outside_marriage';
+    }
+    if (birthCaseType === 'UNREGISTERED_MARRIAGE') {
+      return 'unregistered_marriage';
+    }
+    if (birthCaseType === 'RELATIVE_WITHOUT_ZAGS') {
+      return 'relative_without_zags';
+    }
+    if (birthCaseType === 'GUARDIANSHIP') {
+      return 'guardianship';
+    }
+    return 'standard';
+  }
+
+  private mapBirthScenarioToCaseType(scenario: BirthScenario): string {
+    const mapped: Record<BirthScenario, string> = {
+      standard: 'STANDARD_MARRIAGE',
+      outside_marriage: 'OUT_OF_WEDLOCK',
+      unregistered_marriage: 'UNREGISTERED_MARRIAGE',
+      relative_without_zags: 'RELATIVE_WITHOUT_ZAGS',
+      guardianship: 'GUARDIANSHIP',
+    };
+
+    return mapped[scenario];
   }
 
   private generateActNumber(): string {
@@ -726,29 +1077,49 @@ export class ZagsActListComponent implements OnInit {
   }
 
   private normalizeStatus(status: string | null): MaternityStatus {
-    if (status === 'Registered' || status === 'Pending' || status === 'Transferred' || status === 'Archived') {
+    if (status === 'REGISTERED_BY_ZAGS' || status === 'DRAFT' || status === 'SUBMITTED_TO_ZAGS' || status === 'ARCHIVED') {
       return status;
     }
-    if (status === 'Зарегистрирован') {
-      return 'Registered';
+    if (status === 'Registered') {
+      return 'REGISTERED_BY_ZAGS';
     }
-    if (status === 'Ожидает' || status === 'В ожидании' || status === 'Ожидание') {
-      return 'Pending';
+    if (status === 'Transferred') {
+      return 'SUBMITTED_TO_ZAGS';
     }
-    if (status === 'Передан') {
-      return 'Transferred';
+    if (status === 'Pending') {
+      return 'DRAFT';
     }
-    if (status === 'Архив' || status === 'Архивирован') {
-      return 'Archived';
+    return 'DRAFT';
+  }
+
+  private normalizeActStatus(status: string | null): ZagsActStatus {
+    const normalized = (status || '').trim().toUpperCase();
+    if (
+      normalized === 'DRAFT' ||
+      normalized === 'REGISTERED' ||
+      normalized === 'UPDATED' ||
+      normalized === 'CANCELLED' ||
+      normalized === 'ARCHIVED'
+    ) {
+      return normalized;
     }
-    return 'Pending';
+
+    if (normalized === 'REGISTERED_BY_ZAGS' || normalized === 'REGISTERED' || normalized === 'REGISTERED ') {
+      return 'REGISTERED';
+    }
+
+    if (normalized === 'PENDING' || normalized === 'DRAFT ') {
+      return 'DRAFT';
+    }
+
+    return 'DRAFT';
   }
 
   private normalizeGender(gender: string | null): MaternityGender {
-    if (gender === 'F' || gender === 'Женский') {
-      return 'F';
+    if (gender === 'FEMALE' || gender === 'F') {
+      return 'FEMALE';
     }
-    return 'M';
+    return 'MALE';
   }
 
   private buildSyntheticId(seed: string): number {
@@ -759,17 +1130,4 @@ export class ZagsActListComponent implements OnInit {
     return Math.abs(hash) + 500000;
   }
 
-  private resolveLocalUserId(username: string): number | null {
-    const normalized = username.trim().toLowerCase();
-    if (normalized === 'admin') {
-      return 1;
-    }
-    if (normalized === 'maternity' || normalized === 'maternity@example.com') {
-      return 2;
-    }
-    if (normalized === 'zags' || normalized === 'zags@example.com') {
-      return 3;
-    }
-    return null;
-  }
 }

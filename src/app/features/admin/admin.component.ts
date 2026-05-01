@@ -1,38 +1,58 @@
-﻿import { Component } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { CommonModule } from '@angular/common';
-import { AuthService } from '../../services/auth.service';
+import { Component } from '@angular/core';
+import {
+  PortalShellComponent,
+  PortalShellMetric,
+  PortalShellNavSection,
+  PortalShellQuickAction,
+} from '../../shared/components/portal-shell/portal-shell.component';
 
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [PortalShellComponent],
   templateUrl: './admin.component.html',
-  styleUrl: './admin.component.css'
+  styleUrl: './admin.component.css',
 })
 export class AdminComponent {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly router: Router,
-  ) {}
+  readonly navSections: PortalShellNavSection[] = [
+    {
+      title: 'Воинский учет',
+      items: [
+        { id: 'dashboard', path: '/admin/dashboard', label: 'Панель управления', icon: '📊', hint: 'Сводка по учету и связанным службам' },
+        { id: 'conscripts', path: '/admin/conscripts', label: 'Призывники', icon: '🧑‍✈️', hint: 'Только мужчины 18-27 лет призывного возраста' },
+        { id: 'citizens', path: '/admin/citizens', label: 'Граждане', icon: '👥', hint: 'Полный контур граждан и разделов учета' },
+        { id: 'education-registry', path: '/admin/education-registry', label: 'Реестр по образованию', icon: '🗂️', hint: 'Школа, колледж и влияние на отсрочку' },
+        { id: 'deferment-review', path: '/admin/deferment-review', label: 'Проверка отсрочек', icon: '✅', hint: 'Семья, учеба и основания освобождения' },
+      ],
+    },
+    {
+      title: 'Внешние источники',
+      items: [
+        { id: 'school', path: '/admin/school', label: 'Школа', icon: '🏫', hint: 'Сведения об учащихся и выпускниках' },
+        { id: 'university', path: '/admin/university', label: 'ВУЗ и колледж', icon: '🎓', hint: 'Зачисление, обучение и отчисления' },
+        { id: 'organizations', path: '/admin/organizations', label: 'Организации', icon: '🏛️', hint: 'Справочники и подведомственные учреждения' },
+      ],
+    },
+    {
+      title: 'Контроль',
+      items: [
+        { id: 'expulsions', path: '/admin/expulsions', label: 'Отчисления', icon: '⚠️', hint: 'Кого нужно повторно вызвать' },
+        { id: 'reports', path: '/admin/reports', label: 'Отчеты', icon: '📄', hint: 'Сводки по районам и категориям' },
+        { id: 'settings', path: '/admin/settings', label: 'Настройки', icon: '⚙️', hint: 'Параметры автоматизации и справочников' },
+      ],
+    },
+  ];
 
-  logout(): void {
-    this.authService.clearToken();
-    void this.router.navigate(['/login']);
-  }
+  readonly quickActions: PortalShellQuickAction[] = [
+    { path: '/admin/conscripts', label: 'Открыть призывников', icon: '🧾', description: 'Только мужчины 18-27 лет без смешивания с общим реестром' },
+    { path: '/admin/citizens', label: 'Открыть граждан', icon: '👥', description: 'Полный список граждан с разделами военкомата' },
+    { path: '/admin/deferment-review', label: 'Проверить отсрочки', icon: '🛡️', description: 'Быстрый переход к семейным и учебным основаниям' },
+    { path: '/admin/reports', label: 'Сформировать отчет', icon: '📈', description: 'Сводка по районам, возрасту и этапам учета' },
+  ];
 
-  menuItems = [
-    { path: '/admin/dashboard', label: 'Панель управления', icon: '📊' },
-    { path: '/admin/citizens', label: 'Призывники', icon: '🧑‍✈️' },
-    { path: '/admin/education-registry', label: 'Реестр по образованию', icon: '🗂️' },
-    { path: '/admin/deferment-review', label: 'Проверка отсрочек', icon: '✅' },
-    { path: '/admin/expulsions', label: 'Отчисления', icon: '⚠️' },
-    // { path: '/admin/school', label: 'Школа', icon: '🏫' },
-    // { path: '/admin/university', label: 'ВУЗ / Колледж', icon: '🎓' },
-    { path: '/admin/organizations', label: 'Организации', icon: '🏛️' },
-    { path: '/admin/users', label: 'Пользователи', icon: '🔐' },
-    { path: '/admin/audit', label: 'Аудит', icon: '🧾' },
-    // { path: '/admin/reports', label: 'Отчеты', icon: '📄' },
-    // { path: '/admin/settings', label: 'Настройки', icon: '⚙️' }
+  readonly metrics: PortalShellMetric[] = [
+    { label: 'Контур', value: 'Единый', hint: 'Рождение, ЗАГС, адрес, учеба и ВВК связаны' },
+    { label: 'Логика', value: 'Семья', hint: 'Льготы считаются по мужу, жене и детям' },
+    { label: 'Режим', value: 'Онлайн', hint: 'Работа через единые реестры без ручного дублирования' },
   ];
 }

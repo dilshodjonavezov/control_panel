@@ -1,0 +1,47 @@
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Семейный реестр</h1>
+      <p class="text-sm text-gray-500">Отец, мать, дети и автопостановка сыновей на учет</p>
+    </div>
+    <app-button variant="outline" (clicked)="loadFamilies()">Обновить</app-button>
+  </div>
+
+  <app-card>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <app-input label="Поиск" placeholder="ФИО семьи, отца, матери или ребенка" [(ngModel)]="filters.search"></app-input>
+      <app-select label="Льгота" [options]="exemptionOptions" [(ngModel)]="filters.exemption"></app-select>
+    </div>
+  </app-card>
+
+  @if (errorMessage) {
+    <app-card>
+      <p class="text-sm text-red-600">{{ errorMessage }}</p>
+    </app-card>
+  }
+
+  <app-card>
+    <app-table
+      [columns]="columns"
+      [data]="filteredRows"
+      [loading]="isLoading"
+      [emptyMessage]="'Семей пока нет'"
+      [rowTemplate]="rowTemplate"
+    >
+      <ng-template #rowTemplate let-row>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.familyName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.father }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.mother }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.childrenCount }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.sonsCount }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.daughtersCount }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.militaryChildrenCount }}</td>
+        <td class="px-6 py-4 text-sm font-medium" [class.text-emerald-700]="row.exemptionStatus === 'Освобождение'">
+          {{ row.exemptionStatus }}
+        </td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.childrenSummary }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+</div>

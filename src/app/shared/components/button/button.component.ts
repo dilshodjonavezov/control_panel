@@ -22,6 +22,11 @@ export class ButtonComponent {
   @Output() clicked = new EventEmitter<void>();
 
   onClick(event: MouseEvent): void {
+    if (this.disabled || this.loading) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     event.stopPropagation();
     this.clicked.emit();
   }
@@ -44,8 +49,9 @@ export class ButtonComponent {
     };
 
     const widthClass = this.fullWidth ? 'w-full' : '';
+    const stateClass = this.disabled || this.loading ? 'opacity-60 cursor-not-allowed' : '';
 
-    return `${baseClasses} ${variantClasses[this.variant]} ${sizeClasses[this.size]} ${widthClass}`;
+    return `${baseClasses} ${variantClasses[this.variant]} ${sizeClasses[this.size]} ${widthClass} ${stateClass}`;
   }
 }
 

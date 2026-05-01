@@ -1,27 +1,43 @@
-﻿import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { Component } from '@angular/core';
+import {
+  PortalShellComponent,
+  PortalShellMetric,
+  PortalShellNavSection,
+  PortalShellQuickAction,
+} from '../../shared/components/portal-shell/portal-shell.component';
 
 @Component({
   selector: 'app-superadmin',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [PortalShellComponent],
   templateUrl: './superadmin.component.html',
-  styleUrl: './superadmin.component.css'
+  styleUrl: './superadmin.component.css',
 })
 export class SuperadminComponent {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly router: Router,
-  ) {}
+  readonly navSections: PortalShellNavSection[] = [
+    {
+      title: 'Контроль доступа',
+      items: [
+        {
+          id: 'access',
+          path: '/superadmin/access',
+          label: 'Пользователи и доступы',
+          icon: '🛡️',
+          hint: 'Назначение ролей и доступ к модулям системы',
+        },
+      ],
+    },
+  ];
 
-  logout(): void {
-    this.authService.clearToken();
-    void this.router.navigate(['/login']);
-  }
+  readonly quickActions: PortalShellQuickAction[] = [
+    { path: '/superadmin/access', label: 'Роли и права', icon: '🔐', description: 'Проверить, кому открыт каждый модуль системы' },
+    { path: '/superadmin/access', label: 'Сеансы и доступ', icon: '🧭', description: 'Контроль учетных записей и служебных пользователей' },
+    { path: '/superadmin/access', label: 'Матрица ролей', icon: '📚', description: 'Единая точка управления правами во всех службах' },
+  ];
 
-  menuItems = [
-    { path: '/superadmin/access', label: 'Доступы', icon: '🛡️' }
+  readonly metrics: PortalShellMetric[] = [
+    { label: 'Роли', value: '11', hint: 'Военкомат, ЗАГС, ЖЭК, учеба, ВВК и другие службы' },
+    { label: 'Контроль', value: 'Центральный', hint: 'Доступ управляется из одной административной зоны' },
+    { label: 'Назначение', value: 'Гибкое', hint: 'Права можно быстро сверять и корректировать' },
   ];
 }

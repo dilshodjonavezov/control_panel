@@ -1,7 +1,8 @@
-﻿<div class="space-y-6">
+<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Реестр обучения</h1>
+      <h1 class="text-3xl font-bold text-gray-900">Реестр школьного обучения</h1>
+      <p class="mt-1 text-sm text-gray-500">Записи школы теперь связаны с общей базой граждан, семей, адресов и паспортов.</p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
@@ -9,10 +10,11 @@
     </div>
   </div>
 
-  <app-card>
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
+  <app-card title="Фильтры">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <app-input label="Гражданин" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
       <app-input label="Класс" placeholder="11" [(ngModel)]="filters.classNumber"></app-input>
+      <app-select label="Учреждение" [options]="institutionOptions" [(ngModel)]="filters.institutionId"></app-select>
     </div>
   </app-card>
 
@@ -32,11 +34,28 @@
       [emptyMessage]="'Записей нет'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.peopleFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fatherFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.motherFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.familyLabel }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.addressLabel }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.passportNumber }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.institutionName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.classNumber }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.status }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span
+            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.status === 'Учитcя',
+              'bg-slate-100 text-slate-700 ring-slate-200': row.status === 'Закончил',
+              'bg-rose-100 text-rose-800 ring-rose-200': row.status === 'Отчислен'
+            }"
+          >
+            {{ row.status }}
+          </span>
+        </td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.admissionDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.graduationDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.expulsionDate }}</td>
@@ -80,44 +99,39 @@
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <app-select
-          label="ФИО отца"
-          [options]="filteredFatherOptions"
-          [value]="formData.fatherFullName"
-          placeholder="Выберите отца"
-          (changed)="onFatherSelected($event)"
+          label="Гражданин"
+          [options]="peopleOptions"
+          placeholder="Выберите гражданина"
+          [(ngModel)]="formData.peopleId"
         ></app-select>
 
         <app-select
-          label="ФИО матери"
-          [options]="filteredMotherOptions"
-          [value]="formData.motherFullName"
-          placeholder="Выберите мать"
-          (changed)="onMotherSelected($event)"
+          label="Школа"
+          [options]="institutionOptions.slice(1)"
+          placeholder="Выберите школу"
+          [(ngModel)]="formData.institutionId"
         ></app-select>
 
-        @if (parentLinkHint) {
-          <p class="md:col-span-2 text-xs text-blue-700">{{ parentLinkHint }}</p>
-        }
-
-        <app-select
-          label="ФИО ребенка"
-          [options]="childOptions"
-          [(ngModel)]="formData.maternityRecordId"
-          (changed)="onChildSelected($event)"
-          class="md:col-span-2"
-        ></app-select>
-
-        <div class="md:col-span-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800">
-          <div class="text-xs text-gray-500">Выбрано</div>
-          <div>Отец: {{ selectedFatherFullName || '—' }}</div>
-          <div>Мать: {{ selectedMotherFullName || '—' }}</div>
-          <div>Ребенок: {{ selectedChildFullName || '—' }}</div>
-        </div>
-
-        <app-select label="Какая школа" [options]="institutionOptions" [(ngModel)]="formData.institutionId"></app-select>
         <app-input type="number" label="Класс" placeholder="11" [(ngModel)]="formData.classNumber"></app-input>
-        <app-select label="Статус" [options]="statusOptions" [(ngModel)]="formData.status"></app-select>
-        <app-input type="datetime-local" label="Дата зачисления" [(ngModel)]="formData.admissionDate"></app-input>
+        <app-select label="Статус" [options]="statusOptions" [(ngModel)]="formData.status" (changed)="onStatusChanged($event)"></app-select>
+        <app-input type="date" label="Дата зачисления" [(ngModel)]="formData.admissionDate"></app-input>
+        <app-input type="date" label="Дата выпуска" [(ngModel)]="formData.graduationDate"></app-input>
+        <app-input type="date" label="Дата отчисления" [(ngModel)]="formData.expulsionDate"></app-input>
+        <app-input label="Комментарий" [(ngModel)]="formData.comment"></app-input>
+
+        @if (formData.peopleId) {
+          <div class="md:col-span-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-3 text-sm text-gray-800">
+            <div class="text-xs uppercase tracking-wide text-gray-500">Связанные данные гражданина</div>
+            <div class="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <div><span class="text-gray-500">Дата рождения:</span> {{ currentSelectedBirthDate || '—' }}</div>
+              <div><span class="text-gray-500">Семья:</span> {{ currentSelectedFamily || '—' }}</div>
+              <div><span class="text-gray-500">Отец:</span> {{ currentSelectedFather || '—' }}</div>
+              <div><span class="text-gray-500">Мать:</span> {{ currentSelectedMother || '—' }}</div>
+              <div class="md:col-span-2"><span class="text-gray-500">Адрес:</span> {{ currentSelectedAddress || '—' }}</div>
+              <div><span class="text-gray-500">Паспорт:</span> {{ currentSelectedPassport || 'Нет паспорта' }}</div>
+            </div>
+          </div>
+        }
       </div>
 
       <div class="flex justify-end gap-2">

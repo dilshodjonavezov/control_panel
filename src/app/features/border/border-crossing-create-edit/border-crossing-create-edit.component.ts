@@ -1,41 +1,26 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { LocalPersonWorkflowService } from '../../../services/local-person-workflow.service';
+import { finalize, forkJoin, timeout, TimeoutError } from 'rxjs';
+import { AuthService } from '../../../services/auth.service';
+import {
+  ApiBorderCrossing,
+  ApiCitizen,
+  BorderCrossingService,
+  CreateBorderCrossingRequest,
+} from '../../../services/border-crossing.service';
+import { AddressesService, ApiAddress } from '../../../services/addresses.service';
+import { PassportRecordsService, ApiPassportRecord } from '../../../services/passport-records.service';
 import { ButtonComponent, CardComponent, InputComponent, SelectComponent, SelectOption } from '../../../shared/components';
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
 
 interface BorderCrossingForm {
   peopleId: string;
-  userId: string;
   departureDate: string;
   returnDate: string;
   outsideBorder: 'true' | 'false';
   country: string;
   description: string;
-}
-
-interface LocalCrossingRecord {
-  id: number;
-  peopleId: number;
-  peopleName: string;
-  userId: number;
-  userName: string;
-  departureDate: string;
-  returnDate: string | null;
-  outsideBorder: boolean;
-  country: string;
-  description: string;
-}
-
-interface LocalMaternityItem {
-  id: number;
-  childFullName: string;
-}
-
-interface LocalSchoolRecord {
-  peopleId: number;
-  peopleFullName: string;
 }
 
 @Component({
@@ -46,43 +31,74 @@ interface LocalSchoolRecord {
   styleUrl: './border-crossing-create-edit.component.css',
 })
 export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
-  private readonly crossingsStorageKey = 'local_border_crossings_v1';
-  private readonly schoolStorageKey = 'local_school_records_v1';
-  private readonly maternityStorageKey = 'local_maternity_seed_v1';
-
   @Input() citizen: CitizenReadCardData | null = null;
   @Input() recordId: string | null = null;
-  @Input() embedded: boolean = false;
+  @Input() embedded = false;
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 
-  status = signal<'SAVED' | null>(null);
-  lastActionAt = signal<string | null>(null);
   isLoading = false;
   isReferenceLoading = false;
   isSubmitting = false;
   errorMessage = '';
+  successMessage = '';
 
   form: BorderCrossingForm = this.createDefaultForm();
-  peopleOptions = signal<SelectOption[]>([]);
-  userOptions = signal<SelectOption[]>([]);
+  peopleOptions: SelectOption[] = [];
+  citizens: ApiCitizen[] = [];
+  passports: ApiPassportRecord[] = [];
+  addresses: ApiAddress[] = [];
+
+  selectedCitizen: ApiCitizen | null = null;
+  selectedPassport: ApiPassportRecord | null = null;
+  selectedAddress: ApiAddress | null = null;
 
   outsideBorderOptions: SelectOption[] = [
     { value: 'true', label: 'Да' },
     { value: 'false', label: 'Нет' },
   ];
 
-  constructor(private readonly workflowService: LocalPersonWorkflowService) {}
+  constructor(
+    private readonly borderCrossingService: BorderCrossingService,
+    private readonly passportRecordsService: PassportRecordsService,
+    private readonly addressesService: AddressesService,
+    private readonly authService: AuthService,
+  ) {}
 
   ngOnInit(): void {
     this.loadReferenceData();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (!changes['recordId'] && !changes['citizen']) {
-      return;
+    if (changes['citizen'] && this.citizen?.id && !this.recordId) {
+      this.form.peopleId = this.extractPeopleId(this.citizen.id)?.toString() ?? '';
+      this.syncSelectedCitizen();
     }
-    this.loadRecord();
+
+    if (changes['recordId'] && this.recordId) {
+      this.loadRecord();
+    }
+  }
+
+  get documentNumber(): string {
+    return this.selectedPassport?.passportNumber?.trim() || 'Нет активного паспорта';
+  }
+
+  get addressLabel(): string {
+    return this.selectedAddress?.fullAddress?.trim() || 'Нет активного адреса';
+  }
+
+  get parentSummary(): string {
+    if (!this.selectedCitizen) {
+      return 'Нет выбранного гражданина';
+    }
+
+    return `${this.selectedCitizen.fatherFullName?.trim() || 'Отец не указан'} / ${this.selectedCitizen.motherFullName?.trim() || 'Мать не указана'}`;
+  }
+
+  onCitizenChanged(value: string | number | null): void {
+    this.form.peopleId = String(value ?? '');
+    this.syncSelectedCitizen();
   }
 
   save(): void {
@@ -91,41 +107,45 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       return;
     }
 
-    this.errorMessage = '';
-    this.isSubmitting = true;
-
-    const records = this.readCrossings();
     const recordId = Number(this.recordId);
     const isEdit = Number.isInteger(recordId) && recordId > 0;
 
-    if (isEdit) {
-      const existingIndex = records.findIndex((item) => item.id === recordId);
-      if (existingIndex < 0) {
-        this.errorMessage = 'Запись не найдена.';
-        this.isSubmitting = false;
-        return;
-      }
-      records[existingIndex] = { ...records[existingIndex], ...payload };
-    } else {
-      const nextId = records.length > 0 ? Math.max(...records.map((item) => item.id)) + 1 : 1;
-      records.unshift({
-        id: nextId,
-        ...payload,
+    this.errorMessage = '';
+    this.successMessage = '';
+    this.isSubmitting = true;
+
+    const request$ = isEdit
+      ? this.borderCrossingService.update(recordId, payload)
+      : this.borderCrossingService.create(payload);
+
+    request$
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isSubmitting = false;
+        }),
+      )
+      .subscribe({
+        next: (record) => {
+          if (!record) {
+            this.errorMessage = isEdit ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
+            return;
+          }
+          this.successMessage = isEdit ? 'Запись обновлена.' : 'Запись создана.';
+          this.saved.emit();
+          if (this.embedded) {
+            this.closed.emit();
+          }
+        },
+        error: (error: unknown) => {
+          this.errorMessage =
+            error instanceof TimeoutError
+              ? 'Превышено время ожидания ответа API.'
+              : isEdit
+                ? 'Не удалось изменить запись.'
+                : 'Не удалось создать запись.';
+        },
       });
-    }
-
-    this.writeCrossings(records);
-    this.workflowService.linkPersonIdToName(payload.peopleId, payload.peopleName);
-    this.workflowService.applyBorderState(payload.peopleName, payload.outsideBorder);
-
-    this.status.set('SAVED');
-    this.lastActionAt.set(this.getNowLabel());
-    this.saved.emit();
-    if (this.embedded) {
-      this.closed.emit();
-    }
-
-    this.isSubmitting = false;
   }
 
   close(): void {
@@ -134,90 +154,126 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     }
   }
 
-  private loadRecord(): void {
-    this.errorMessage = '';
-    this.status.set(null);
-
-    if (!this.recordId) {
-      this.form = this.createDefaultForm();
-      if (this.citizen?.id) {
-        const peopleId = this.extractPeopleId(this.citizen.id);
-        if (peopleId) {
-          this.form.peopleId = peopleId.toString();
-        }
-      }
-      return;
-    }
-
-    const id = Number(this.recordId);
-    if (!Number.isInteger(id)) {
-      this.errorMessage = 'Некорректный ID записи.';
-      return;
-    }
-
-    const item = this.readCrossings().find((record) => record.id === id);
-    if (!item) {
-      this.errorMessage = 'Запись не найдена.';
-      return;
-    }
-
-    this.form = {
-      peopleId: item.peopleId.toString(),
-      userId: item.userId.toString(),
-      departureDate: this.toDateTimeLocal(item.departureDate),
-      returnDate: item.returnDate ? this.toDateTimeLocal(item.returnDate) : '',
-      outsideBorder: item.outsideBorder ? 'true' : 'false',
-      country: item.country ?? '',
-      description: item.description ?? '',
-    };
-  }
-
   private loadReferenceData(): void {
     this.isReferenceLoading = true;
+    this.errorMessage = '';
 
-    const linkedFromWorkflow = this.readWorkflowPeople();
-    const fromSchool = this.readSchoolPeople();
-    const fromMaternity = this.readMaternityPeople();
+    forkJoin({
+      citizens: this.borderCrossingService.getCitizens(),
+      passports: this.passportRecordsService.getAll(),
+      addresses: this.addressesService.getAll(),
+    })
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isReferenceLoading = false;
+        }),
+      )
+      .subscribe({
+        next: ({ citizens, passports, addresses }) => {
+          this.citizens = citizens.slice().sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
+          this.passports = passports;
+          this.addresses = addresses;
+          this.peopleOptions = this.citizens.map((citizen) => ({
+            value: citizen.id.toString(),
+            label: citizen.fullName?.trim() || `ID ${citizen.id}`,
+          }));
 
-    const combined = new Map<number, string>();
-    [...linkedFromWorkflow, ...fromSchool, ...fromMaternity].forEach((item) => {
-      if (item.id > 0 && item.fullName.trim()) {
-        combined.set(item.id, item.fullName.trim());
-      }
-    });
+          if (this.citizen?.id && !this.recordId) {
+            this.form.peopleId = this.extractPeopleId(this.citizen.id)?.toString() ?? '';
+          }
 
-    this.peopleOptions.set(
-      Array.from(combined.entries())
-        .sort((a, b) => a[1].localeCompare(b[1], 'ru'))
-        .map(([id, fullName]) => ({ value: id, label: fullName })),
-    );
+          this.syncSelectedCitizen();
 
-    this.userOptions.set([
-      { value: 1, label: 'admin' },
-      { value: 2, label: 'borderemployee' },
-    ]);
-
-    this.isReferenceLoading = false;
+          if (this.recordId) {
+            this.loadRecord();
+          }
+        },
+        error: (error: unknown) => {
+          this.citizens = [];
+          this.passports = [];
+          this.addresses = [];
+          this.peopleOptions = [];
+          this.errorMessage =
+            error instanceof TimeoutError
+              ? 'Превышено время ожидания ответа API.'
+              : 'Не удалось загрузить граждан, паспорта и адреса.';
+        },
+      });
   }
 
-  private buildPayload(): Omit<LocalCrossingRecord, 'id'> | null {
+  private loadRecord(): void {
+    const recordId = Number(this.recordId);
+    if (!Number.isInteger(recordId) || recordId <= 0) {
+      return;
+    }
+
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.borderCrossingService
+      .getById(recordId)
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isLoading = false;
+        }),
+      )
+      .subscribe({
+        next: (record) => {
+          if (!record) {
+            this.errorMessage = 'Запись не найдена.';
+            return;
+          }
+          this.applyRecord(record);
+        },
+        error: (error: unknown) => {
+          this.errorMessage =
+            error instanceof TimeoutError
+              ? 'Превышено время ожидания ответа API.'
+              : 'Не удалось загрузить запись погранслужбы.';
+        },
+      });
+  }
+
+  private applyRecord(record: ApiBorderCrossing): void {
+    this.form = {
+      peopleId: record.peopleId.toString(),
+      departureDate: this.toDateTimeLocal(record.departureDate),
+      returnDate: record.returnDate ? this.toDateTimeLocal(record.returnDate) : '',
+      outsideBorder: record.outsideBorder ? 'true' : 'false',
+      country: record.country?.trim() || '',
+      description: record.description?.trim() || '',
+    };
+    this.syncSelectedCitizen();
+  }
+
+  private syncSelectedCitizen(): void {
     const peopleId = Number(this.form.peopleId);
-    const userId = Number(this.form.userId);
-    const peopleName = this.resolveSelectedPeopleName(peopleId);
-    const userName = this.resolveSelectedUserName(userId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      this.selectedCitizen = null;
+      this.selectedPassport = null;
+      this.selectedAddress = null;
+      return;
+    }
+
+    this.selectedCitizen = this.citizens.find((citizen) => citizen.id === peopleId) ?? null;
+    this.selectedPassport = this.passports.find((passport) => passport.peopleId === peopleId) ?? null;
+    this.selectedAddress =
+      this.addresses.find((address) => address.citizenId === peopleId && address.isActive) ?? null;
+  }
+
+  private buildPayload(): CreateBorderCrossingRequest | null {
+    const peopleId = Number(this.form.peopleId);
+    const userId = this.authService.resolveCurrentUserId();
 
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      this.errorMessage = 'Выберите гражданина.';
+      this.errorMessage = 'Выберите гражданина из общего списка.';
       return null;
     }
 
-    if (!peopleName) {
-      this.errorMessage = 'Не найдено имя гражданина.';
-      return null;
-    }
-
-    if (!Number.isInteger(userId) || userId <= 0) {
-      this.errorMessage = 'Выберите пользователя.';
+    if (!userId) {
+      this.errorMessage = 'Не удалось определить текущего пользователя.';
       return null;
     }
 
@@ -226,23 +282,26 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       return null;
     }
 
+    if (!this.form.country.trim()) {
+      this.errorMessage = 'Укажите страну.';
+      return null;
+    }
+
     return {
       peopleId,
-      peopleName,
       userId,
-      userName,
       departureDate: new Date(this.form.departureDate).toISOString(),
       returnDate: this.form.returnDate ? new Date(this.form.returnDate).toISOString() : null,
       outsideBorder: this.form.outsideBorder === 'true',
       country: this.form.country.trim(),
-      description: this.form.description.trim(),
+      description: this.form.description.trim() || null,
+      documentNumber: this.selectedPassport?.passportNumber?.trim() || null,
     };
   }
 
   private createDefaultForm(): BorderCrossingForm {
     return {
       peopleId: '',
-      userId: '2',
       departureDate: '',
       returnDate: '',
       outsideBorder: 'true',
@@ -251,77 +310,13 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     };
   }
 
-  private readCrossings(): LocalCrossingRecord[] {
-    const raw = localStorage.getItem(this.crossingsStorageKey);
-    if (!raw) {
-      return [];
+  private extractPeopleId(citizenId: string): number | null {
+    const numericPart = citizenId.replace(/[^\d]/g, '');
+    if (!numericPart) {
+      return null;
     }
-
-    try {
-      const parsed = JSON.parse(raw) as LocalCrossingRecord[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private writeCrossings(records: LocalCrossingRecord[]): void {
-    localStorage.setItem(this.crossingsStorageKey, JSON.stringify(records));
-  }
-
-  private readSchoolPeople(): Array<{ id: number; fullName: string }> {
-    const raw = localStorage.getItem(this.schoolStorageKey);
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as LocalSchoolRecord[];
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-      return parsed
-        .map((item) => ({ id: Number(item.peopleId), fullName: item.peopleFullName || '' }))
-        .filter((item) => Number.isInteger(item.id) && item.id > 0 && item.fullName.trim());
-    } catch {
-      return [];
-    }
-  }
-
-  private readMaternityPeople(): Array<{ id: number; fullName: string }> {
-    const raw = localStorage.getItem(this.maternityStorageKey);
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as LocalMaternityItem[];
-      if (!Array.isArray(parsed)) {
-        return [];
-      }
-      return parsed
-        .map((item) => ({ id: Number(item.id), fullName: item.childFullName || '' }))
-        .filter((item) => Number.isInteger(item.id) && item.id > 0 && item.fullName.trim());
-    } catch {
-      return [];
-    }
-  }
-
-  private readWorkflowPeople(): Array<{ id: number; fullName: string }> {
-    const raw = localStorage.getItem('local_person_workflow_v1');
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as { personNameById?: Record<string, string> };
-      const links = parsed.personNameById ?? {};
-      return Object.keys(links)
-        .map((idKey) => ({ id: Number(idKey), fullName: links[idKey] ?? '' }))
-        .filter((item) => Number.isInteger(item.id) && item.id > 0 && item.fullName.trim());
-    } catch {
-      return [];
-    }
+    const peopleId = Number(numericPart);
+    return Number.isInteger(peopleId) ? peopleId : null;
   }
 
   private toDateTimeLocal(value: string): string {
@@ -335,31 +330,5 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${year}-${month}-${day}T${hours}:${minutes}`;
-  }
-
-  private extractPeopleId(citizenId: string): number | null {
-    const numericPart = citizenId.replace(/[^\d]/g, '');
-    if (!numericPart) {
-      return null;
-    }
-    const peopleId = Number(numericPart);
-    return Number.isInteger(peopleId) ? peopleId : null;
-  }
-
-  private resolveSelectedPeopleName(peopleId: number): string {
-    const option = this.peopleOptions().find((item) => Number(item.value) === peopleId);
-    return option?.label?.trim() || '';
-  }
-
-  private resolveSelectedUserName(userId: number): string {
-    const option = this.userOptions().find((item) => Number(item.value) === userId);
-    return option?.label?.trim() || `ID ${userId}`;
-  }
-
-  private getNowLabel(): string {
-    const now = new Date();
-    const date = now.toLocaleDateString('ru-RU');
-    const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    return `${date} ${time}`;
   }
 }

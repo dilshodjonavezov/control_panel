@@ -1,0 +1,11 @@
+admin / admin123
+superadmin / superadmin123
+maternity / maternity123
+zags / zags123
+jek / jek123
+passport / passport123
+school / school123
+university / university123
+clinic / clinic123
+vvk / vvk123
+border / border123

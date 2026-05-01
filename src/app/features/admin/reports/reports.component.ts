@@ -1,8 +1,7 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Citizen, CitizenStatus } from '../../../models';
-import { CitizenService } from '../../../services/citizen.service';
-import { CardComponent, TableComponent, TableColumn, ButtonComponent } from '../../../shared/components';
+import { ButtonComponent, CardComponent, TableColumn, TableComponent } from '../../../shared/components';
+import { VoenkomatCitizenRow, VoenkomatDataService } from '../../../services/voenkomat-data.service';
 
 @Component({
   selector: 'app-reports',
@@ -12,73 +11,62 @@ import { CardComponent, TableComponent, TableColumn, ButtonComponent } from '../
   styleUrl: './reports.component.css'
 })
 export class ReportsComponent implements OnInit {
-  citizens = signal<Citizen[]>([]);
+  readonly citizens = signal<VoenkomatCitizenRow[]>([]);
+  readonly isLoading = signal(false);
+  readonly errorMessage = signal('');
 
-  columns: TableColumn[] = [
-    { key: 'name', label: 'Гражданин', sortable: true },
+  readonly columns: TableColumn[] = [
+    { key: 'fullName', label: 'Гражданин', sortable: true },
     { key: 'birthDate', label: 'Дата рождения', sortable: true },
     { key: 'age', label: 'Возраст', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true },
-    { key: 'deferment', label: 'Отсрочка', sortable: false },
-    { key: 'registrationAddress', label: 'Адрес регистрации', sortable: false }
+    { key: 'militaryStatus', label: 'Военный статус', sortable: true },
+    { key: 'defermentBasis', label: 'Основание', sortable: false },
+    { key: 'registrationAddress', label: 'Адрес', sortable: false }
   ];
 
-  statusLabels: Record<CitizenStatus, string> = {
-    [CitizenStatus.PRE_CONSCRIPT]: 'Допризывник',
-    [CitizenStatus.CONSCRIPT]: 'Призывник',
-    [CitizenStatus.STUDENT]: 'Студент',
-    [CitizenStatus.FAMILY_CIRCUMSTANCES]: 'Семейные обстоятельства',
-    [CitizenStatus.UNFIT_HEALTH]: 'Не годен по здоровью',
-    [CitizenStatus.ABROAD]: 'За границей',
-    [CitizenStatus.IN_SERVICE]: 'На службе',
-    [CitizenStatus.DEMOBILIZED]: 'Дембель'
-  };
+  readonly draftList = computed(() =>
+    this.citizens().filter((citizen) => citizen.voenkomatSection === 'Призывники'),
+  );
 
-  constructor(private citizenService: CitizenService) {}
+  readonly familyExemptions = computed(() =>
+    this.citizens().filter((citizen) => citizen.voenkomatSection === 'Освобождение по семье'),
+  );
+
+  readonly students = computed(() =>
+    this.citizens().filter((citizen) => citizen.voenkomatSection === 'Учебная отсрочка'),
+  );
+
+  readonly unfit = computed(() =>
+    this.citizens().filter((citizen) => citizen.voenkomatSection === 'Не годен'),
+  );
+
+  readonly otherMen = computed(() =>
+    this.citizens().filter((citizen) => citizen.voenkomatSection === 'Остальные мужчины'),
+  );
+
+  constructor(private readonly voenkomatDataService: VoenkomatDataService) {}
 
   ngOnInit(): void {
     this.loadData();
   }
 
   loadData(): void {
-    this.citizens.set(this.citizenService.getCitizens()());
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.voenkomatDataService.getCitizens().subscribe({
+      next: (citizens) => {
+        this.citizens.set(citizens);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('Не удалось загрузить отчеты военкомата.');
+        this.isLoading.set(false);
+      },
+    });
   }
 
-  getDraftList(): Citizen[] {
-    return this.citizens().filter(citizen =>
-      citizen.status === CitizenStatus.CONSCRIPT &&
-      !this.citizenService.hasActiveDeferment(citizen.id)
-    );
-  }
-
-  getEvaders(): Citizen[] {
-    return this.citizens().filter(citizen =>
-      citizen.status === CitizenStatus.CONSCRIPT &&
-      this.getAge(citizen.birthDate) >= 18 &&
-      !this.citizenService.hasActiveDeferment(citizen.id)
-    );
-  }
-
-  getFullName(citizen: Citizen): string {
-    return `${citizen.lastName} ${citizen.firstName} ${citizen.middleName || ''}`.trim();
-  }
-
-  hasActiveDeferment(citizenId: string): boolean {
-    return this.citizenService.hasActiveDeferment(citizenId);
-  }
-
-  getStatusLabel(status: CitizenStatus): string {
-    return this.statusLabels[status] || status;
-  }
-
-  getAge(birthDate: Date | string): number {
-    const date = typeof birthDate === 'string' ? new Date(birthDate) : birthDate;
-    const diff = Date.now() - date.getTime();
-    return Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000));
-  }
-
-  formatDate(date: Date | string): string {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('ru-RU');
+  formatDate(date: string): string {
+    return new Date(date).toLocaleDateString('ru-RU');
   }
 }

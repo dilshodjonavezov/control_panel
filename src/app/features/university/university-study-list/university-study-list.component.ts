@@ -1,37 +1,67 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
-import { CardComponent, TableComponent, TableColumn, InputComponent, ButtonComponent, ModalComponent } from '../../../shared/components';
+import { ActivatedRoute, RouterLink } from '@angular/router';
+import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
+import {
+  ButtonComponent,
+  CardComponent,
+  InputComponent,
+  ModalComponent,
+  SelectComponent,
+  SelectOption,
+  TableComponent,
+  TableColumn,
+} from '../../../shared/components';
+import {
+  ApiEducationInstitution,
+  CreateEducationInstitutionRequest,
+  EducationInstitutionsService,
+} from '../../../services/education-institutions.service';
+import { ApiEducationRecord, EducationRecordsService } from '../../../services/education-records.service';
 
-interface UniversityStudyItem {
-  id: number;
+interface EducationInstitutionForm {
   name: string;
   type: string;
   address: string;
   description: string;
 }
 
-interface UniversityForm {
-  name: string;
-  type: string;
-  address: string;
-  description: string;
+interface InstitutionRow extends ApiEducationInstitution {
+  peopleCount: number;
+  peopleNames: string;
+  studentDetails: string;
+  studentFormSummary: string;
 }
 
 @Component({
   selector: 'app-university-study-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, CardComponent, TableComponent, InputComponent, ButtonComponent, ModalComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    CardComponent,
+    TableComponent,
+    InputComponent,
+    ButtonComponent,
+    ModalComponent,
+    SelectComponent,
+  ],
   templateUrl: './university-study-list.component.html',
   styleUrl: './university-study-list.component.css',
 })
 export class UniversityStudyListComponent implements OnInit {
-  private readonly storageKey = 'local_university_institutions_v1';
+  institutionTypeOptions: SelectOption[] = [
+    { value: 'UNIVERSITY', label: 'Университет' },
+    { value: 'COLLEGE', label: 'Колледж' },
+    { value: 'SCHOOL', label: 'Школа' },
+  ];
 
   filters = {
     name: '',
     type: '',
+    people: '',
   };
 
   columns: TableColumn[] = [
@@ -39,41 +69,66 @@ export class UniversityStudyListComponent implements OnInit {
     { key: 'name', label: 'Название', sortable: true },
     { key: 'type', label: 'Тип', sortable: true },
     { key: 'address', label: 'Адрес', sortable: true },
+    { key: 'peopleNames', label: 'ФИО людей', sortable: false },
+    { key: 'studentDetails', label: 'Кандидаты', sortable: false },
+    { key: 'studentFormSummary', label: 'Форма', sortable: false },
+    { key: 'peopleCount', label: 'Кол-во', sortable: true },
     { key: 'description', label: 'Описание', sortable: false },
     { key: 'details', label: 'Подробнее', sortable: false },
   ];
 
-  records: UniversityStudyItem[] = [];
+  records: InstitutionRow[] = [];
   isLoading = false;
   errorMessage = '';
 
   showFormModal = false;
   isEditMode = false;
   editingId: number | null = null;
-  isFormLoading = false;
   isFormSubmitting = false;
   formErrorMessage = '';
-  formData: UniversityForm = this.createDefaultForm();
+  formData: EducationInstitutionForm = this.createDefaultForm();
 
   showDeleteModal = false;
-  deletingRecord: UniversityStudyItem | null = null;
+  deletingRecord: InstitutionRow | null = null;
   isDeleting = false;
   deleteErrorMessage = '';
 
-  constructor(private readonly cdr: ChangeDetectorRef) {}
+  constructor(
+    private readonly educationInstitutionsService: EducationInstitutionsService,
+    private readonly educationRecordsService: EducationRecordsService,
+    private readonly route: ActivatedRoute,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     this.loadRecords();
+    this.route.queryParamMap.subscribe((params) => {
+      const action = params.get('action');
+      if (!action) {
+        return;
+      }
+
+      if (action === 'create') {
+        this.openCreateModal();
+        return;
+      }
+
+      this.filters.name = '';
+      this.filters.people = '';
+      this.filters.type = action === 'expulsions' ? 'college' : 'university';
+    });
   }
 
-  get filteredRecords(): UniversityStudyItem[] {
+  get filteredRecords(): InstitutionRow[] {
     const byName = this.filters.name.trim().toLowerCase();
     const byType = this.filters.type.trim().toLowerCase();
+    const byPeople = this.filters.people.trim().toLowerCase();
 
     return this.records.filter((record) => {
-      const matchesName = !byName || record.name.toLowerCase().includes(byName);
-      const matchesType = !byType || record.type.toLowerCase().includes(byType);
-      return matchesName && matchesType;
+      const matchesName = !byName || (record.name ?? '').toLowerCase().includes(byName);
+      const matchesType = !byType || (record.type ?? '').toLowerCase().includes(byType);
+      const matchesPeople = !byPeople || (record.peopleNames ?? '').toLowerCase().includes(byPeople);
+      return matchesName && matchesType && matchesPeople;
     });
   }
 
@@ -85,10 +140,29 @@ export class UniversityStudyListComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.records = this.readRecords();
-
-    this.isLoading = false;
-    this.cdr.detectChanges();
+    forkJoin({
+      institutions: this.educationInstitutionsService.getAll(),
+      educationRecords: this.educationRecordsService.getAll(),
+    })
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: ({ institutions, educationRecords }) => {
+          this.records = this.mergeRecords(institutions, educationRecords);
+        },
+        error: (error: unknown) => {
+          this.records = [];
+          this.errorMessage =
+            error instanceof TimeoutError
+              ? 'Превышено время ожидания ответа API.'
+              : 'Не удалось загрузить реестр учебных заведений.';
+        },
+      });
   }
 
   openCreateModal(): void {
@@ -99,14 +173,14 @@ export class UniversityStudyListComponent implements OnInit {
     this.showFormModal = true;
   }
 
-  openEditModal(record: UniversityStudyItem): void {
+  openEditModal(record: InstitutionRow): void {
     this.isEditMode = true;
     this.editingId = record.id;
     this.formData = {
-      name: record.name,
-      type: record.type,
-      address: record.address,
-      description: record.description,
+      name: record.name ?? '',
+      type: record.type ?? '',
+      address: record.address ?? '',
+      description: record.description ?? '',
     };
     this.formErrorMessage = '';
     this.showFormModal = true;
@@ -128,32 +202,34 @@ export class UniversityStudyListComponent implements OnInit {
     this.isFormSubmitting = true;
     this.formErrorMessage = '';
 
-    const records = this.readRecords();
+    const request$ =
+      this.isEditMode && this.editingId
+        ? this.educationInstitutionsService.update(this.editingId, payload)
+        : this.educationInstitutionsService.create(payload);
 
-    if (this.isEditMode && this.editingId) {
-      const index = records.findIndex((item) => item.id === this.editingId);
-      if (index < 0) {
-        this.formErrorMessage = 'Запись не найдена.';
-        this.isFormSubmitting = false;
-        return;
-      }
-      records[index] = { ...records[index], ...payload };
-    } else {
-      const nextId = records.length > 0 ? Math.max(...records.map((item) => item.id)) + 1 : 1;
-      records.unshift({
-        id: nextId,
-        ...payload,
+    request$
+      .pipe(
+        finalize(() => {
+          this.isFormSubmitting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.formErrorMessage = this.isEditMode ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
+            return;
+          }
+          this.showFormModal = false;
+          this.loadRecords();
+        },
+        error: () => {
+          this.formErrorMessage = this.isEditMode ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
+        },
       });
-    }
-
-    this.writeRecords(records);
-    this.records = records;
-    this.showFormModal = false;
-    this.isFormSubmitting = false;
-    this.cdr.detectChanges();
   }
 
-  openDeleteModal(record: UniversityStudyItem): void {
+  openDeleteModal(record: InstitutionRow): void {
     this.deletingRecord = record;
     this.deleteErrorMessage = '';
     this.showDeleteModal = true;
@@ -169,25 +245,82 @@ export class UniversityStudyListComponent implements OnInit {
   }
 
   confirmDelete(): void {
-    if (!this.deletingRecord) {
+    if (!this.deletingRecord || this.isDeleting) {
       return;
     }
 
     this.isDeleting = true;
     this.deleteErrorMessage = '';
 
-    const records = this.readRecords().filter((item) => item.id !== this.deletingRecord!.id);
-    this.writeRecords(records);
-    this.records = records;
-
-    this.isDeleting = false;
-    this.showDeleteModal = false;
-    this.deletingRecord = null;
-    this.cdr.detectChanges();
+    this.educationInstitutionsService
+      .delete(this.deletingRecord.id)
+      .pipe(
+        finalize(() => {
+          this.isDeleting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.deleteErrorMessage = 'Не удалось удалить запись.';
+            return;
+          }
+          this.showDeleteModal = false;
+          this.deletingRecord = null;
+          this.loadRecords();
+        },
+        error: () => {
+          this.deleteErrorMessage = 'Не удалось удалить запись.';
+        },
+      });
   }
 
-  private buildPayload(): UniversityForm | null {
-    const payload: UniversityForm = {
+  getInstitutionTypeLabel(type: string | null | undefined): string {
+    const normalized = (type ?? '').trim().toUpperCase();
+    if (normalized === 'UNIVERSITY') {
+      return 'Университет';
+    }
+    if (normalized === 'COLLEGE') {
+      return 'Колледж';
+    }
+    if (normalized === 'SCHOOL') {
+      return 'Школа';
+    }
+    return '';
+  }
+
+  private mergeRecords(
+    institutions: ApiEducationInstitution[],
+    educationRecords: ApiEducationRecord[],
+  ): InstitutionRow[] {
+    return institutions.map((institution) => {
+      const relatedRecords = educationRecords.filter((record) => record.institutionId === institution.id);
+      const peopleNames = relatedRecords
+        .map((record) => record.peopleFullName?.trim() || `ID ${record.peopleId}`)
+        .filter((value, index, array) => array.indexOf(value) === index)
+        .join(', ');
+      const studentDetails = relatedRecords
+        .map((record) => `${record.peopleFullName?.trim() || `ID ${record.peopleId}`} (${record.studyForm?.trim() || '-'})`)
+        .filter((value, index, array) => array.indexOf(value) === index)
+        .join(' | ');
+      const studentFormSummary = relatedRecords
+        .map((record) => record.studyForm?.trim() || '-')
+        .filter((value, index, array) => array.indexOf(value) === index)
+        .join(', ');
+
+      return {
+        ...institution,
+        peopleCount: relatedRecords.length,
+        peopleNames: peopleNames || '—',
+        studentDetails: studentDetails || '—',
+        studentFormSummary: studentFormSummary || '—',
+      };
+    });
+  }
+
+  private buildPayload(): CreateEducationInstitutionRequest | null {
+    const payload: CreateEducationInstitutionRequest = {
       name: this.formData.name.trim(),
       type: this.formData.type.trim(),
       address: this.formData.address.trim(),
@@ -207,36 +340,12 @@ export class UniversityStudyListComponent implements OnInit {
     return payload;
   }
 
-  private createDefaultForm(): UniversityForm {
+  private createDefaultForm(): EducationInstitutionForm {
     return {
       name: '',
       type: '',
       address: '',
       description: '',
     };
-  }
-
-  private readRecords(): UniversityStudyItem[] {
-    const raw = localStorage.getItem(this.storageKey);
-    if (!raw) {
-      const seeded: UniversityStudyItem[] = [
-        { id: 1, name: 'Таджикский национальный университет', type: 'Университет', address: 'г. Душанбе', description: 'Государственный вуз' },
-        { id: 2, name: 'Технический университет Таджикистана', type: 'Университет', address: 'г. Душанбе', description: 'Инженерные направления' },
-        { id: 3, name: 'Медицинский колледж г. Худжанд', type: 'Колледж', address: 'г. Худжанд', description: 'Среднее специальное образование' },
-      ];
-      this.writeRecords(seeded);
-      return seeded;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as UniversityStudyItem[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private writeRecords(records: UniversityStudyItem[]): void {
-    localStorage.setItem(this.storageKey, JSON.stringify(records));
   }
 }

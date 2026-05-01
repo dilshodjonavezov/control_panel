@@ -1,47 +1,15 @@
-﻿<div class="min-h-screen bg-slate-100">
-  <aside class="fixed inset-y-0 left-0 w-64 bg-white shadow-lg">
-    <div class="flex flex-col h-full">
-      <div class="flex items-center justify-center h-16 bg-blue-700 text-white">
-        <h1 class="text-xl font-bold">Паспортный стол Центральный</h1>
-      </div>
-
-      <nav class="flex-1 px-4 py-6 space-y-2">
-        @for (item of menuItems; track item.path) {
-          <a
-            [routerLink]="item.path"
-            routerLinkActive="bg-blue-50 text-blue-700"
-            class="flex items-center px-4 py-3 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <span class="mr-3 text-xl">{{ item.icon }}</span>
-            <span class="font-medium">{{ item.label }}</span>
-          </a>
-        }
-      </nav>
-
-      <div class="p-4 border-t border-gray-200">
-        <div class="flex items-center">
-          <div class="w-10 h-10 bg-blue-700 rounded-full flex items-center justify-center text-white font-semibold">
-            П
-          </div>
-          <div class="ml-3">
-            <p class="text-sm font-medium text-gray-900">Паспортный стол Центральный</p>
-            <p class="text-xs text-gray-500">passport@example.com</p>
-            <button
-              type="button"
-              (click)="logout()"
-              class="mt-2 text-xs font-medium text-red-600 hover:text-red-700"
-            >
-              Выйти
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </aside>
-
-  <main class="ml-64">
-    <div class="p-8">
-      <router-outlet></router-outlet>
-    </div>
-  </main>
-</div>
+<app-portal-shell
+  title="Паспортный стол"
+  subtitle="Оформление и проверка документов граждан в едином государственном реестре."
+  roleLabel="Паспортный стол"
+  email="passport@example.com"
+  avatarLetter="П"
+  summaryTitle="Идентификация граждан"
+  summaryText="Здесь собраны паспортные записи и сверка личности. Реестр опирается на общий список граждан и не живет отдельно от семейного и военного контура."
+  accentClass="from-amber-900 via-orange-700 to-amber-500"
+  activeItemClass="bg-amber-50 text-amber-900 ring-1 ring-amber-100"
+  badgeClass="bg-white/15 text-white"
+  [navSections]="navSections"
+  [quickActions]="quickActions"
+  [metrics]="metrics"
+></app-portal-shell>

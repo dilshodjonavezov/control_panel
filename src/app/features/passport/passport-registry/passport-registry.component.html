@@ -1,7 +1,8 @@
-<div class="space-y-6">
+﻿<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Паспортный реестр</h1>
+      <p class="mt-1 text-sm text-gray-500">Оформление и учет паспортов. Срок действия по умолчанию 10 лет.</p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
@@ -22,6 +23,12 @@
     </app-card>
   }
 
+  @if (infoMessage) {
+    <app-card>
+      <p class="text-sm text-blue-700">{{ infoMessage }}</p>
+    </app-card>
+  }
+
   <app-card>
     <app-table
       [columns]="columns"
@@ -36,9 +43,9 @@
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.passportNumber }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.dateOfIssue }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.expireDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfIssue }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.dateBirth }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
@@ -76,22 +83,17 @@
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <app-select
-          label="Гражданин (ID)"
+          label="Гражданин"
           [options]="peopleOptions"
           placeholder="Выберите гражданина"
-          [(ngModel)]="formData.peopleId"
-        ></app-select>
-
-        <app-select
-          label="Пользователь (ID)"
-          [options]="userOptions"
-          placeholder="Выберите пользователя"
-          [(ngModel)]="formData.userId"
+          [ngModel]="formData.peopleId"
+          (ngModelChange)="onCitizenChanged($event)"
         ></app-select>
 
         <app-input label="Номер паспорта" placeholder="A323232" [(ngModel)]="formData.passportNumber"></app-input>
         <app-input type="date" label="Дата выдачи" [(ngModel)]="formData.dateOfIssue"></app-input>
-        <app-input label="Место выдачи" placeholder="Худжанд" [(ngModel)]="formData.placeOfIssue"></app-input>
+        <app-input type="date" label="Действует до" [(ngModel)]="formData.expireDate"></app-input>
+        <app-input label="Место выдачи" placeholder="Душанбе" [(ngModel)]="formData.placeOfIssue"></app-input>
         <app-input type="date" label="Дата рождения" [(ngModel)]="formData.dateBirth"></app-input>
       </div>
 

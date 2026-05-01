@@ -3,31 +3,41 @@ import { Injectable } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 
-export interface ApiResponse<T> {
-  success: boolean;
-  message: string;
-  data: T;
+interface ApiResponse<T> {
+  success?: boolean;
+  message?: string;
+  data?: T;
+}
+
+export interface ApiCitizen {
+  id: number;
+  fullName: string;
+  birthDate: string;
+  gender: string;
+  citizenship: string;
+  fatherFullName: string | null;
+  motherFullName: string | null;
+  familyId?: number | null;
 }
 
 export interface ApiBorderCrossing {
   id: number;
   peopleId: number;
+  peopleName: string | null;
   userId: number;
+  userName: string | null;
   departureDate: string;
   returnDate: string | null;
   outsideBorder: boolean;
   country: string | null;
   description: string | null;
-}
-
-export interface ApiPerson {
-  id: number;
-  fullName: string | null;
-}
-
-export interface ApiUser {
-  id: number;
-  fullName: string | null;
+  eventType: string;
+  direction: string;
+  status: string;
+  purpose: string | null;
+  borderCheckpoint: string | null;
+  transportType: string | null;
+  documentNumber: string | null;
 }
 
 export interface CreateBorderCrossingRequest {
@@ -37,76 +47,51 @@ export interface CreateBorderCrossingRequest {
   returnDate: string | null;
   outsideBorder: boolean;
   country: string;
-  description: string;
+  description: string | null;
+  documentNumber?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
 export class BorderCrossingService {
   private readonly apiUrl = `${environment.apiBaseUrl}/api/border-crossings`;
-  private readonly peopleApiUrl = `${environment.apiBaseUrl}/api/people`;
-  private readonly usersApiUrl = `${environment.apiBaseUrl}/api/users`;
+  private readonly citizensApiUrl = `${environment.apiBaseUrl}/api/citizens`;
 
   constructor(private readonly http: HttpClient) {}
 
   getAll(): Observable<ApiBorderCrossing[]> {
     return this.http
-      .get<ApiResponse<ApiBorderCrossing[]>>(this.apiUrl)
-      .pipe(map((response) => response.data ?? []));
+      .get<ApiResponse<ApiBorderCrossing[]> | ApiBorderCrossing[]>(this.apiUrl)
+      .pipe(map((response) => this.unwrapArray<ApiBorderCrossing>(response)));
   }
 
   getById(id: number): Observable<ApiBorderCrossing | null> {
     return this.http
       .get<ApiResponse<ApiBorderCrossing> | ApiBorderCrossing>(`${this.apiUrl}/${id}`)
-      .pipe(
-        map((response) => {
-          if (this.isApiWrapper<ApiBorderCrossing>(response)) {
-            return response.data ?? null;
-          }
-          return response ?? null;
-        })
-      );
+      .pipe(map((response) => this.unwrapOne<ApiBorderCrossing>(response)));
   }
 
   create(payload: CreateBorderCrossingRequest): Observable<ApiBorderCrossing | null> {
     return this.http
       .post<ApiResponse<ApiBorderCrossing> | ApiBorderCrossing>(this.apiUrl, payload)
-      .pipe(
-        map((response) => {
-          if (this.isApiWrapper<ApiBorderCrossing>(response)) {
-            return response.data ?? null;
-          }
-          return response ?? null;
-        })
-      );
+      .pipe(map((response) => this.unwrapOne<ApiBorderCrossing>(response)));
   }
 
   update(id: number, payload: CreateBorderCrossingRequest): Observable<ApiBorderCrossing | null> {
     return this.http
       .put<ApiResponse<ApiBorderCrossing> | ApiBorderCrossing>(`${this.apiUrl}/${id}`, payload)
-      .pipe(
-        map((response) => {
-          if (this.isApiWrapper<ApiBorderCrossing>(response)) {
-            return response.data ?? null;
-          }
-          return response ?? null;
-        })
-      );
+      .pipe(map((response) => this.unwrapOne<ApiBorderCrossing>(response)));
   }
 
-  delete(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`);
-  }
-
-  getPeople(): Observable<ApiPerson[]> {
+  delete(id: number): Observable<boolean> {
     return this.http
-      .get<ApiResponse<ApiPerson[]> | ApiPerson[]>(this.peopleApiUrl)
-      .pipe(map((response) => this.unwrapArray<ApiPerson>(response)));
+      .delete(`${this.apiUrl}/${id}`, { observe: 'response', responseType: 'text' })
+      .pipe(map((response) => response.ok));
   }
 
-  getUsers(): Observable<ApiUser[]> {
+  getCitizens(): Observable<ApiCitizen[]> {
     return this.http
-      .get<ApiResponse<ApiUser[]> | ApiUser[]>(this.usersApiUrl)
-      .pipe(map((response) => this.unwrapArray<ApiUser>(response)));
+      .get<ApiResponse<ApiCitizen[]> | ApiCitizen[]>(this.citizensApiUrl)
+      .pipe(map((response) => this.unwrapArray<ApiCitizen>(response)));
   }
 
   private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {
@@ -114,6 +99,13 @@ export class BorderCrossingService {
       return response;
     }
     return response.data ?? [];
+  }
+
+  private unwrapOne<T>(response: ApiResponse<T> | T): T | null {
+    if (this.isApiWrapper<T>(response)) {
+      return response.data ?? null;
+    }
+    return response ?? null;
   }
 
   private isApiWrapper<T>(value: unknown): value is ApiResponse<T> {

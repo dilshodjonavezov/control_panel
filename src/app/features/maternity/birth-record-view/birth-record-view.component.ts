@@ -1,8 +1,10 @@
-﻿import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { catchError, of } from 'rxjs';
 import { CardComponent, ButtonComponent } from '../../../shared/components';
 import { CitizenMiniCardComponent, CitizenMiniCardData } from '../components/citizen-mini-card/citizen-mini-card.component';
+import { ApiMaternityRecord, MaternityRecordsService } from '../../../services/maternity-records.service';
 
 interface BirthRecordHistoryItem {
   date: string;
@@ -26,65 +28,33 @@ interface BirthRecordDetails {
   standalone: true,
   imports: [CommonModule, CardComponent, ButtonComponent, CitizenMiniCardComponent],
   templateUrl: './birth-record-view.component.html',
-  styleUrl: './birth-record-view.component.css'
+  styleUrl: './birth-record-view.component.css',
 })
 export class BirthRecordViewComponent implements OnInit {
   record = signal<BirthRecordDetails | null>(null);
 
-  private records: BirthRecordDetails[] = [
-    {
-      id: 'br-1024',
-      birthDateTime: '25.01.2026 04:18',
-      place: 'г. Москва, Роддом №12, отделение 2',
-      sex: 'male',
-      motherFullName: 'Семенова Ирина Викторовна',
-      fatherFullName: 'Семенов Андрей Юрьевич',
-      status: 'SUBMITTED',
-      citizen: {
-        id: 'CIT-2026-0104',
-        fullName: 'Новорожденный (ФИО не указано)',
-        birthDate: '25.01.2026 04:18',
-        status: 'DOPRIZYVNIK'
-      },
-      history: [
-        { date: '25.01.2026 05:10', action: 'Запись отправлена в центральную систему' },
-        { date: '25.01.2026 04:45', action: 'Черновик создан' }
-      ]
-    },
-    {
-      id: 'br-1023',
-      birthDateTime: '24.01.2026 21:05',
-      place: 'г. Москва, Роддом №8, отделение 1',
-      sex: 'female',
-      motherFullName: 'Кузнецова Анна Сергеевна',
-      fatherFullName: 'Кузнецов Дмитрий Олегович',
-      status: 'DRAFT',
-      citizen: null,
-      history: [
-        { date: '24.01.2026 21:20', action: 'Черновик создан' }
-      ]
-    },
-    {
-      id: 'br-1019',
-      birthDateTime: '21.01.2026 12:40',
-      place: 'г. Москва, Роддом №5, отделение 3',
-      sex: 'male',
-      motherFullName: 'Лазарева Марина Игоревна',
-      fatherFullName: 'Лазарев Павел Ильич',
-      status: 'CANCELLED',
-      citizen: null,
-      history: [
-        { date: '21.01.2026 13:05', action: 'Отменено по регламенту' },
-        { date: '21.01.2026 12:55', action: 'Черновик создан' }
-      ]
-    }
-  ];
-
-  constructor(private route: ActivatedRoute, private router: Router) {}
+  constructor(
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
+    private readonly maternityRecordsService: MaternityRecordsService,
+  ) {}
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    this.record.set(this.records.find(item => item.id === id) || null);
+    const rawId = this.route.snapshot.paramMap.get('id');
+    const id = rawId ? Number(rawId) : NaN;
+
+    if (!Number.isInteger(id) || id <= 0) {
+      this.record.set(null);
+      return;
+    }
+
+    this.maternityRecordsService
+      .getAll()
+      .pipe(catchError(() => of([] as ApiMaternityRecord[])))
+      .subscribe((records) => {
+        const matched = records.find((item) => item.id === id) ?? null;
+        this.record.set(matched ? this.mapRecord(matched) : null);
+      });
   }
 
   goBack(): void {
@@ -100,9 +70,94 @@ export class BirthRecordViewComponent implements OnInit {
       DRAFT: 'Черновик',
       SUBMITTED: 'Отправлено',
       CANCELLED: 'Отменено',
-      VOID: 'Аннулировано'
+      VOID: 'Аннулировано',
     };
     return labels[status];
   }
-}
 
+  private mapRecord(record: ApiMaternityRecord): BirthRecordDetails {
+    return {
+      id: String(record.id),
+      birthDateTime: this.formatDateTime(record.birthDateTime),
+      place: record.placeOfBirth?.trim() || '-',
+      sex: this.normalizeSex(record.gender),
+      motherFullName: record.motherFullName?.trim() || '-',
+      fatherFullName: record.fatherFullName?.trim() || '-',
+      status: this.normalizeStatus(record.status),
+      citizen: record.childFullName
+        ? {
+            id: String(record.childCitizenId ?? record.id),
+            fullName: record.childFullName.trim(),
+            birthDate: this.formatDateTime(record.birthDateTime),
+            status: 'DOPRIZYVNIK',
+          }
+        : null,
+      history: this.buildHistory(record),
+    };
+  }
+
+  private buildHistory(record: ApiMaternityRecord): BirthRecordHistoryItem[] {
+    const history: BirthRecordHistoryItem[] = [];
+
+    if (record.createdAt) {
+      history.push({
+        date: this.formatDateTime(record.createdAt),
+        action: 'Запись создана',
+      });
+    }
+
+    history.push({
+      date: this.formatDateTime(record.birthDateTime),
+      action: `Текущий статус: ${this.getStatusLabel(this.normalizeStatus(record.status))}`,
+    });
+
+    return history;
+  }
+
+  private normalizeStatus(status: string | null): BirthRecordDetails['status'] {
+    if (!status) {
+      return 'DRAFT';
+    }
+
+    if (status === 'DRAFT' || status === 'SUBMITTED' || status === 'CANCELLED' || status === 'VOID') {
+      return status;
+    }
+
+    if (status === 'Pending' || status === 'Черновик') {
+      return 'DRAFT';
+    }
+
+    if (status === 'Transferred' || status === 'Отправлен в ЗАГС' || status === 'Отправлено в ЗАГС') {
+      return 'SUBMITTED';
+    }
+
+    if (status === 'Archived' || status === 'Архив' || status === 'Архивирован') {
+      return 'VOID';
+    }
+
+    return 'DRAFT';
+  }
+
+  private normalizeSex(gender: string | null): BirthRecordDetails['sex'] {
+    if (gender === 'F' || gender === 'Женский') {
+      return 'female';
+    }
+    return 'male';
+  }
+
+  private formatDateTime(value: string | null): string {
+    if (!value) {
+      return '-';
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return `${date.toLocaleDateString('ru-RU')} ${date.toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit',
+    })}`;
+  }
+}

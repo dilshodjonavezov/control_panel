@@ -1,0 +1,122 @@
+<div class="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(14,165,233,0.14),_transparent_32%),linear-gradient(180deg,_#f8fafc_0%,_#eef2ff_52%,_#f8fafc_100%)] text-slate-900">
+  <aside class="border-b border-slate-200/80 bg-white/90 backdrop-blur lg:fixed lg:inset-y-0 lg:left-0 lg:w-80 lg:border-b-0 lg:border-r">
+    <div class="flex h-full flex-col">
+      <div class="bg-gradient-to-br px-6 pb-6 pt-7 text-white" [ngClass]="accentClass">
+        <div class="inline-flex rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em]" [ngClass]="badgeClass">
+          {{ roleLabel }}
+        </div>
+        <h1 class="mt-4 text-2xl font-bold leading-tight">{{ title }}</h1>
+        <p class="mt-2 text-sm text-white/85">{{ subtitle }}</p>
+      </div>
+
+      <div class="flex-1 overflow-y-auto px-4 py-5">
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm">
+          <div class="flex items-center gap-3">
+            <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
+              {{ avatarLetter }}
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-slate-900">{{ roleLabel }}</p>
+              <p class="text-xs text-slate-500">{{ email }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 space-y-5">
+          @for (section of navSections; track section.title) {
+            <section>
+              <p class="mb-2 px-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                {{ section.title }}
+              </p>
+              <div class="space-y-2">
+                @for (item of section.items; track item.id) {
+                  <a
+                    [routerLink]="item.path"
+                    routerLinkActive
+                    #routeRef="routerLinkActive"
+                    [routerLinkActiveOptions]="{ exact: item.path.endsWith('/dashboard') || item.path.endsWith('/access') || item.path.endsWith('/registry') || item.path.endsWith('/queue') || item.path.endsWith('/records') || item.path.endsWith('/studies') || item.path.endsWith('/acts') || item.path.endsWith('/birth-records') || item.path.endsWith('/crossings') }"
+                    class="group block rounded-2xl border border-transparent px-4 py-3 transition hover:border-slate-200 hover:bg-white hover:shadow-sm"
+                    [ngClass]="routeRef.isActive ? activeItemClass : 'text-slate-700'"
+                  >
+                    <div class="flex items-start gap-3">
+                      <span class="text-lg leading-none">{{ item.icon }}</span>
+                      <div>
+                        <div class="text-sm font-semibold">{{ item.label }}</div>
+                        @if (item.hint) {
+                          <div class="mt-1 text-xs text-slate-500">{{ item.hint }}</div>
+                        }
+                      </div>
+                    </div>
+                  </a>
+                }
+              </div>
+            </section>
+          }
+        </div>
+
+        @if (quickActions.length) {
+          <section class="mt-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div class="mb-3 flex items-center justify-between">
+              <p class="text-sm font-semibold text-slate-900">Быстрые действия</p>
+              <span class="text-xs text-slate-400">Рабочие кнопки</span>
+            </div>
+            <div class="space-y-2">
+              @for (action of quickActions; track action.label) {
+                <button
+                  type="button"
+                  (click)="runQuickAction(action)"
+                  class="block w-full rounded-xl border border-slate-200 px-3 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                >
+                  <div class="flex items-start gap-3">
+                    <span class="text-base">{{ action.icon }}</span>
+                    <div>
+                      <div class="text-sm font-semibold text-slate-900">{{ action.label }}</div>
+                      <div class="mt-1 text-xs text-slate-500">{{ action.description }}</div>
+                    </div>
+                  </div>
+                </button>
+              }
+            </div>
+          </section>
+        }
+      </div>
+
+      <div class="border-t border-slate-200 bg-white px-4 py-4">
+        <button
+          type="button"
+          (click)="logout()"
+          class="inline-flex w-full items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+        >
+          Выйти
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="lg:pl-80">
+    <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+      <section class="rounded-[28px] bg-gradient-to-br p-6 text-white shadow-xl shadow-slate-200/80" [ngClass]="accentClass">
+        <div class="grid gap-5 lg:grid-cols-[1.4fr,1fr]">
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">{{ summaryTitle }}</p>
+            <h2 class="mt-3 text-3xl font-bold leading-tight">{{ title }}</h2>
+            <p class="mt-3 max-w-2xl text-sm text-white/85">{{ summaryText }}</p>
+          </div>
+          <div class="grid gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
+            @for (metric of metrics; track metric.label) {
+              <div class="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur-sm">
+                <div class="text-2xl font-bold">{{ metric.value }}</div>
+                <div class="mt-1 text-sm font-semibold text-white">{{ metric.label }}</div>
+                <div class="mt-1 text-xs text-white/75">{{ metric.hint }}</div>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+      <div class="mt-6 rounded-[28px] border border-slate-200/70 bg-white/90 p-4 shadow-lg shadow-slate-200/60 backdrop-blur sm:p-6">
+        <router-outlet></router-outlet>
+      </div>
+    </div>
+  </main>
+</div>

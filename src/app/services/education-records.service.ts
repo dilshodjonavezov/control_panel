@@ -11,8 +11,13 @@ interface ApiResponse<T> {
 
 export interface ApiEducationRecord {
   id: number;
+  citizenId?: number;
   peopleId: number;
   peopleFullName: string | null;
+  schoolRecordId: number | null;
+  schoolGraduationDate: string | null;
+  medicalRecordId: number | null;
+  medicalDecision: string | null;
   institutionId: number;
   institutionName: string | null;
   studyForm: string | null;
@@ -33,6 +38,8 @@ export interface ApiPerson {
 
 export interface CreateEducationRecordRequest {
   peopleId: number;
+  schoolRecordId?: number | null;
+  medicalRecordId?: number | null;
   institutionId: number;
   studyForm: string;
   faculty: string;

@@ -1,68 +1,45 @@
 ﻿<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Очередь ВВК</h1>
-      <p class="mt-2 text-gray-600">Медосвидетельствование и присвоение категории годности.</p>
+      <h1 class="text-3xl font-bold text-gray-900">Военкомат</h1>
+      <p class="mt-2 text-gray-600">Медицинские осмотры выпускников школы с адресом и родителями.</p>
     </div>
-    <app-button variant="primary" (clicked)="openCreate()">Новая запись</app-button>
+    <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
   </div>
 
-  <app-card>
-    <div class="grid grid-cols-1 gap-4">
+  <app-card title="Фильтры">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
+      <app-input label="Адрес" placeholder="Улица, дом" [(ngModel)]="filters.address"></app-input>
+      <app-select label="Годность" [options]="decisionOptions" [(ngModel)]="filters.decision"></app-select>
     </div>
   </app-card>
+
+  @if (errorMessage) {
+    <app-card>
+      <p class="text-sm text-red-600">{{ errorMessage }}</p>
+    </app-card>
+  }
 
   <app-card>
     <app-table
       [columns]="columns"
-      [data]="filteredQueue"
+      [data]="filteredRecords"
+      [loading]="isLoading"
       [rowTemplate]="rowTemplate"
-      [actionsTemplate]="actionsTemplate"
-      [emptyMessage]="'Очередь пуста'"
+      [emptyMessage]="'Записей нет'"
     >
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.lastExam || '-' }}</td>
-      </ng-template>
-
-      <ng-template #actionsTemplate let-row>
-        <div class="flex flex-wrap items-center gap-2">
-          <app-button variant="outline" size="sm" (clicked)="selectCitizen(row)">Карточка</app-button>
-          <app-button variant="outline" size="sm" (clicked)="openMedical(row)">Медкарта</app-button>
-          <app-button variant="primary" size="sm" (clicked)="openResult(row)">Результат</app-button>
-        </div>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fatherFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.motherFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.addressLabel }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.clinic }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.decision) }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.reason }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.defermentReason }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.createdAtRecord }}</td>
       </ng-template>
     </app-table>
   </app-card>
-
-  <app-citizen-read-card [citizen]="selectedCitizen()"></app-citizen-read-card>
-
-  <app-modal [show]="showCreateModal" [title]="'Добавить в очередь ВВК'" size="lg" (closed)="closeCreate()">
-    <div class="space-y-4">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <app-input label="ФИО" [(ngModel)]="createForm.fullName"></app-input>
-        <app-input label="Дата рождения" type="date" [(ngModel)]="createForm.birthDate"></app-input>
-        <app-select label="Статус" [options]="statusOptions" [(ngModel)]="createForm.status"></app-select>
-      </div>
-      <div class="flex items-center gap-2">
-        <app-button variant="primary" (clicked)="saveQueueItem()">Сохранить</app-button>
-        <app-button variant="outline" (clicked)="closeCreate()">Отмена</app-button>
-      </div>
-    </div>
-  </app-modal>
-
-  <app-modal [show]="showResultModal" [title]="'Результат ВВК'" size="xl" (closed)="closeResult()">
-    @if (showResultModal) {
-      <app-vvk-result-create-edit [citizen]="selectedCitizen()" [recordId]="selectedResultId"></app-vvk-result-create-edit>
-    }
-  </app-modal>
-
-  <app-modal [show]="showMedicalModal" [title]="'История болезни (только просмотр)'" size="xl" (closed)="closeMedical()">
-    @if (showMedicalModal) {
-      <app-medical-record-read-only [citizenName]="selectedCitizen()?.fullName || '—'"></app-medical-record-read-only>
-    }
-  </app-modal>
 </div>

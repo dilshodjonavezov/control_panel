@@ -36,16 +36,10 @@ export interface ApiPerson {
   fullName: string | null;
 }
 
-export interface ApiUser {
-  id: number;
-  fullName: string | null;
-}
-
 @Injectable({ providedIn: 'root' })
 export class ResidenceRecordsService {
   private readonly apiUrl = `${environment.apiBaseUrl}/api/residence-records`;
   private readonly peopleApiUrl = `${environment.apiBaseUrl}/api/people`;
-  private readonly usersApiUrl = `${environment.apiBaseUrl}/api/users`;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -77,12 +71,6 @@ export class ResidenceRecordsService {
     return this.http
       .get<ApiResponse<ApiPerson[]> | ApiPerson[]>(this.peopleApiUrl)
       .pipe(map((response) => this.unwrapArray<ApiPerson>(response)));
-  }
-
-  getUsers(): Observable<ApiUser[]> {
-    return this.http
-      .get<ApiResponse<ApiUser[]> | ApiUser[]>(this.usersApiUrl)
-      .pipe(map((response) => this.unwrapArray<ApiUser>(response)));
   }
 
   private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {

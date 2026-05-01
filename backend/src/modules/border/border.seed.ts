@@ -1,0 +1,16 @@
+export const BORDER_CROSSING_SEED = Array.from({ length: 10 }, (_, index) => ({
+  peopleId: 21 + index,
+  username: 'border',
+  departureDate: `2026-${String((index % 4) + 1).padStart(2, '0')}-${String(10 + index).padStart(2, '0')}T08:00:00.000Z`,
+  returnDate: index % 3 === 0 ? null : `2026-${String((index % 4) + 1).padStart(2, '0')}-${String(12 + index).padStart(2, '0')}T19:00:00.000Z`,
+  outsideBorder: true,
+  country: ['Uzbekistan', 'Kazakhstan', 'Kyrgyzstan', 'Russia', 'Turkey'][index % 5],
+  description: `Border crossing record ${index + 1}`,
+  eventType: 'EXIT',
+  direction: 'OUTBOUND',
+  status: index % 3 === 0 ? 'OPEN' : 'CLOSED',
+  purpose: ['Private', 'Study', 'Work'][index % 3],
+  borderCheckpoint: ['Tursunzoda', 'Dushanbe Airport', 'Patar', 'Fotehobod'][index % 4],
+  transportType: ['AUTO', 'AIR', 'BUS'][index % 3],
+  documentNumber: `TJ0${index + 1}45${index + 7}8`,
+}));

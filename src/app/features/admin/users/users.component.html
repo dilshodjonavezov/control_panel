@@ -2,31 +2,49 @@
   <div class="flex items-center justify-between">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Пользователи и доступы</h1>
-      <p class="mt-2 text-gray-600">Создание аккаунтов и управление ролями</p>
+      <p class="mt-2 text-gray-600">Создание реальных серверных логинов и паролей для ролей.</p>
     </div>
-    <app-button variant="primary" (clicked)="openAdd()">Добавить пользователя</app-button>
+    <div class="flex items-center gap-2">
+      <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
+      <app-button variant="primary" (clicked)="openAdd()">Добавить пользователя</app-button>
+    </div>
   </div>
+
+  @if (errorMessage) {
+    <app-card>
+      <p class="text-sm text-red-600">{{ errorMessage }}</p>
+    </app-card>
+  }
 
   <app-card>
     <app-table
       [columns]="columns"
       [data]="users"
+      [loading]="isLoading"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
       [emptyMessage]="'Пользователей нет'"
     >
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ row.username }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.email }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ getRoleLabel(row.role) }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.status === 'active' ? 'Активен' : 'Заблокирован' }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.roleName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span
+            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="row.isActive ? 'bg-emerald-100 text-emerald-800 ring-emerald-200' : 'bg-rose-100 text-rose-800 ring-rose-200'"
+          >
+            {{ row.isActive ? 'Активен' : 'Заблокирован' }}
+          </span>
+        </td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
         <div class="flex items-center gap-2">
           <app-button variant="outline" size="sm" (clicked)="openEdit(row)">Редактировать</app-button>
           <app-button variant="danger" size="sm" (clicked)="toggleStatus(row)">
-            {{ row.status === 'active' ? 'Блокировать' : 'Разблокировать' }}
+            {{ row.isActive ? 'Заблокировать' : 'Разблокировать' }}
           </app-button>
         </div>
       </ng-template>
@@ -34,14 +52,27 @@
   </app-card>
 
   <app-modal [show]="showModal" [title]="editing ? 'Редактировать пользователя' : 'Добавить пользователя'" size="lg" (closed)="closeModal()">
-    <form class="space-y-4">
+    <div class="space-y-4">
+      @if (formErrorMessage) {
+        <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
+      }
+
       <app-input label="ФИО" [(ngModel)]="formData.fullName" name="fullName"></app-input>
-      <app-input label="Эл. почта" [(ngModel)]="formData.email" name="email"></app-input>
-      <app-select label="Роль" [options]="roleOptions" [(ngModel)]="formData.role" name="role"></app-select>
+      <app-input label="Логин" [(ngModel)]="formData.username" name="username"></app-input>
+      <app-input
+        label="{{ editing ? 'Новый пароль' : 'Пароль' }}"
+        type="text"
+        [(ngModel)]="formData.password"
+        name="password"
+        [hint]="editing ? 'Оставьте пустым, если пароль менять не нужно.' : ''"
+      ></app-input>
+      <app-input label="Email" [(ngModel)]="formData.email" name="email"></app-input>
+      <app-select label="Роль" [options]="roleOptions" [(ngModel)]="formData.roleId" name="roleId"></app-select>
+
       <div class="flex justify-end gap-2">
-        <app-button variant="outline" type="button" (clicked)="closeModal()">Отмена</app-button>
-        <app-button variant="primary" type="button" (clicked)="save()">Сохранить</app-button>
+        <app-button variant="outline" [disabled]="isSaving" (clicked)="closeModal()">Отмена</app-button>
+        <app-button variant="primary" [loading]="isSaving" [disabled]="isSaving" (clicked)="save()">Сохранить</app-button>
       </div>
-    </form>
+    </div>
   </app-modal>
 </div>

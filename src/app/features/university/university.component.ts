@@ -1,27 +1,61 @@
-﻿import { Component } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { AuthService } from '../../services/auth.service';
+import { Component } from '@angular/core';
+import {
+  PortalShellComponent,
+  PortalShellMetric,
+  PortalShellNavSection,
+  PortalShellQuickAction,
+} from '../../shared/components/portal-shell/portal-shell.component';
 
 @Component({
   selector: 'app-university',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [PortalShellComponent],
   templateUrl: './university.component.html',
-  styleUrl: './university.component.css'
+  styleUrl: './university.component.css',
 })
 export class UniversityComponent {
-  constructor(
-    private readonly authService: AuthService,
-    private readonly router: Router,
-  ) {}
+  readonly navSections: PortalShellNavSection[] = [
+    {
+      title: 'Колледж и вуз',
+      items: [
+        {
+          id: 'studies',
+          path: '/university/studies',
+          label: 'Реестр обучения',
+          icon: '🎓',
+          hint: 'Студенты, курсы, факультеты и текущий статус',
+        },
+      ],
+    },
+  ];
 
-  logout(): void {
-    this.authService.clearToken();
-    void this.router.navigate(['/login']);
-  }
+  readonly quickActions: PortalShellQuickAction[] = [
+    {
+      path: '/university/studies',
+      label: 'Зачисление',
+      icon: '➕',
+      description: 'Открыть форму новой записи об обучении',
+      queryParams: { action: 'create' },
+    },
+    {
+      path: '/university/studies',
+      label: 'Проверить отчисления',
+      icon: '⚠️',
+      description: 'Показать записи с риском потери отсрочки',
+      queryParams: { action: 'expulsions' },
+    },
+    {
+      path: '/university/studies',
+      label: 'Статус отсрочки',
+      icon: '🛡️',
+      description: 'Показать записи, связанные с учебной отсрочкой',
+      queryParams: { action: 'deferment' },
+    },
+  ];
 
-  menuItems = [
-    { path: '/university/studies', label: 'Реестр обучения', icon: '🎓' }
+  readonly metrics: PortalShellMetric[] = [
+    { label: 'Колледж', value: 'Активен', hint: 'Учебные записи готовы для отсрочек и сверок' },
+    { label: 'Риск', value: 'Отчисление', hint: 'Потеря статуса обучения влияет на вызов в военкомат' },
+    { label: 'Связь', value: 'Военкомат', hint: 'Учебный модуль встроен в общую бизнес-логику проекта' },
   ];
 }

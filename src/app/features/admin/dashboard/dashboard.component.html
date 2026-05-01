@@ -1,79 +1,128 @@
-﻿<div class="space-y-6">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900">Панель управления</h1>
-    <p class="mt-2 text-gray-600">Обзор системы контроля отсрочек</p>
+<div class="space-y-6">
+  <div class="flex items-start justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-gray-900">Панель управления</h1>
+      <p class="mt-2 text-gray-600">Сводка строится по правилам военкомата: женщины не попадают в призывники, мужчины разделены на призыв, учебу, семью, медоснование и остальных.</p>
+    </div>
+    <button
+      type="button"
+      (click)="loadDashboardData()"
+      class="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+    >
+      Обновить
+    </button>
   </div>
 
-  <!-- Общая статистика -->
-  <div class="mb-6">
-    <app-card title="Сводка контроля">
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <a
-          routerLink="/admin/citizens"
-          class="block bg-blue-50 rounded-lg p-4 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-300"
-        >
-          <p class="text-sm font-medium text-blue-600">Призывники</p>
-          <p class="text-3xl font-bold text-blue-900 mt-2">{{ totalCitizens() }}</p>
+  @if (errorMessage()) {
+    <app-card>
+      <p class="text-sm text-red-600">{{ errorMessage() }}</p>
+    </app-card>
+  }
+
+  @if (dashboard(); as data) {
+    <app-card title="Ключевые показатели">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <a routerLink="/admin/citizens" class="rounded-2xl bg-sky-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+          <p class="text-sm font-medium text-sky-700">Граждане в контуре</p>
+          <p class="mt-2 text-3xl font-bold text-sky-950">{{ data.totalCitizens }}</p>
         </a>
-        <a
-          routerLink="/admin/education-registry"
-          class="block bg-green-50 rounded-lg p-4 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-green-300"
-        >
-          <p class="text-sm font-medium text-green-600">Активные отсрочки (учеба)</p>
-          <p class="text-3xl font-bold text-green-900 mt-2">{{ activeEducationDeferments() }}</p>
+        <a routerLink="/admin/reports" class="rounded-2xl bg-blue-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+          <p class="text-sm font-medium text-blue-700">Призывники 18-27</p>
+          <p class="mt-2 text-3xl font-bold text-blue-950">{{ data.totalConscriptMen }}</p>
         </a>
-        <a
-          routerLink="/admin/deferment-review"
-          class="block bg-yellow-50 rounded-lg p-4 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-yellow-300"
-        >
-          <p class="text-sm font-medium text-yellow-700">Новые заявки</p>
-          <p class="text-3xl font-bold text-yellow-900 mt-2">{{ newRequests() }}</p>
+        <a routerLink="/admin/deferment-review" class="rounded-2xl bg-emerald-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+          <p class="text-sm font-medium text-emerald-700">Учатся</p>
+          <p class="mt-2 text-3xl font-bold text-emerald-950">{{ data.activeEducationDeferments }}</p>
         </a>
-        <a
-          routerLink="/admin/expulsions"
-          class="block bg-red-50 rounded-lg p-4 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-300"
-        >
-          <p class="text-sm font-medium text-red-600">Отчисления за период</p>
-          <p class="text-3xl font-bold text-red-900 mt-2">{{ expulsionsPeriod() }}</p>
+        <a routerLink="/admin/deferment-review" class="rounded-2xl bg-amber-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+          <p class="text-sm font-medium text-amber-700">2+ детей</p>
+          <p class="mt-2 text-3xl font-bold text-amber-950">{{ data.familyExemptions }}</p>
         </a>
-        <a
-          routerLink="/admin/expulsions"
-          class="block bg-teal-50 rounded-lg p-4 transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-300"
-        >
-          <p class="text-sm font-medium text-teal-600">В запасе</p>
-          <p class="text-3xl font-bold text-teal-900 mt-2">{{ expulsionsPeriod() }}</p>
+        <a routerLink="/admin/reports" class="rounded-2xl bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+          <p class="text-sm font-medium text-slate-700">Остальные мужчины</p>
+          <p class="mt-2 text-3xl font-bold text-slate-950">{{ data.totalOtherMen }}</p>
         </a>
       </div>
     </app-card>
-  </div>
 
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr,0.8fr]">
+      <app-card title="Разделы учета">
+        <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+          @for (status of data.statusDistribution; track status.label) {
+            <div class="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
+              <div class="text-sm font-medium text-slate-700">{{ status.label }}</div>
+              <span class="rounded-full px-3 py-1 text-xs font-semibold" [ngClass]="status.tone">{{ status.count }}</span>
+            </div>
+          }
+        </div>
+      </app-card>
 
-  <div class="mb-6">
-    <app-card title="Быстрые фильтры">
-      <div class="flex flex-wrap gap-3">
-        @for (filter of quickFilters; track filter.id) {
-          <button
-            class="px-4 py-2 rounded-full bg-gray-100 text-sm text-gray-700 hover:bg-gray-200"
-          >
-            {{ filter.label }} ({{ filter.count }})
-          </button>
-        }
-      </div>
+      <app-card title="Незавершенные связки">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between rounded-2xl bg-rose-50 px-4 py-3">
+            <div>
+              <div class="text-sm font-semibold text-rose-900">Без паспорта</div>
+              <div class="text-xs text-rose-700">Граждане есть, документ не привязан</div>
+            </div>
+            <div class="text-2xl font-bold text-rose-900">{{ data.missingPassport }}</div>
+          </div>
+          <div class="flex items-center justify-between rounded-2xl bg-orange-50 px-4 py-3">
+            <div>
+              <div class="text-sm font-semibold text-orange-900">Без адреса</div>
+              <div class="text-xs text-orange-700">Нет активной регистрации или семейного адреса</div>
+            </div>
+            <div class="text-2xl font-bold text-orange-900">{{ data.missingAddress }}</div>
+          </div>
+          <div class="flex items-center justify-between rounded-2xl bg-violet-50 px-4 py-3">
+            <div>
+              <div class="text-sm font-semibold text-violet-900">Без решения ВВК</div>
+              <div class="text-xs text-violet-700">Военный контур еще не получил итог по годности</div>
+            </div>
+            <div class="text-2xl font-bold text-violet-900">{{ data.pendingMedical }}</div>
+          </div>
+          <div class="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+            <div>
+              <div class="text-sm font-semibold text-slate-900">Сейчас за границей</div>
+              <div class="text-xs text-slate-600">Есть открытая запись пересечения границы</div>
+            </div>
+            <div class="text-2xl font-bold text-slate-900">{{ data.abroadNow }}</div>
+          </div>
+        </div>
+      </app-card>
+    </div>
+
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
+      <app-card title="Быстрые фильтры">
+        <div class="space-y-3">
+          @for (filter of data.quickFilters; track filter.id) {
+            <div class="rounded-2xl border border-slate-200 px-4 py-3">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-semibold text-slate-900">{{ filter.label }}</div>
+                <div class="text-xl font-bold text-slate-900">{{ filter.count }}</div>
+              </div>
+              <div class="mt-1 text-xs text-slate-500">{{ filter.hint }}</div>
+            </div>
+          }
+        </div>
+      </app-card>
+
+      <app-card title="Что уже связано">
+        <div class="space-y-3">
+          @for (item of data.linkageItems; track item.label) {
+            <div class="rounded-2xl border border-slate-200 px-4 py-3">
+              <div class="flex items-center justify-between">
+                <div class="text-sm font-semibold text-slate-900">{{ item.label }}</div>
+                <div class="text-xl font-bold text-slate-900">{{ item.value }}</div>
+              </div>
+              <div class="mt-1 text-xs text-slate-500">{{ item.hint }}</div>
+            </div>
+          }
+        </div>
+      </app-card>
+    </div>
+  } @else if (isLoading()) {
+    <app-card>
+      <p class="text-sm text-slate-500">Загрузка панели управления...</p>
     </app-card>
-  </div>
-
-  <!-- Графики (заглушка) -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-2">
-    <app-card title="Динамика призыва">
-      <div class="h-64 flex items-center justify-center text-gray-400">
-        График динамики призыва (будет реализован)
-      </div>
-    </app-card>
-
-    <app-card title="Демографическая пирамида">
-      <div class="h-64 flex items-center justify-center text-gray-400">
-        Демографическая пирамида (будет реализована)
-      </div>
-    </app-card>
-  </div>
+  }
 </div>

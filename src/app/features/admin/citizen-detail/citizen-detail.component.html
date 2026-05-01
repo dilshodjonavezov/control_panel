@@ -1,109 +1,225 @@
-@if (citizen()) {
+@if (isLoading()) {
+  <div class="rounded-3xl border border-slate-200 bg-white p-8 text-slate-500 shadow-sm">
+    Загрузка карточки...
+  </div>
+} @else if (detail()) {
   <div class="space-y-6">
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between gap-4">
       <div>
-        <h1 class="text-3xl font-bold text-gray-900">Карточка призывника</h1>
-        <p class="mt-2 text-gray-600">Полная информация по гражданину</p>
+        <h1 class="text-3xl font-bold text-slate-900">Карточка гражданина</h1>
+        <p class="mt-2 text-slate-600">Связки военкомата, семьи, документов, учебы и медкомиссии в одной карточке.</p>
       </div>
-      <app-button variant="outline" (clicked)="goBack()">Назад к списку</app-button>
+      <app-button variant="outline" (clicked)="goBack()">Назад к реестру</app-button>
     </div>
 
-    <app-card title="Личные данные">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-900">
-        <div>
-          <span class="text-gray-500">ФИО:</span>
-          <div class="font-medium">
-            {{ citizen()!.lastName }} {{ citizen()!.firstName }} {{ citizen()!.middleName || '' }}
+    <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+      <app-card title="Основные данные">
+        <div class="grid grid-cols-1 gap-4 text-sm text-slate-900 md:grid-cols-2">
+          <div>
+            <div class="text-slate-500">ФИО</div>
+            <div class="font-semibold">{{ detail()!.citizen.fullName }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Дата рождения</div>
+            <div class="font-semibold">{{ formatDate(detail()!.citizen.birthDate) }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Возраст</div>
+            <div class="font-semibold">{{ detail()!.citizen.age }} лет</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Пол</div>
+            <div class="font-semibold">{{ detail()!.citizen.gender }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Военный статус</div>
+            <div class="font-semibold">{{ detail()!.citizen.militaryStatus }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Годность</div>
+            <div class="font-semibold">{{ detail()!.citizen.fitnessCategory }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Паспорт</div>
+            <div class="font-semibold">{{ detail()!.citizen.passportNumber }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Статус записи военкомата</div>
+            <div class="font-semibold">{{ detail()!.citizen.militaryRecordStatus }}</div>
+          </div>
+          <div class="md:col-span-2">
+            <div class="text-slate-500">Адрес регистрации</div>
+            <div class="font-semibold">{{ detail()!.citizen.registrationAddress }}</div>
+          </div>
+          <div class="md:col-span-2">
+            <div class="text-slate-500">Основание отсрочки или освобождения</div>
+            <div class="font-semibold">{{ detail()!.citizen.defermentBasis }}</div>
           </div>
         </div>
-        <div>
-          <span class="text-gray-500">Дата рождения:</span>
-          <div class="font-medium">{{ formatDate(citizen()!.birthDate) }}</div>
-        </div>
-        <div>
-          <span class="text-gray-500">Статус:</span>
-          <div class="font-medium">{{ getStatusLabel(citizen()!.status) }}</div>
-        </div>
-        <div>
-          <span class="text-gray-500">Категория годности:</span>
-          <div class="font-medium">{{ getFitnessLabel(citizen()!.fitnessCategory) }}</div>
-        </div>
-        <div>
-          <span class="text-gray-500">Адрес регистрации:</span>
-          <div class="font-medium">{{ citizen()!.registrationAddress }}</div>
-        </div>
-        <div>
-          <span class="text-gray-500">Адрес фактический:</span>
-          <div class="font-medium">{{ citizen()!.actualAddress || '-' }}</div>
-        </div>
-        <div>
-          <span class="text-gray-500">Телефон:</span>
-          <div class="font-medium">{{ citizen()!.phoneNumber || '-' }}</div>
-        </div>
-        <div>
-          <span class="text-gray-500">Email:</span>
-          <div class="font-medium">{{ citizen()!.email || '-' }}</div>
-        </div>
-      </div>
-    </app-card>
+      </app-card>
 
-    <app-card title="Отсрочки">
-      <div class="text-sm text-gray-700">
-        @if (getActiveDeferment()) {
-          <div class="font-medium text-green-700">Есть активная отсрочка</div>
-          <div>Основание: {{ getActiveDeferment()!.reason }}</div>
-          <div>Дата: {{ formatDate(getActiveDeferment()!.startDate) }}</div>
-          <div>Документ: {{ getActiveDeferment()!.documentNumber || '-' }}</div>
+      <app-card title="Семейная связь">
+        @if (detail()!.family) {
+          <div class="space-y-4 text-sm text-slate-900">
+            <div>
+              <div class="text-slate-500">Семья</div>
+              <div class="font-semibold">{{ detail()!.family!.familyName }}</div>
+            </div>
+            <div>
+              <div class="text-slate-500">Отец</div>
+              <div class="font-semibold">{{ detail()!.family!.fatherFullName || 'Не указан' }}</div>
+            </div>
+            <div>
+              <div class="text-slate-500">Мать</div>
+              <div class="font-semibold">{{ detail()!.family!.motherFullName || 'Не указана' }}</div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <div class="text-slate-500">Детей</div>
+                <div class="font-semibold">{{ detail()!.family!.childrenCount || 0 }}</div>
+              </div>
+              <div>
+                <div class="text-slate-500">Сыновей на учете</div>
+                <div class="font-semibold">{{ detail()!.family!.militaryRegisteredChildrenCount || 0 }}</div>
+              </div>
+            </div>
+            <div>
+              <div class="text-slate-500">Льгота для отца</div>
+              <div class="font-semibold">{{ detail()!.family!.eligibleFatherForMilitaryExemption ? 'Да, семья подходит' : 'Нет' }}</div>
+            </div>
+            <div>
+              <div class="text-slate-500">Дети семьи</div>
+              <div class="mt-2 space-y-2">
+                @for (child of familyChildren(); track child.id) {
+                  <div class="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div class="font-medium text-slate-900">{{ child.fullName || ('ID ' + child.id) }}</div>
+                    <div class="text-xs text-slate-500">
+                      {{ child.gender === 'FEMALE' ? 'Девочка' : 'Мальчик' }} • {{ formatDate(child.birthDate) }} •
+                      {{ child.militaryRegisteredAtBirth ? 'Добавлен в военкомат' : 'Без постановки на учет' }}
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
         } @else {
-          <div class="text-gray-500">Активных отсрочек нет</div>
+          <div class="text-sm text-slate-500">Семейная модель для этого гражданина еще не связана.</div>
         }
-      </div>
-    </app-card>
+      </app-card>
+    </div>
 
-    <app-card title="История образования">
-      @if (educationRecords().length) {
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm text-gray-900">
-            <thead class="text-left text-gray-500">
-              <tr>
-                <th class="py-2">Тип</th>
-                <th class="py-2">Учебное заведение</th>
-                <th class="py-2">Начало</th>
-                <th class="py-2">Окончание</th>
-                <th class="py-2">Статус</th>
-                <th class="py-2">Отсрочка</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (record of educationRecords(); track record.id) {
-                <tr class="border-t border-gray-100">
-                  <td class="py-2">{{ getEducationTypeLabel(record.educationType) }}</td>
-                  <td class="py-2">{{ record.institutionName }}</td>
-                  <td class="py-2">{{ formatDate(record.startDate) }}</td>
-                  <td class="py-2">{{ formatDate(record.endDate) }}</td>
-                  <td class="py-2">{{ record.isActive ? 'Активно' : 'Завершено' }}</td>
-                  <td class="py-2">{{ record.hasDeferment ? 'Есть' : 'Нет' }}</td>
-                </tr>
-              }
-            </tbody>
-          </table>
+    <div class="grid gap-6 lg:grid-cols-2">
+      <app-card title="Учебные записи">
+        @if (detail()!.schoolRecords.length || detail()!.educationRecords.length) {
+          <div class="space-y-3 text-sm">
+            @for (record of detail()!.schoolRecords; track record.id) {
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="font-semibold text-slate-900">{{ record.institutionName || 'Школа не указана' }}</div>
+                <div class="text-slate-600">
+                  Школа • класс {{ record.classNumber || '-' }} • с {{ formatDate(record.admissionDate) }} до {{ formatDate(record.expulsionDate || record.graduationDate) }}
+                </div>
+              </div>
+            }
+            @for (record of detail()!.educationRecords; track record.id) {
+              <div class="rounded-2xl border border-slate-200 bg-white p-4">
+                <div class="font-semibold text-slate-900">{{ record.institutionName || 'Учреждение не указано' }}</div>
+                <div class="text-slate-600">
+                  {{ record.studyForm || 'Форма не указана' }} • {{ record.faculty || 'Без факультета' }} • {{ record.specialty || 'Без специальности' }}
+                </div>
+                <div class="mt-1 text-slate-500">
+                  c {{ formatDate(record.admissionDate) }} до {{ formatDate(record.expulsionDate || record.graduationDate) }} •
+                  {{ record.isDeferralActive ? 'Учебная отсрочка активна' : 'Активной отсрочки нет' }}
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="text-sm text-slate-500">Учебных связок нет.</div>
+        }
+      </app-card>
+
+      <app-card title="Военкомат и ВВК">
+        @if (detail()!.militaryRecords.length || detail()!.vvkResults.length || detail()!.medicalRecords.length) {
+          <div class="space-y-3 text-sm">
+            @for (record of detail()!.militaryRecords; track record.id) {
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div class="font-semibold text-slate-900">{{ record.office }}</div>
+                <div class="text-slate-600">
+                  Статус {{ record.militaryStatus }} • постановка {{ formatDate(record.enlistDate) }} • детей {{ record.childrenCount }}
+                </div>
+                <div class="mt-1 text-slate-500">{{ record.familyExemptionReason || record.defermentReason || record.notes || 'Без комментария' }}</div>
+              </div>
+            }
+            @for (record of detail()!.vvkResults; track record.id) {
+              <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+                <div class="font-semibold text-slate-900">ВВК от {{ formatDate(record.examDate) }}</div>
+                <div class="text-slate-600">
+                  {{ record.fitnessCategory || 'Категория не указана' }} • {{ record.finalDecision || 'Решение не указано' }}
+                </div>
+                <div class="mt-1 text-slate-500">{{ record.reason || record.notes || 'Без комментария' }}</div>
+              </div>
+            }
+            @for (record of detail()!.medicalRecords; track record.id) {
+              <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div class="font-semibold text-slate-900">{{ record.clinic }}</div>
+                <div class="text-slate-600">{{ record.decision || 'Решение не указано' }}</div>
+                <div class="mt-1 text-slate-500">{{ record.reason || record.defermentReason || record.notes || 'Без комментария' }}</div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="text-sm text-slate-500">Военных и медицинских связок пока нет.</div>
+        }
+      </app-card>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-2">
+      <app-card title="Переход границы">
+        @if (detail()!.borderCrossings.length) {
+          <div class="space-y-3 text-sm">
+            @for (record of detail()!.borderCrossings; track record.id) {
+              <div class="rounded-2xl border border-slate-200 p-4">
+                <div class="font-semibold text-slate-900">{{ record.country || 'Страна не указана' }}</div>
+                <div class="text-slate-600">
+                  Выезд {{ formatDate(record.departureDate) }} • Возврат {{ formatDate(record.returnDate) }}
+                </div>
+                <div class="mt-1 text-slate-500">{{ record.outsideBorder && !record.returnDate ? 'Сейчас находится за границей' : 'Поездка закрыта' }}</div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="text-sm text-slate-500">Пересечений границы нет.</div>
+        }
+      </app-card>
+
+      <app-card title="Регистрация рождения и паспорт">
+        <div class="space-y-4 text-sm text-slate-900">
+          <div>
+            <div class="text-slate-500">Запись ЗАГС</div>
+            <div class="font-semibold">
+              {{ detail()!.zagsBirthRecord?.actNumber || 'Нет записи' }}
+            </div>
+            <div class="text-slate-500">
+              {{ formatDate(detail()!.zagsBirthRecord?.registrationDate) }} • отец {{ detail()!.zagsBirthRecord?.fatherFullName || 'не указан' }} • мать {{ detail()!.zagsBirthRecord?.motherFullName || 'не указана' }}
+            </div>
+          </div>
+          <div>
+            <div class="text-slate-500">Паспорт</div>
+            <div class="font-semibold">{{ detail()!.passportRecord?.passportNumber || 'Нет паспорта' }}</div>
+            <div class="text-slate-500">
+              {{ detail()!.passportRecord?.placeOfIssue || 'Место выдачи не указано' }} • выдан {{ formatDate(detail()!.passportRecord?.dateOfIssue) }}
+            </div>
+          </div>
         </div>
-      } @else {
-        <div class="text-sm text-gray-500">Данные об обучении отсутствуют</div>
-      }
-    </app-card>
-
-    <app-card title="Семейные обстоятельства">
-      <div class="text-sm text-gray-500">Нет данных. Источники: ЗАГС.</div>
-    </app-card>
-
-    <app-card title="Медицинское заключение">
-      <div class="text-sm text-gray-500">Нет данных. Источник: ВВК.</div>
-    </app-card>
+      </app-card>
+    </div>
   </div>
 } @else {
-  <div class="space-y-4">
-    <h1 class="text-2xl font-bold text-gray-900">Гражданин не найден</h1>
-    <app-button variant="outline" (clicked)="goBack()">Вернуться к списку</app-button>
+  <div class="space-y-4 rounded-3xl border border-rose-200 bg-rose-50 p-8">
+    <h1 class="text-2xl font-bold text-rose-900">Карточка недоступна</h1>
+    <p class="text-sm text-rose-700">{{ errorMessage() || 'Гражданин не найден.' }}</p>
+    <div>
+      <app-button variant="outline" (clicked)="goBack()">Вернуться к списку</app-button>
+    </div>
   </div>
 }

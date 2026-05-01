@@ -1,26 +1,38 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
 import { CardComponent, TableComponent, TableColumn, InputComponent, SelectComponent, SelectOption, ButtonComponent, ModalComponent } from '../../../shared/components';
-import { CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
-import { LocalPersonWorkflowService } from '../../../services/local-person-workflow.service';
+import { AuthService } from '../../../services/auth.service';
+import { MedicalRecordsService, ApiMedicalRecord, ApiSchoolRecord, CreateMedicalRecordRequest } from '../../../services/medical-records.service';
+
+type Decision = 'FIT' | 'UNFIT';
 
 interface MedicalVisitItem {
-  id: string;
-  patientFullName: string;
-  date: string;
-  doctor: string;
-  diagnosis: string;
-  status: 'DRAFT' | 'FINAL';
-}
-
-interface LocalSchoolRecord {
+  id: number;
   peopleId: number;
-  peopleFullName: string;
-  status?: 'Учится' | 'Закончил' | 'Отчислен' | string;
+  patientFullName: string;
+  fatherFullName: string;
+  motherFullName: string;
+  addressLabel: string;
+  clinic: string;
+  date: string;
+  decision: Decision;
+  reason: string;
+  defermentReason: string;
+  notes: string;
 }
 
-type FitnessDecision = 'FIT' | 'UNFIT';
+interface ExamForm {
+  peopleId: string;
+  clinic: string;
+  examDate: string;
+  decision: Decision | '';
+  reason: string;
+  defermentReason: string;
+  notes: string;
+}
 
 @Component({
   selector: 'app-medical-record-read',
@@ -30,142 +42,129 @@ type FitnessDecision = 'FIT' | 'UNFIT';
   styleUrl: './medical-record-read.component.css'
 })
 export class MedicalRecordReadComponent implements OnInit {
-  private readonly localSchoolRecordsKey = 'local_school_records_v1';
-  private readonly localClinicVisitsKey = 'local_clinic_visits_v1';
+  filters = {
+    fullName: '',
+    address: '',
+    decision: 'all',
+  };
+
+  columns: TableColumn[] = [
+    { key: 'patientFullName', label: 'ФИО', sortable: true },
+    { key: 'fatherFullName', label: 'ФИО отца', sortable: true },
+    { key: 'motherFullName', label: 'ФИО матери', sortable: true },
+    { key: 'addressLabel', label: 'Адрес', sortable: true },
+    { key: 'clinic', label: 'Поликлиника', sortable: true },
+    { key: 'decision', label: 'Годность', sortable: true },
+    { key: 'reason', label: 'Причина', sortable: true },
+    { key: 'defermentReason', label: 'Отсрочка', sortable: true },
+    { key: 'date', label: 'Дата', sortable: true },
+  ];
+
+  records: MedicalVisitItem[] = [];
+  candidateOptions: SelectOption[] = [];
+  decisionOptions: SelectOption[] = [
+    { value: 'FIT', label: 'Годен' },
+    { value: 'UNFIT', label: 'Не годен' },
+  ];
+
+  isLoading = false;
+  errorMessage = '';
 
   showExamModal = false;
   isEditExamMode = false;
-  editingVisitId: string | null = null;
-
-  showDeleteModal = false;
-  deletingVisit: MedicalVisitItem | null = null;
-
-  draftFilters = {
-    doctor: '',
-    diagnosis: '',
-    status: 'all',
-    dateFrom: '',
-    dateTo: ''
-  };
-
-  appliedFilters = { ...this.draftFilters };
-
-  citizen = signal<CitizenReadCardData | null>(null);
-
-  candidateOptions: SelectOption[] = [];
-  selectedCandidateId = '';
-  decisionOptions: SelectOption[] = [
-    { value: 'FIT', label: 'Годен к службе' },
-    { value: 'UNFIT', label: 'Не годен к службе' },
-  ];
-
-  fitReasonOptions: SelectOption[] = [
-    { value: 'Категория здоровья А (без ограничений)', label: 'Категория А (без ограничений)' },
-    { value: 'Категория здоровья Б (с незначительными ограничениями)', label: 'Категория Б (незначительные ограничения)' },
-    { value: 'Стабильное состояние по итогам осмотра', label: 'Стабильное состояние' },
-  ];
-
-  unfitReasonOptions: SelectOption[] = [
-    { value: 'Хроническое заболевание сердечно-сосудистой системы', label: 'Хроническое заболевание (ССС)' },
-    { value: 'Заболевание опорно-двигательного аппарата', label: 'Проблемы опорно-двигательного аппарата' },
-    { value: 'Выраженные нарушения зрения', label: 'Выраженные нарушения зрения' },
-    { value: 'Психоневрологические противопоказания', label: 'Психоневрологические противопоказания' },
-  ];
-
-  examForm: {
-    examDate: string;
-    doctor: string;
-    decision: FitnessDecision | '';
-    reason: string;
-    note: string;
-  } = {
-    examDate: '',
-    doctor: '',
-    decision: '',
-    reason: '',
-    note: '',
-  };
-
+  editingVisitId: number | null = null;
+  isFormSubmitting = false;
   examErrorMessage = '';
   examSuccessMessage = '';
 
-  columns: TableColumn[] = [
-    { key: 'patientFullName', label: 'Пациент', sortable: true },
-    { key: 'date', label: 'Дата', sortable: true },
-    { key: 'doctor', label: 'Врач', sortable: true },
-    { key: 'diagnosis', label: 'Диагноз', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true }
-  ];
+  examForm: ExamForm = this.resetExamFormData();
 
-  statusFilterOptions: SelectOption[] = [
-    { value: 'all', label: 'Все статусы' },
-    { value: 'FINAL', label: 'Закрыто' },
-    { value: 'DRAFT', label: 'Черновик' }
-  ];
+  private graduatedCandidates: ApiSchoolRecord[] = [];
+  private citizensById = new Map<number, { fullName: string; fatherFullName: string; motherFullName: string }>();
 
-  visits: MedicalVisitItem[] = [];
-
-  constructor(private readonly workflowService: LocalPersonWorkflowService) {}
+  constructor(
+    private readonly medicalRecordsService: MedicalRecordsService,
+    private readonly authService: AuthService,
+    private readonly route: ActivatedRoute,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
-    this.loadVisits();
-    this.loadGraduatedCandidates();
-  }
+    this.loadData();
+    this.route.queryParamMap.subscribe((params) => {
+      const action = params.get('action');
+      if (!action) {
+        return;
+      }
 
-  get filteredVisits(): MedicalVisitItem[] {
-    const byDoctor = this.appliedFilters.doctor.trim().toLowerCase();
-    const byDiagnosis = this.appliedFilters.diagnosis.trim().toLowerCase();
-    const byStatus = this.appliedFilters.status;
-    const from = this.appliedFilters.dateFrom;
-    const to = this.appliedFilters.dateTo;
+      if (action === 'exam') {
+        this.openCreateExamModal();
+        return;
+      }
 
-    return this.visits.filter((visit) => {
-      const visitDate = this.toIsoDate(visit.date);
-      if (byDoctor && !visit.doctor.toLowerCase().includes(byDoctor)) return false;
-      if (byDiagnosis && !visit.diagnosis.toLowerCase().includes(byDiagnosis)) return false;
-      if (byStatus !== 'all' && visit.status !== byStatus) return false;
-      if (from && visitDate < from) return false;
-      if (to && visitDate > to) return false;
-      return true;
+      this.filters = { fullName: '', address: '', decision: 'all' };
     });
   }
 
-  get reasonOptions(): SelectOption[] {
-    if (this.examForm.decision === 'FIT') {
-      return this.fitReasonOptions;
-    }
-    if (this.examForm.decision === 'UNFIT') {
-      return this.unfitReasonOptions;
-    }
-    return [];
+  get filteredVisits(): MedicalVisitItem[] {
+    const byName = this.filters.fullName.trim().toLowerCase();
+    const byAddress = this.filters.address.trim().toLowerCase();
+    const byDecision = this.filters.decision;
+
+    return this.records.filter((record) => {
+      const matchesName = !byName || record.patientFullName.toLowerCase().includes(byName);
+      const matchesAddress = !byAddress || record.addressLabel.toLowerCase().includes(byAddress);
+      const matchesDecision = byDecision === 'all' || record.decision === byDecision;
+      return matchesName && matchesAddress && matchesDecision;
+    });
   }
 
-  get examModalTitle(): string {
-    return this.isEditExamMode ? 'Изменение осмотра' : 'Призывной осмотр';
-  }
+  loadData(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
 
-  applyFilters(): void {
-    this.appliedFilters = { ...this.draftFilters };
-  }
-
-  resetFilters(): void {
-    this.draftFilters = {
-      doctor: '',
-      diagnosis: '',
-      status: 'all',
-      dateFrom: '',
-      dateTo: ''
-    };
-    this.applyFilters();
+    forkJoin({
+      records: this.medicalRecordsService.getAll(),
+      graduates: this.medicalRecordsService.getGraduatedSchoolRecords(),
+      citizens: this.medicalRecordsService.getCitizens(),
+    })
+      .pipe(timeout(15000))
+      .subscribe({
+        next: ({ records, graduates, citizens }) => {
+          this.graduatedCandidates = graduates;
+          this.citizensById = new Map(
+            citizens.map((citizen) => [citizen.id, {
+              fullName: citizen.fullName,
+              fatherFullName: citizen.fatherFullName ?? '',
+              motherFullName: citizen.motherFullName ?? '',
+            }]),
+          );
+          this.candidateOptions = this.buildCandidateOptions(graduates);
+          this.records = records.map((record) => this.mapRecord(record));
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+        error: (error: unknown) => {
+          this.records = [];
+          this.candidateOptions = [];
+          this.graduatedCandidates = [];
+          this.citizensById.clear();
+          this.errorMessage = error instanceof TimeoutError
+            ? 'Превышено время ожидания ответа API.'
+            : 'Не удалось загрузить медицинские записи.';
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   openCreateExamModal(): void {
     this.isEditExamMode = false;
     this.editingVisitId = null;
-    this.resetExamForm();
-    this.showExamModal = true;
+    this.examForm = this.resetExamFormData();
     this.examErrorMessage = '';
     this.examSuccessMessage = '';
+    this.showExamModal = true;
   }
 
   openEditExamModal(visit: MedicalVisitItem): void {
@@ -173,11 +172,22 @@ export class MedicalRecordReadComponent implements OnInit {
     this.editingVisitId = visit.id;
     this.examErrorMessage = '';
     this.examSuccessMessage = '';
-    this.fillExamFormFromVisit(visit);
+    this.examForm = {
+      peopleId: String(visit.peopleId),
+      clinic: visit.clinic === '-' ? '' : visit.clinic,
+      examDate: this.toInputDate(visit.date),
+      decision: visit.decision,
+      reason: visit.reason === '-' ? '' : visit.reason,
+      defermentReason: visit.defermentReason === '-' ? '' : visit.defermentReason,
+      notes: visit.notes === '-' ? '' : visit.notes,
+    };
     this.showExamModal = true;
   }
 
   closeExamModal(): void {
+    if (this.isFormSubmitting) {
+      return;
+    }
     this.showExamModal = false;
   }
 
@@ -186,20 +196,7 @@ export class MedicalRecordReadComponent implements OnInit {
     if (!Number.isInteger(id) || id <= 0) {
       return;
     }
-
-    this.selectedCandidateId = id.toString();
-    const option = this.candidateOptions.find((item) => Number(item.value) === id);
-    if (!option) {
-      return;
-    }
-
-    this.citizen.set({
-      id: `CIT-${id}`,
-      iin: '—',
-      fullName: option.label,
-      birthDate: '—',
-      status: 'ACTIVE'
-    });
+    this.examForm.peopleId = id.toString();
     this.examErrorMessage = '';
     this.examSuccessMessage = '';
   }
@@ -207,233 +204,165 @@ export class MedicalRecordReadComponent implements OnInit {
   onDecisionChanged(value: string | number | null): void {
     if (value !== 'FIT' && value !== 'UNFIT') {
       this.examForm.decision = '';
-      this.examForm.reason = '';
       return;
     }
-
     this.examForm.decision = value;
-    this.examForm.reason = '';
     this.examErrorMessage = '';
     this.examSuccessMessage = '';
   }
 
   saveFitnessDecision(): void {
+    const payload = this.buildPayload();
+    if (!payload) {
+      return;
+    }
+
+    this.isFormSubmitting = true;
     this.examErrorMessage = '';
     this.examSuccessMessage = '';
 
-    if (!this.selectedCandidateId) {
-      this.examErrorMessage = 'Выберите кандидата из списка школы.';
-      return;
-    }
+    const request$ =
+      this.isEditExamMode && this.editingVisitId
+        ? this.medicalRecordsService.update(this.editingVisitId, payload)
+        : this.medicalRecordsService.create(payload);
 
-    if (!this.examForm.examDate) {
+    request$
+      .pipe(
+        finalize(() => {
+          this.isFormSubmitting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.examErrorMessage = this.isEditExamMode ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
+            return;
+          }
+          this.showExamModal = false;
+          this.loadData();
+        },
+        error: () => {
+          this.examErrorMessage = this.isEditExamMode ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
+        },
+      });
+  }
+
+  getStatusLabel(status: string): string {
+    return status === 'UNFIT' ? 'Не годен' : 'Годен';
+  }
+
+  private mapRecord(record: ApiMedicalRecord): MedicalVisitItem {
+    return {
+      id: record.id,
+      peopleId: record.peopleId,
+      patientFullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
+      fatherFullName: record.fatherFullName?.trim() || '-',
+      motherFullName: record.motherFullName?.trim() || '-',
+      addressLabel: record.addressLabel?.trim() || '-',
+      clinic: record.clinic?.trim() || '-',
+      date: this.formatDate(record.createdAtRecord),
+      decision: (record.decision as Decision) ?? 'FIT',
+      reason: record.reason?.trim() || '-',
+      defermentReason: record.defermentReason?.trim() || '-',
+      notes: record.notes?.trim() || '-',
+    };
+  }
+
+  private buildCandidateOptions(records: ApiSchoolRecord[]): SelectOption[] {
+    return records
+      .slice()
+      .sort((a, b) => (a.peopleFullName ?? '').localeCompare(b.peopleFullName ?? '', 'ru'))
+      .map((record) => {
+        const citizen = this.citizensById.get(record.peopleId);
+        const parentBits: string[] = [];
+        if (citizen?.fatherFullName) parentBits.push(`отец: ${citizen.fatherFullName}`);
+        if (citizen?.motherFullName) parentBits.push(`мать: ${citizen.motherFullName}`);
+        const label = record.peopleFullName?.trim() || `ID ${record.peopleId}`;
+        return {
+          value: String(record.peopleId),
+          label: parentBits.length > 0 ? `${label} (${parentBits.join(', ')})` : label,
+        };
+      });
+  }
+
+  private buildPayload(): CreateMedicalRecordRequest | null {
+    const peopleId = Number(this.examForm.peopleId);
+    const userId = this.authService.resolveCurrentUserId();
+
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      this.examErrorMessage = 'Выберите выпускника школы.';
+      return null;
+    }
+    if (!userId) {
+      this.examErrorMessage = 'Не удалось определить текущего пользователя.';
+      return null;
+    }
+    if (!this.examForm.clinic.trim()) {
+      this.examErrorMessage = 'Укажите поликлинику.';
+      return null;
+    }
+    if (!this.examForm.examDate.trim()) {
       this.examErrorMessage = 'Укажите дату осмотра.';
-      return;
+      return null;
     }
-
-    if (!this.examForm.doctor.trim()) {
-      this.examErrorMessage = 'Укажите врача, который осмотрел.';
-      return;
-    }
-
     if (!this.examForm.decision) {
       this.examErrorMessage = 'Выберите итог осмотра.';
-      return;
+      return null;
     }
 
-    if (!this.examForm.reason.trim()) {
-      this.examErrorMessage = 'Выберите причину.';
-      return;
-    }
-
-    const candidate = this.candidateOptions.find((item) => item.value.toString() === this.selectedCandidateId);
-    if (!candidate) {
-      this.examErrorMessage = 'Кандидат не найден.';
-      return;
-    }
-
-    const finalStatus = this.examForm.decision === 'FIT' ? 'Годен к службе' : 'Не годен к службе';
-    const note = [this.examForm.reason.trim(), this.examForm.note.trim()].filter((item) => item.length > 0).join('. ');
-    this.workflowService.setManualStatus(candidate.label, finalStatus, note || undefined);
-
-    const item: MedicalVisitItem = {
-      id: this.editingVisitId ?? `med-${Date.now()}`,
-      patientFullName: candidate.label,
-      date: this.formatVisitDate(this.examForm.examDate),
-      doctor: this.examForm.doctor.trim(),
-      diagnosis: `${finalStatus}. ${this.examForm.reason}`,
-      status: 'FINAL'
-    };
-
-    this.visits = [item, ...this.visits.filter((visit) => visit.id !== item.id)];
-    this.persistVisits();
-
-    this.examSuccessMessage = this.isEditExamMode
-      ? 'Осмотр обновлен.'
-      : `Решение сохранено: ${finalStatus}.`;
-    this.closeExamModal();
-  }
-
-  openDeleteModal(visit: MedicalVisitItem): void {
-    this.deletingVisit = visit;
-    this.showDeleteModal = true;
-  }
-
-  closeDeleteModal(): void {
-    this.showDeleteModal = false;
-    this.deletingVisit = null;
-  }
-
-  confirmDeleteVisit(): void {
-    if (!this.deletingVisit) {
-      return;
-    }
-
-    this.visits = this.visits.filter((item) => item.id !== this.deletingVisit!.id);
-    this.persistVisits();
-    this.closeDeleteModal();
-  }
-
-  getStatusLabel(status: MedicalVisitItem['status']): string {
-    return status === 'FINAL' ? 'Закрыто' : 'Черновик';
-  }
-
-  private fillExamFormFromVisit(visit: MedicalVisitItem): void {
-    const matched = this.candidateOptions.find((item) => item.label === visit.patientFullName);
-    if (matched) {
-      this.selectedCandidateId = matched.value.toString();
-      this.onCandidateChanged(this.selectedCandidateId);
-    } else {
-      this.selectedCandidateId = '';
-    }
-
-    const parsed = this.parseDiagnosis(visit.diagnosis);
-    this.examForm = {
-      examDate: this.toInputDate(visit.date),
-      doctor: visit.doctor === '—' ? '' : visit.doctor,
-      decision: parsed.decision,
-      reason: parsed.reason,
-      note: '',
+    return {
+      peopleId,
+      userId,
+      clinic: this.examForm.clinic.trim(),
+      decision: this.examForm.decision,
+      reason: this.examForm.reason.trim() || null,
+      defermentReason: this.examForm.defermentReason.trim() || null,
+      createdAtRecord: this.examForm.examDate ? this.toIsoDate(this.examForm.examDate) : null,
+      notes: this.examForm.notes.trim() || null,
     };
   }
 
-  private parseDiagnosis(diagnosis: string): { decision: FitnessDecision | ''; reason: string } {
-    const value = (diagnosis || '').trim();
-    if (value.startsWith('Годен к службе')) {
-      return {
-        decision: 'FIT',
-        reason: value.replace('Годен к службе.', '').trim(),
-      };
-    }
-    if (value.startsWith('Не годен к службе')) {
-      return {
-        decision: 'UNFIT',
-        reason: value.replace('Не годен к службе.', '').trim(),
-      };
-    }
-    return { decision: '', reason: '' };
-  }
-
-  private resetExamForm(): void {
-    this.examForm = {
+  private resetExamFormData(): ExamForm {
+    return {
+      peopleId: '',
+      clinic: 'Поликлиника №1',
       examDate: new Date().toISOString().slice(0, 10),
-      doctor: '',
       decision: '',
       reason: '',
-      note: '',
+      defermentReason: '',
+      notes: '',
     };
-
-    if (this.candidateOptions.length > 0) {
-      this.onCandidateChanged(this.candidateOptions[0].value);
-    } else {
-      this.selectedCandidateId = '';
-      this.citizen.set(null);
-    }
   }
 
-  private loadGraduatedCandidates(): void {
-    const raw = localStorage.getItem(this.localSchoolRecordsKey);
-    if (!raw) {
-      this.candidateOptions = [];
-      this.selectedCandidateId = '';
-      this.citizen.set(null);
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as LocalSchoolRecord[];
-      if (!Array.isArray(parsed)) {
-        this.candidateOptions = [];
-        return;
-      }
-
-      const byId = new Map<number, string>();
-      parsed.forEach((item) => {
-        if ((item.status || '').trim() !== 'Закончил') {
-          return;
-        }
-        const id = Number(item.peopleId);
-        const name = (item.peopleFullName || '').trim();
-        if (!Number.isInteger(id) || id <= 0 || !name) {
-          return;
-        }
-        byId.set(id, name);
-      });
-
-      this.candidateOptions = Array.from(byId.entries())
-        .map(([id, label]) => ({ value: id.toString(), label }))
-        .sort((a, b) => a.label.localeCompare(b.label, 'ru'));
-    } catch {
-      this.candidateOptions = [];
-      this.selectedCandidateId = '';
-      this.citizen.set(null);
-    }
-  }
-
-  private loadVisits(): void {
-    const raw = localStorage.getItem(this.localClinicVisitsKey);
-    if (!raw) {
-      this.visits = [];
-      return;
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as MedicalVisitItem[];
-      this.visits = Array.isArray(parsed) ? parsed : [];
-    } catch {
-      this.visits = [];
-    }
-  }
-
-  private persistVisits(): void {
-    localStorage.setItem(this.localClinicVisitsKey, JSON.stringify(this.visits));
-  }
-
-  private formatVisitDate(value: string): string {
+  private formatDate(value: string | null): string {
     if (!value) {
-      return '—';
+      return '-';
     }
-    const parts = value.split('-');
-    if (parts.length !== 3) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
       return value;
     }
-    const [year, month, day] = parts;
-    return `${day}.${month}.${year}`;
+    return date.toLocaleDateString('ru-RU');
   }
 
   private toIsoDate(value: string): string {
-    const parts = value.split('.');
-    if (parts.length !== 3) return value;
-    const [day, month, year] = parts;
-    return `${year}-${month}-${day}`;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toISOString().split('T')[0];
   }
 
   private toInputDate(value: string): string {
-    const parts = value.split('.');
-    if (parts.length !== 3) {
+    if (!value) {
       return '';
     }
-    const [day, month, year] = parts;
-    return `${year}-${month}-${day}`;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
 }

@@ -1,72 +1,127 @@
-﻿<div class="space-y-6">
-  <div class="flex items-center justify-between">
+<div class="space-y-6">
+  <div class="flex items-center justify-between gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Отчеты</h1>
-      <p class="mt-2 text-gray-600">Списки для рассылки повесток и контроль уклонистов</p>
+      <h1 class="text-3xl font-bold text-slate-900">Отчеты военкомата</h1>
+      <p class="mt-2 text-slate-600">Женщины не попадают в призывники. Отдельно считаются мужчины 18-27, учеба, 2+ детей, не годен и остальные мужчины.</p>
     </div>
     <app-button variant="outline" (clicked)="loadData()">Обновить данные</app-button>
   </div>
-  <div class="mb-4">
-    <app-card title="Список для рассылки повесток" subtitle="Призывники без активной отсрочки">
-      <app-table
-        [columns]="columns"
-        [data]="getDraftList()"
-        [rowTemplate]="rowTemplate"
-        [emptyMessage]="'Кандидаты для повесток не найдены'"
-      >
-        <ng-template #rowTemplate let-row>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ getFullName(row) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ formatDate(row.birthDate) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ getAge(row.birthDate) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ getStatusLabel(row.status) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ hasActiveDeferment(row.id) ? 'Есть' : 'Нет' }}
-          </td>
-          <td class="px-6 py-4 text-sm text-gray-900">
-            {{ row.registrationAddress }}
-          </td>
-        </ng-template>
-      </app-table>
+
+  @if (errorMessage()) {
+    <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ errorMessage() }}
+    </div>
+  }
+
+  <div class="grid gap-4 md:grid-cols-5">
+    <app-card title="Призывники">
+      <div class="text-3xl font-bold text-slate-900">{{ draftList().length }}</div>
+      <div class="mt-2 text-sm text-slate-500">Мужчины от 18 до 27 лет.</div>
+    </app-card>
+    <app-card title="2+ детей">
+      <div class="text-3xl font-bold text-slate-900">{{ familyExemptions().length }}</div>
+      <div class="mt-2 text-sm text-slate-500">Освобождение по семье.</div>
+    </app-card>
+    <app-card title="Учатся">
+      <div class="text-3xl font-bold text-slate-900">{{ students().length }}</div>
+      <div class="mt-2 text-sm text-slate-500">Активная учебная отсрочка.</div>
+    </app-card>
+    <app-card title="Не годен">
+      <div class="text-3xl font-bold text-slate-900">{{ unfit().length }}</div>
+      <div class="mt-2 text-sm text-slate-500">По ВВК или медоснованию.</div>
+    </app-card>
+    <app-card title="Остальные мужчины">
+      <div class="text-3xl font-bold text-slate-900">{{ otherMen().length }}</div>
+      <div class="mt-2 text-sm text-slate-500">Вне призывной группы и льгот.</div>
     </app-card>
   </div>
 
-  <app-card title="Уклонисты" subtitle="Требуют проверки явки и уточнения оснований">
-    <div class="text-sm text-gray-500 mb-4">
-      ���������: ������ ����������, ������ 18 ���, ��� �������� ��������.
-    </div>
+  <app-card title="Призывники" subtitle="Мужчины 18-27 лет">
     <app-table
       [columns]="columns"
-      [data]="getEvaders()"
-      [rowTemplate]="rowTemplate"
-      [emptyMessage]="'Уклонисты не найдены'"
+      [data]="draftList()"
+      [rowTemplate]="draftTemplate"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Призывников нет'"
     >
-      <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-          {{ getFullName(row) }}
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-          {{ formatDate(row.birthDate) }}
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-          {{ getAge(row.birthDate) }}
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-          {{ getStatusLabel(row.status) }}
-        </td>
-        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-          {{ hasActiveDeferment(row.id) ? 'Есть' : 'Нет' }}
-        </td>
-        <td class="px-6 py-4 text-sm text-gray-900">
-          {{ row.registrationAddress }}
-        </td>
+      <ng-template #draftTemplate let-row>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ formatDate(row.birthDate) }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.age }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.militaryStatus }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.defermentBasis }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.registrationAddress }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+
+  <app-card title="Семейные основания" subtitle="2 и более ребенка">
+    <app-table
+      [columns]="columns"
+      [data]="familyExemptions()"
+      [rowTemplate]="familyTemplate"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Освобождений по семье нет'"
+    >
+      <ng-template #familyTemplate let-row>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ formatDate(row.birthDate) }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.age }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.militaryStatus }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.defermentBasis }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.registrationAddress }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+
+  <app-card title="Учебная отсрочка" subtitle="Мужчины, которые до сих пор учатся">
+    <app-table
+      [columns]="columns"
+      [data]="students()"
+      [rowTemplate]="studentTemplate"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Учебных отсрочек нет'"
+    >
+      <ng-template #studentTemplate let-row>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ formatDate(row.birthDate) }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.age }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.militaryStatus }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.defermentBasis }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.registrationAddress }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+
+  <app-card title="Не годен" subtitle="Мужчины с медицинским основанием">
+    <app-table
+      [columns]="columns"
+      [data]="unfit()"
+      [rowTemplate]="unfitTemplate"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Негодных нет'"
+    >
+      <ng-template #unfitTemplate let-row>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ formatDate(row.birthDate) }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.age }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.militaryStatus }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.defermentBasis }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.registrationAddress }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+
+  <app-card title="Остальные мужчины" subtitle="Отдельный раздел">
+    <app-table
+      [columns]="columns"
+      [data]="otherMen()"
+      [rowTemplate]="otherTemplate"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Остальных мужчин нет'"
+    >
+      <ng-template #otherTemplate let-row>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ formatDate(row.birthDate) }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.age }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.militaryStatus }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.defermentBasis }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.registrationAddress }}</td>
       </ng-template>
     </app-table>
   </app-card>

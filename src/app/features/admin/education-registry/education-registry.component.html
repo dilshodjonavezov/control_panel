@@ -1,37 +1,55 @@
 <div class="space-y-6">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900">Реестр по образованию</h1>
-    <p class="mt-2 text-gray-600">Общий список студентов и призывников по учебе</p>
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-900">Реестр по образованию</h1>
+      <p class="mt-2 text-slate-600">Живой список школы, колледжа и вуза, связанных с военкоматом.</p>
+    </div>
+    <app-button variant="outline" (clicked)="loadRows()">Обновить</app-button>
   </div>
 
+  @if (errorMessage()) {
+    <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ errorMessage() }}
+    </div>
+  }
+
   <app-card>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      <app-input label="ФИО" placeholder="Иванов Иван" [(ngModel)]="searchQuery"></app-input>
-      <app-input label="ID/паспорт" placeholder="AA123456" [(ngModel)]="docQuery"></app-input>
-      <app-select label="Статус обучения" [options]="statusOptions" [(ngModel)]="statusFilter"></app-select>
-      <app-input label="Учреждение" placeholder="Колледж/ВУЗ" [(ngModel)]="institutionQuery"></app-input>
-      <app-select label="Форма обучения" [options]="formOptions" [(ngModel)]="formFilter"></app-select>
-      <app-input label="Дата зачисления" type="date" [(ngModel)]="startDate"></app-input>
-      <app-input label="Дата отчисления" type="date" [(ngModel)]="endDate"></app-input>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <app-input label="ФИО" placeholder="Шарифов" [(ngModel)]="searchQuery" (ngModelChange)="applyFilters()"></app-input>
+      <app-input label="Паспорт" placeholder="A0123456" [(ngModel)]="docQuery" (ngModelChange)="applyFilters()"></app-input>
+      <app-select label="Статус учебы" [options]="getStatusOptions()" [(ngModel)]="statusFilter" (ngModelChange)="applyFilters()"></app-select>
+      <app-input label="Учреждение" placeholder="Душанбе" [(ngModel)]="institutionQuery" (ngModelChange)="applyFilters()"></app-input>
+      <app-select label="Форма" [options]="getFormOptions()" [(ngModel)]="formFilter" (ngModelChange)="applyFilters()"></app-select>
+      <app-input label="Дата начала от" type="date" [(ngModel)]="startDate" (ngModelChange)="applyFilters()"></app-input>
+      <app-input label="Дата окончания до" type="date" [(ngModel)]="endDate" (ngModelChange)="applyFilters()"></app-input>
     </div>
   </app-card>
 
   <app-card>
     <app-table
       [columns]="columns"
-      [data]="filteredRows"
+      [data]="filteredRows()"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
-      [emptyMessage]="'Записей нет'"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Записей нет'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.documentId }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.institution }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.form }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.startDate }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.endDate || '-' }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.documentId }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.status === 'Студент' || row.status === 'Школьник',
+              'bg-slate-100 text-slate-700 ring-slate-200': row.status === 'Выпускник',
+              'bg-rose-100 text-rose-800 ring-rose-200': row.status === 'Отчислен'
+            }">
+            {{ row.status }}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.institution }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.form }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.startDate }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.endDate }}</td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
@@ -42,37 +60,49 @@
     </app-table>
   </app-card>
 
-  <app-modal [show]="showCard" [title]="'Карточка человека'" size="lg" (closed)="closeCard()">
+  <app-modal [show]="showCard" [title]="'Учебная связка'" size="lg" (closed)="closeCard()">
     @if (selected) {
-      <div class="space-y-4 text-sm text-gray-700">
+      <div class="space-y-4 text-sm text-slate-700">
         <div>
-          <div class="text-gray-500">ФИО</div>
-          <div class="font-medium text-gray-900">{{ selected.fullName }}</div>
+          <div class="text-slate-500">Гражданин</div>
+          <div class="font-semibold text-slate-900">{{ selected.fullName }}</div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
-            <div class="text-gray-500">Документ</div>
-            <div class="font-medium text-gray-900">{{ selected.documentId }}</div>
+            <div class="text-slate-500">Паспорт</div>
+            <div class="font-medium text-slate-900">{{ selected.documentId }}</div>
           </div>
           <div>
-            <div class="text-gray-500">Статус обучения</div>
-            <div class="font-medium text-gray-900">{{ getStatusLabel(selected.status) }}</div>
+            <div class="text-slate-500">Военный статус</div>
+            <div class="font-medium text-slate-900">{{ selected.militaryStatus }}</div>
           </div>
           <div>
-            <div class="text-gray-500">Отсрочка</div>
-            <div class="font-medium text-gray-900">{{ selected.defermentActive ? 'Активна' : 'Нет' }}</div>
+            <div class="text-slate-500">Статус учебы</div>
+            <div class="font-medium text-slate-900">{{ selected.status }}</div>
           </div>
           <div>
-            <div class="text-gray-500">Форма обучения</div>
-            <div class="font-medium text-gray-900">{{ selected.form }}</div>
+            <div class="text-slate-500">Форма учебы</div>
+            <div class="font-medium text-slate-900">{{ selected.form }}</div>
+          </div>
+          <div class="md:col-span-2">
+            <div class="text-slate-500">Учреждение</div>
+            <div class="font-medium text-slate-900">{{ selected.institution }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Дата начала</div>
+            <div class="font-medium text-slate-900">{{ selected.startDate }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Дата окончания</div>
+            <div class="font-medium text-slate-900">{{ selected.endDate }}</div>
+          </div>
+          <div>
+            <div class="text-slate-500">Учебная отсрочка</div>
+            <div class="font-medium text-slate-900">{{ selected.defermentActive ? 'Активна' : 'Нет' }}</div>
           </div>
         </div>
-        <div>
-          <div class="text-gray-500">История статусов</div>
-          <ul class="mt-2 space-y-1">
-            <li>01.09.2023 — Зачислен</li>
-            <li>12.01.2026 — Подтверждена отсрочка</li>
-          </ul>
+        <div class="flex justify-end">
+          <app-button variant="primary" (clicked)="openCitizen(selected)">Открыть карточку гражданина</app-button>
         </div>
       </div>
     }

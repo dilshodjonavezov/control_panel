@@ -11,8 +11,11 @@ interface ApiResponse<T> {
 
 export interface ApiSchoolRecord {
   id: number;
+  citizenId?: number;
   peopleId: number;
   peopleFullName: string | null;
+  fatherFullName: string | null;
+  motherFullName: string | null;
   institutionId: number;
   institutionName: string | null;
   classNumber: number | null;
@@ -38,6 +41,20 @@ export interface CreateSchoolRecordRequest {
 export interface ApiPerson {
   id: number;
   fullName: string | null;
+}
+
+export interface ApiCitizen {
+  id: number;
+  fullName: string;
+  birthDate: string;
+  gender: string;
+  citizenship: string;
+  lifeStatus: string;
+  motherFullName: string | null;
+  motherCitizenId?: number | null;
+  fatherFullName: string | null;
+  fatherCitizenId?: number | null;
+  familyId?: number | null;
 }
 
 export interface ApiUser {
@@ -88,6 +105,12 @@ export class SchoolRecordsService {
     return this.http
       .get<ApiResponse<ApiPerson[]> | ApiPerson[]>(this.peopleApiUrl)
       .pipe(map((response) => this.unwrapArray<ApiPerson>(response)));
+  }
+
+  getCitizens(): Observable<ApiCitizen[]> {
+    return this.http
+      .get<ApiResponse<ApiCitizen[]> | ApiCitizen[]>(`${environment.apiBaseUrl}/api/citizens`)
+      .pipe(map((response) => this.unwrapArray<ApiCitizen>(response)));
   }
 
   getUsers(): Observable<ApiUser[]> {

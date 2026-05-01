@@ -1,0 +1,15 @@
+export const MILITARY_RECORD_SEED = Array.from({ length: 10 }, (_, index) => ({
+  peopleId: 21 + index,
+  username: 'vvk',
+  office: 'Dushanbe City Military Office',
+  district: ['Sino', 'Firdavsi', 'Shohmansur', 'Ismoili Somoni'][index % 4],
+  enlistDate: `2025-${String((index % 9) + 1).padStart(2, '0')}-05`,
+  assignmentDate: `2025-${String((index % 9) + 1).padStart(2, '0')}-05`,
+  category: ['A', 'B', 'A', 'B'][index % 4],
+  status: index < 4 ? 'ENLISTED' : index < 7 ? 'DEFERRED' : 'UNDER_REVIEW',
+  militaryStatus: index < 4 ? 'CONSCRIPT' : index < 7 ? 'STUDENT' : 'PRE_CONSCRIPT',
+  defermentReason: index < 4 ? null : 'Higher education',
+  defermentUntil: index < 4 ? null : `2027-${String((index % 9) + 1).padStart(2, '0')}-01`,
+  militaryOfficeNotified: index % 2 === 0,
+  notes: `Test military record ${index + 1} for Tajik dataset`,
+}));

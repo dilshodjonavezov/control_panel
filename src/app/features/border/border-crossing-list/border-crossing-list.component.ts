@@ -1,6 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
+import { finalize, timeout, TimeoutError } from 'rxjs';
 import {
   ButtonComponent,
   CardComponent,
@@ -12,6 +14,7 @@ import {
   type TableColumn,
 } from '../../../shared/components';
 import { BorderCrossingCreateEditComponent } from '../border-crossing-create-edit/border-crossing-create-edit.component';
+import { ApiBorderCrossing, BorderCrossingService } from '../../../services/border-crossing.service';
 
 interface BorderCrossingItem {
   id: number;
@@ -23,19 +26,8 @@ interface BorderCrossingItem {
   returnDate: string;
   outsideBorder: 'Да' | 'Нет';
   country: string;
-  description: string;
-}
-
-interface LocalCrossingRecord {
-  id: number;
-  peopleId: number;
-  peopleName: string;
-  userId: number;
-  userName: string;
-  departureDate: string;
-  returnDate: string | null;
-  outsideBorder: boolean;
-  country: string;
+  documentNumber: string;
+  status: string;
   description: string;
 }
 
@@ -57,8 +49,6 @@ interface LocalCrossingRecord {
   styleUrl: './border-crossing-list.component.css',
 })
 export class BorderCrossingListComponent implements OnInit {
-  private readonly crossingsStorageKey = 'local_border_crossings_v1';
-
   filters = {
     id: '',
     outsideBorder: 'all',
@@ -73,11 +63,12 @@ export class BorderCrossingListComponent implements OnInit {
   columns: TableColumn[] = [
     { key: 'id', label: 'ID', sortable: true },
     { key: 'peopleName', label: 'Гражданин', sortable: true },
-    { key: 'userName', label: 'Пользователь', sortable: true },
     { key: 'departureDate', label: 'Выезд', sortable: true },
     { key: 'returnDate', label: 'Возврат', sortable: true },
     { key: 'outsideBorder', label: 'Вне границы', sortable: true },
     { key: 'country', label: 'Страна', sortable: true },
+    { key: 'documentNumber', label: 'Документ', sortable: true },
+    { key: 'status', label: 'Статус', sortable: true },
     { key: 'description', label: 'Описание', sortable: false },
   ];
 
@@ -91,10 +82,30 @@ export class BorderCrossingListComponent implements OnInit {
   selectedRecordId: string | null = null;
   deletingRecord: BorderCrossingItem | null = null;
 
-  constructor(private readonly cdr: ChangeDetectorRef) {}
+  constructor(
+    private readonly borderCrossingService: BorderCrossingService,
+    private readonly route: ActivatedRoute,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     this.loadCrossings();
+    this.route.queryParamMap.subscribe((params) => {
+      const action = params.get('action');
+      if (!action) {
+        return;
+      }
+
+      if (action === 'create') {
+        this.openCreate();
+        return;
+      }
+
+      this.filters = {
+        id: '',
+        outsideBorder: action === 'departures' ? 'yes' : 'no',
+      };
+    });
   }
 
   get filteredCrossings(): BorderCrossingItem[] {
@@ -116,22 +127,27 @@ export class BorderCrossingListComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    const records = this.readCrossings();
-    this.crossings = records.map((item) => ({
-      id: item.id,
-      peopleId: item.peopleId,
-      peopleName: item.peopleName || `ID ${item.peopleId}`,
-      userId: item.userId,
-      userName: item.userName || `ID ${item.userId}`,
-      departureDate: this.formatDateTime(item.departureDate),
-      returnDate: item.returnDate ? this.formatDateTime(item.returnDate) : '-',
-      outsideBorder: item.outsideBorder ? 'Да' : 'Нет',
-      country: item.country || '-',
-      description: item.description || '-',
-    }));
-
-    this.isLoading = false;
-    this.cdr.detectChanges();
+    this.borderCrossingService
+      .getAll()
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (records) => {
+          this.crossings = records.map((item) => this.mapCrossing(item));
+        },
+        error: (error: unknown) => {
+          this.crossings = [];
+          this.errorMessage =
+            error instanceof TimeoutError
+              ? 'Превышено время ожидания ответа API.'
+              : 'Не удалось загрузить записи погранслужбы.';
+        },
+      });
   }
 
   openCreate(): void {
@@ -155,6 +171,9 @@ export class BorderCrossingListComponent implements OnInit {
   }
 
   closeDeleteModal(): void {
+    if (this.isDeleting) {
+      return;
+    }
     this.showDeleteModal = false;
     this.deletingRecord = null;
   }
@@ -167,12 +186,27 @@ export class BorderCrossingListComponent implements OnInit {
     this.isDeleting = true;
     this.errorMessage = '';
 
-    const updated = this.readCrossings().filter((item) => item.id !== this.deletingRecord!.id);
-    this.writeCrossings(updated);
-
-    this.isDeleting = false;
-    this.closeDeleteModal();
-    this.loadCrossings();
+    this.borderCrossingService
+      .delete(this.deletingRecord.id)
+      .pipe(
+        finalize(() => {
+          this.isDeleting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (ok) => {
+          if (!ok) {
+            this.errorMessage = 'Не удалось удалить запись.';
+            return;
+          }
+          this.closeDeleteModal();
+          this.loadCrossings();
+        },
+        error: () => {
+          this.errorMessage = 'Не удалось удалить запись.';
+        },
+      });
   }
 
   onRecordSaved(): void {
@@ -180,22 +214,21 @@ export class BorderCrossingListComponent implements OnInit {
     this.loadCrossings();
   }
 
-  private readCrossings(): LocalCrossingRecord[] {
-    const raw = localStorage.getItem(this.crossingsStorageKey);
-    if (!raw) {
-      return [];
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as LocalCrossingRecord[];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-
-  private writeCrossings(records: LocalCrossingRecord[]): void {
-    localStorage.setItem(this.crossingsStorageKey, JSON.stringify(records));
+  private mapCrossing(item: ApiBorderCrossing): BorderCrossingItem {
+    return {
+      id: item.id,
+      peopleId: item.peopleId,
+      peopleName: item.peopleName?.trim() || `ID ${item.peopleId}`,
+      userId: item.userId,
+      userName: item.userName?.trim() || `ID ${item.userId}`,
+      departureDate: this.formatDateTime(item.departureDate),
+      returnDate: item.returnDate ? this.formatDateTime(item.returnDate) : '-',
+      outsideBorder: item.outsideBorder ? 'Да' : 'Нет',
+      country: item.country?.trim() || '-',
+      documentNumber: item.documentNumber?.trim() || '-',
+      status: this.formatStatus(item.status),
+      description: item.description?.trim() || '-',
+    };
   }
 
   private formatDateTime(dateValue: string | null | undefined): string {
@@ -207,6 +240,18 @@ export class BorderCrossingListComponent implements OnInit {
     if (Number.isNaN(date.getTime())) {
       return '-';
     }
+
     return date.toLocaleString('ru-RU');
+  }
+
+  private formatStatus(status: string | null | undefined): string {
+    const normalized = (status ?? '').trim().toUpperCase();
+    if (normalized === 'CLOSED') {
+      return 'Закрыт';
+    }
+    if (normalized === 'CANCELLED') {
+      return 'Отменен';
+    }
+    return 'Открыт';
   }
 }

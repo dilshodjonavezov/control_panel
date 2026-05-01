@@ -2,10 +2,11 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Реестр ЖЭК</h1>
+      <p class="mt-1 text-sm text-gray-500">Адресная регистрация по данным backend `/api/addresses`.</p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
-      <app-button variant="primary" (clicked)="openCreate()">Добавить запись</app-button>
+      <app-button variant="primary" (clicked)="openCreate()">Добавить адрес</app-button>
     </div>
   </div>
 
@@ -34,13 +35,14 @@
     >
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.address }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.registeredAt }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.unregisteredAt }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.citizenFullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.familyLabel }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ getTypeLabel(row.type) }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.fullAddress }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.startDate }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.endDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.isActive }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.comment }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.notes }}</td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
@@ -70,7 +72,7 @@
     </app-table>
   </app-card>
 
-  <app-modal [show]="showFormModal" [title]="formModalTitle" size="lg" (closed)="closeFormModal()">
+  <app-modal [show]="showFormModal" [title]="formModalTitle" size="xl" (closed)="closeFormModal()">
     <div class="space-y-4">
       @if (formErrorMessage) {
         <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
@@ -78,23 +80,35 @@
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <app-select
-          label="Гражданин (ID)"
+          label="Гражданин"
           [options]="peopleOptions"
           placeholder="Выберите гражданина"
-          [(ngModel)]="formData.peopleId"
+          [(ngModel)]="formData.citizenId"
+          (changed)="onCitizenSelected($event)"
         ></app-select>
 
         <app-select
-          label="Пользователь (ID)"
-          [options]="userOptions"
-          placeholder="Выберите пользователя"
-          [(ngModel)]="formData.userId"
+          label="Семья"
+          [options]="familyOptions"
+          placeholder="Выберите семью"
+          [(ngModel)]="formData.familyId"
         ></app-select>
 
-        <app-input label="Адрес" placeholder="Адрес регистрации" [(ngModel)]="formData.address"></app-input>
-        <app-input type="datetime-local" label="Дата регистрации" [(ngModel)]="formData.registeredAt"></app-input>
-        <app-input type="datetime-local" label="Дата снятия" [(ngModel)]="formData.unregisteredAt"></app-input>
-        <app-input label="Комментарий" placeholder="Комментарий" [(ngModel)]="formData.comment"></app-input>
+        <app-select label="Тип" [options]="typeOptions" [(ngModel)]="formData.type"></app-select>
+        <app-input label="Регион" [(ngModel)]="formData.region"></app-input>
+        <app-input label="Район" [(ngModel)]="formData.district"></app-input>
+        <app-input label="Город" [(ngModel)]="formData.city"></app-input>
+        <app-input label="Улица" [(ngModel)]="formData.street"></app-input>
+        <app-input label="Дом" [(ngModel)]="formData.house"></app-input>
+        <app-input label="Квартира" [(ngModel)]="formData.apartment"></app-input>
+        <app-input label="Индекс" [(ngModel)]="formData.postalCode"></app-input>
+        <app-input type="date" label="Дата начала" [(ngModel)]="formData.startDate"></app-input>
+        <app-input type="date" label="Дата окончания" [(ngModel)]="formData.endDate"></app-input>
+        <label class="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" [(ngModel)]="formData.isActive" />
+          Активный адрес
+        </label>
+        <app-input label="Комментарий" [(ngModel)]="formData.notes"></app-input>
       </div>
 
       <div class="flex justify-end gap-2">
@@ -104,13 +118,13 @@
     </div>
   </app-modal>
 
-  <app-modal [show]="showDeleteModal" [title]="'Удаление записи'" size="md" (closed)="closeDeleteModal()">
+  <app-modal [show]="showDeleteModal" [title]="'Удаление адреса'" size="md" (closed)="closeDeleteModal()">
     <div class="space-y-4">
       @if (deleteErrorMessage) {
         <p class="text-sm text-red-600">{{ deleteErrorMessage }}</p>
       }
       <p class="text-sm text-gray-700">
-        Удалить запись
+        Удалить адрес
         @if (deletingRecord) {
           <span class="font-semibold">#{{ deletingRecord.id }}</span>
         }

@@ -1,206 +1,133 @@
-﻿<div class="space-y-6">
-  <div class="flex items-center justify-between">
+<div class="space-y-6">
+  <div class="flex items-center justify-between gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Призывники</h1>
-      <p class="mt-2 text-gray-600">Актуальные призывники, подлежащие службе.</p>
+      <h1 class="text-3xl font-bold text-gray-900">{{ pageTitle() }}</h1>
+      <p class="mt-2 text-gray-600">{{ pageDescription() }}</p>
     </div>
   </div>
-  <div>
-    <div class="mb-4">
-      <app-card>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <app-input
-            label="Поиск"
-            placeholder="ФИО, адрес..."
-            [ngModel]="searchQuery()"
-            (ngModelChange)="searchQuery.set($event); onSearchChange()"
-          ></app-input>
 
-          <app-select
-            label="Год рождения"
-            [options]="getBirthYearOptions()"
-            [value]="selectedBirthYear()"
-            (ngModelChange)="onBirthYearSelect($event)"
-            [ngModel]="selectedBirthYear()"
-          ></app-select>
-
-          <app-input
-            label="Территория"
-            placeholder="Район/территория..."
-            [ngModel]="territoryQuery()"
-            (ngModelChange)="territoryQuery.set($event); onTerritoryChange()"
-          ></app-input>
-
-          <app-select
-            label="Категория годности"
-            [options]="fitnessCategoryFilterOptions"
-            [value]="selectedFitness()"
-            (ngModelChange)="onFitnessSelect($event)"
-            [ngModel]="selectedFitness()"
-          ></app-select>
-
-          <app-select
-            label="Отсрочка"
-            [options]="defermentOptions"
-            [value]="selectedDeferment()"
-            (ngModelChange)="onDefermentSelect($event)"
-            [ngModel]="selectedDeferment()"
-          ></app-select>
-        </div>
-      </app-card>
-    </div>
-
+  @if (errorMessage()) {
     <app-card>
-      <app-table
-        [columns]="columns"
-        [data]="filteredCitizens()"
-        [rowTemplate]="rowTemplate"
-        [actionsTemplate]="actionsTemplate"
-        [emptyMessage]="'Призывники не найдены'"
-      >
-        <ng-template #rowTemplate let-row let-index="index">
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ row.lastName }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ row.firstName }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ row.middleName || '-' }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ formatDate(row.birthDate) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-              {{ getStatusLabel(row.status) }}
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ getFitnessLabel(row.fitnessCategory) }}
-          </td>
-          <td class="px-6 py-4 text-sm text-gray-900">
-            {{ row.registrationAddress }}
-          </td>
-        </ng-template>
+      <p class="text-sm text-red-600">{{ errorMessage() }}</p>
+    </app-card>
+  }
+
+  <app-card>
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <app-input
+        label="Поиск"
+        placeholder="ФИО, учеба, адрес..."
+        [ngModel]="searchQuery()"
+        (ngModelChange)="searchQuery.set($event); onSearchChange()"
+      ></app-input>
+
+      @if (!isConscriptsPage()) {
+        <app-select
+          label="Раздел учета"
+          [options]="getSectionOptions()"
+          [ngModel]="selectedSection()"
+          (ngModelChange)="onSectionSelect($event)"
+        ></app-select>
+      }
+
+      <app-select
+        label="Год рождения"
+        [options]="getBirthYearOptions()"
+        [ngModel]="selectedBirthYear()"
+        (ngModelChange)="onBirthYearSelect($event)"
+      ></app-select>
+
+      <app-input
+        label="Территория"
+        placeholder="Район или город..."
+        [ngModel]="territoryQuery()"
+        (ngModelChange)="territoryQuery.set($event); onTerritoryChange()"
+      ></app-input>
+
+      <app-select
+        label="Военный статус"
+        [options]="getStatusOptions()"
+        [ngModel]="selectedStatus()"
+        (ngModelChange)="onStatusSelect($event)"
+      ></app-select>
+
+      <app-select
+        label="Категория годности"
+        [options]="getFitnessOptions()"
+        [ngModel]="selectedFitness()"
+        (ngModelChange)="onFitnessSelect($event)"
+      ></app-select>
+
+      <app-select
+        label="Основания"
+        [options]="getDefermentOptions()"
+        [ngModel]="selectedDeferment()"
+        (ngModelChange)="onDefermentSelect($event)"
+      ></app-select>
+    </div>
+  </app-card>
+
+  <app-card>
+    <app-table
+      [columns]="columns"
+      [data]="filteredCitizens()"
+      [loading]="isLoading()"
+      [rowTemplate]="rowTemplate"
+      [actionsTemplate]="actionsTemplate"
+      [emptyMessage]="'Граждане не найдены'"
+    >
+      <ng-template #rowTemplate let-row>
+        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-blue-100 text-blue-800 ring-blue-200': row.voenkomatSection === 'Призывники',
+              'bg-amber-100 text-amber-800 ring-amber-200': row.voenkomatSection === 'Освобождение по семье',
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.voenkomatSection === 'Учебная отсрочка',
+              'bg-rose-100 text-rose-800 ring-rose-200': row.voenkomatSection === 'Не годен',
+              'bg-slate-100 text-slate-700 ring-slate-200': row.voenkomatSection === 'Остальные мужчины' || row.voenkomatSection === 'Не военнообязанные'
+            }">
+            {{ row.voenkomatSection }}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDate }} ({{ row.age }})</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-blue-100 text-blue-800 ring-blue-200': row.militaryStatus === 'Призывник' || row.militaryStatus === 'Допризывник',
+              'bg-amber-100 text-amber-800 ring-amber-200': row.militaryStatus === 'Освобождение по семье',
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.militaryStatus === 'Учебная отсрочка',
+              'bg-rose-100 text-rose-800 ring-rose-200': row.militaryStatus === 'Не годен',
+              'bg-slate-100 text-slate-700 ring-slate-200': row.militaryStatus === 'Нет связки'
+            }">
+            {{ row.militaryStatus }}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.fitnessCategory === 'Годен' || row.fitnessCategory === 'Годен с ограничениями',
+              'bg-amber-100 text-amber-800 ring-amber-200': row.fitnessCategory === 'Временно не годен' || row.fitnessCategory === 'Временная отсрочка',
+              'bg-rose-100 text-rose-800 ring-rose-200': row.fitnessCategory === 'Не годен',
+              'bg-slate-100 text-slate-700 ring-slate-200': row.fitnessCategory === 'Нет решения ВВК'
+            }">
+            {{ row.fitnessCategory }}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.studyPlace }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.defermentBasis }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.registrationAddress }}</td>
+      </ng-template>
 
       <ng-template #actionsTemplate let-row>
-        <div class="flex items-center gap-2">
-          @if (!isReadonlyWorkflowCitizen(row)) {
-            <app-button
-              variant="outline"
-              size="sm"
-              (clicked)="openEditModal(row)"
-              title="Редактировать"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-                <path d="M14 3l3 3-9.5 9.5H4.5V12.5L14 3z" stroke-width="1.5" />
-              </svg>
-            </app-button>
-            <app-button
-              variant="danger"
-              size="sm"
-              (clicked)="deleteCitizen(row)"
-              title="Удалить"
-            >
-              <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor">
-                <path d="M6 6l1 10h6l1-10M8 6V4h4v2M4 6h12" stroke-width="1.5" stroke-linecap="round" />
-              </svg>
-            </app-button>
-          } @else {
-            <span class="text-xs text-gray-500">Из осмотра</span>
-          }
-        </div>
+        <button
+          type="button"
+          (click)="viewDetails(row)"
+          class="rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+        >
+          Карточка
+        </button>
       </ng-template>
-      </app-table>
-    </app-card>
-
-    <app-modal
-      [show]="showAddModal()"
-      [title]="editingCitizen() ? 'Редактировать призывника' : 'Добавить призывника'"
-      size="lg"
-      (closed)="closeModal()"
-    >
-      <form class="space-y-4" (ngSubmit)="saveCitizen()">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <app-input
-            label="Фамилия"
-            [(ngModel)]="formData.lastName"
-            [required]="true"
-            name="lastName"
-          ></app-input>
-          <app-input
-            label="Имя"
-            [(ngModel)]="formData.firstName"
-            [required]="true"
-            name="firstName"
-          ></app-input>
-          <app-input
-            label="Отчество"
-            [(ngModel)]="formData.middleName"
-            name="middleName"
-          ></app-input>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <app-input
-            label="Дата рождения"
-            type="date"
-            [(ngModel)]="formData.birthDate"
-            [required]="true"
-            name="birthDate"
-          ></app-input>
-          <app-select
-            label="Статус"
-            [options]="getStatusOptions()"
-            [(ngModel)]="formData.status"
-            [required]="true"
-            name="status"
-          ></app-select>
-        </div>
-
-        <app-select
-          label="Категория годности"
-          [options]="fitnessCategoryFormOptions"
-          [(ngModel)]="formData.fitnessCategory"
-          name="fitnessCategory"
-        ></app-select>
-
-        <app-input
-          label="Адрес регистрации"
-          [(ngModel)]="formData.registrationAddress"
-          [required]="true"
-          name="registrationAddress"
-        ></app-input>
-
-        <app-input
-          label="Адрес фактического проживания"
-          [(ngModel)]="formData.actualAddress"
-          name="actualAddress"
-        ></app-input>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <app-input
-            label="Телефон"
-            type="tel"
-            [(ngModel)]="formData.phoneNumber"
-            name="phoneNumber"
-          ></app-input>
-          <app-input
-            label="Эл. почта"
-            type="email"
-            [(ngModel)]="formData.email"
-            name="email"
-          ></app-input>
-        </div>
-
-        <div class="flex justify-end gap-3 pt-4">
-          <app-button variant="outline" type="button" (clicked)="closeModal()"> Отмена </app-button>
-          <app-button variant="primary" type="submit">
-            {{ editingCitizen() ? 'Сохранить' : 'Добавить' }}
-          </app-button>
-        </div>
-      </form>
-    </app-modal>
-  </div>
+    </app-table>
+  </app-card>
 </div>

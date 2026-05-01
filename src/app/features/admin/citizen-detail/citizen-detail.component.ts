@@ -1,9 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
-import { CitizenService } from '../../../services/citizen.service';
-import { Citizen, CitizenStatus, DefermentRecord, EducationRecord, EducationType, FitnessCategory } from '../../../models';
-import { CardComponent, ButtonComponent } from '../../../shared/components';
+import { ButtonComponent, CardComponent } from '../../../shared/components';
+import { VoenkomatCitizenDetail, VoenkomatDataService } from '../../../services/voenkomat-data.service';
 
 @Component({
   selector: 'app-citizen-detail',
@@ -13,76 +12,48 @@ import { CardComponent, ButtonComponent } from '../../../shared/components';
   styleUrl: './citizen-detail.component.css'
 })
 export class CitizenDetailComponent implements OnInit {
-  citizen = signal<Citizen | null>(null);
-  educationRecords = signal<EducationRecord[]>([]);
-  defermentRecords = signal<DefermentRecord[]>([]);
+  readonly detail = signal<VoenkomatCitizenDetail | null>(null);
+  readonly isLoading = signal(false);
+  readonly errorMessage = signal('');
 
-  statusLabels: Record<CitizenStatus, string> = {
-    [CitizenStatus.PRE_CONSCRIPT]: 'Допризывник',
-    [CitizenStatus.CONSCRIPT]: 'Призывник',
-    [CitizenStatus.STUDENT]: 'Студент',
-    [CitizenStatus.FAMILY_CIRCUMSTANCES]: 'Семейные обстоятельства',
-    [CitizenStatus.UNFIT_HEALTH]: 'Не годен по здоровью',
-    [CitizenStatus.ABROAD]: 'За границей',
-    [CitizenStatus.IN_SERVICE]: 'На службе',
-    [CitizenStatus.DEMOBILIZED]: 'Дембель'
-  };
-
-  educationTypeLabels: Record<EducationType, string> = {
-    [EducationType.SCHOOL]: 'Школа',
-    [EducationType.UNIVERSITY]: 'ВУЗ',
-    [EducationType.COLLEGE]: 'Колледж',
-    [EducationType.ABROAD]: 'За границей'
-  };
-
-  fitnessCategoryLabels: Record<FitnessCategory, string> = {
-    [FitnessCategory.FIT]: 'Годен',
-    [FitnessCategory.FIT_WITH_LIMITATIONS]: 'Годен с ограничениями',
-    [FitnessCategory.TEMP_UNFIT]: 'Временно не годен',
-    [FitnessCategory.UNFIT]: 'Не годен'
-  };
+  readonly familyChildren = computed(() => this.detail()?.family?.children ?? []);
 
   constructor(
-    private citizenService: CitizenService,
-    private route: ActivatedRoute,
-    private router: Router
+    private readonly voenkomatDataService: VoenkomatDataService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
   ) {}
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
+    const id = Number(this.route.snapshot.paramMap.get('id'));
     if (!id) {
+      this.errorMessage.set('Не удалось определить карточку гражданина.');
       return;
     }
 
-    const citizen = this.citizenService.getCitizenById(id) || null;
-    this.citizen.set(citizen);
-    this.educationRecords.set(this.citizenService.getEducationRecords(id));
-    this.defermentRecords.set(this.citizenService.getDefermentRecords(id));
+    this.isLoading.set(true);
+    this.voenkomatDataService.getCitizenDetail(id).subscribe({
+      next: (detail) => {
+        this.detail.set(detail);
+        this.errorMessage.set(detail ? '' : 'Гражданин не найден.');
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('Не удалось загрузить связанную карточку гражданина.');
+        this.isLoading.set(false);
+      },
+    });
   }
 
   goBack(): void {
     this.router.navigate(['/admin/citizens']);
   }
 
-  getStatusLabel(status: CitizenStatus): string {
-    return this.statusLabels[status] || status;
-  }
+  formatDate(date?: string | null): string {
+    if (!date) {
+      return '-';
+    }
 
-  getEducationTypeLabel(type: EducationType): string {
-    return this.educationTypeLabels[type] || type;
-  }
-
-  getFitnessLabel(category?: FitnessCategory): string {
-    return category ? this.fitnessCategoryLabels[category] : 'Не указано';
-  }
-
-  getActiveDeferment(): DefermentRecord | undefined {
-    return this.defermentRecords().find(record => record.isActive);
-  }
-
-  formatDate(date: Date | string | undefined): string {
-    if (!date) return '-';
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('ru-RU');
+    return new Date(date).toLocaleDateString('ru-RU');
   }
 }

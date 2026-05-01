@@ -1,1 +1,78 @@
-﻿/* ZAGS act list styles */
+.maternity-summary-card {
+  border: 1px solid rgb(191 219 254);
+  background: linear-gradient(135deg, rgb(239 246 255), rgb(248 250 252));
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.maternity-summary-card--empty {
+  border-style: dashed;
+  border-color: rgb(203 213 225);
+  background: rgb(248 250 252);
+}
+
+.maternity-picker-list {
+  display: grid;
+  gap: 12px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.maternity-picker-item {
+  width: 100%;
+  border: 1px solid rgb(226 232 240);
+  background: white;
+  border-radius: 20px;
+  padding: 16px;
+  transition: 160ms ease;
+}
+
+.maternity-picker-item:hover {
+  border-color: rgb(96 165 250);
+  background: rgb(248 250 252);
+}
+
+.maternity-picker-item--selected {
+  border-color: rgb(37 99 235);
+  background: rgb(239 246 255);
+  box-shadow: 0 0 0 3px rgb(219 234 254);
+}
+
+.maternity-picker-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 2px solid rgb(148 163 184);
+  flex-shrink: 0;
+  margin-top: 6px;
+}
+
+.maternity-picker-radio--selected {
+  border-color: rgb(37 99 235);
+  background: radial-gradient(circle at center, rgb(37 99 235) 0 45%, white 46% 100%);
+}
+
+.maternity-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.maternity-chip--neutral {
+  background: rgb(241 245 249);
+  color: rgb(15 23 42);
+}
+
+.maternity-chip--info {
+  background: rgb(219 234 254);
+  color: rgb(30 64 175);
+}
+
+.maternity-chip--success {
+  background: rgb(220 252 231);
+  color: rgb(22 101 52);
+}

@@ -11,12 +11,14 @@ interface ApiResponse<T> {
 
 export interface ApiPassportRecord {
   id: number;
+  citizenId?: number;
   peopleId: number;
   peopleFullName: string | null;
   userId: number;
   userName: string | null;
   passportNumber: string | null;
   dateOfIssue: string | null;
+  expireDate: string | null;
   placeOfIssue: string | null;
   dateBirth: string | null;
 }
@@ -26,6 +28,7 @@ export interface CreatePassportRecordRequest {
   userId: number;
   passportNumber: string;
   dateOfIssue: string | null;
+  expireDate: string | null;
   placeOfIssue: string;
   dateBirth: string | null;
 }
@@ -33,6 +36,15 @@ export interface CreatePassportRecordRequest {
 export interface ApiPerson {
   id: number;
   fullName: string | null;
+}
+
+export interface ApiCitizen {
+  id: number;
+  fullName: string;
+  birthDate: string;
+  gender: string;
+  citizenship: string;
+  lifeStatus: string;
 }
 
 export interface ApiUser {
@@ -44,6 +56,7 @@ export interface ApiUser {
 export class PassportRecordsService {
   private readonly apiUrl = `${environment.apiBaseUrl}/api/passport-records`;
   private readonly peopleApiUrl = `${environment.apiBaseUrl}/api/people`;
+  private readonly citizensApiUrl = `${environment.apiBaseUrl}/api/citizens`;
   private readonly usersApiUrl = `${environment.apiBaseUrl}/api/users`;
 
   constructor(private readonly http: HttpClient) {}
@@ -76,6 +89,12 @@ export class PassportRecordsService {
     return this.http
       .get<ApiResponse<ApiPerson[]> | ApiPerson[]>(this.peopleApiUrl)
       .pipe(map((response) => this.unwrapArray<ApiPerson>(response)));
+  }
+
+  getCitizens(): Observable<ApiCitizen[]> {
+    return this.http
+      .get<ApiResponse<ApiCitizen[]> | ApiCitizen[]>(this.citizensApiUrl)
+      .pipe(map((response) => this.unwrapArray<ApiCitizen>(response)));
   }
 
   getUsers(): Observable<ApiUser[]> {

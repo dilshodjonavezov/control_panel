@@ -34,11 +34,12 @@
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleName }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.userName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.departureDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.returnDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.outsideBorder }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.country }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.documentNumber }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.status }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.description }}</td>
       </ng-template>
 
@@ -67,7 +68,7 @@
     </app-table>
   </app-card>
 
-  <app-modal [show]="showModal" [title]="'Редактирование пересечения'" size="xl" (closed)="closeModal()">
+  <app-modal [show]="showModal" [title]="selectedRecordId ? 'Редактирование пересечения' : 'Новое пересечение'" size="xl" (closed)="closeModal()">
     @if (showModal) {
       <app-border-crossing-create-edit
         [citizen]="null"

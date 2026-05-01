@@ -1,29 +1,47 @@
 <div class="space-y-6">
-  <div>
-    <h1 class="text-3xl font-bold text-gray-900">Уведомления об отчислении</h1>
-    <p class="mt-2 text-gray-600">Подтверждение снятия отсрочки по приказам</p>
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold text-slate-900">Уведомления об отчислении</h1>
+      <p class="mt-2 text-slate-600">Список строится по реальным учебным записям с датой отчисления.</p>
+    </div>
+    <app-button variant="outline" (clicked)="loadItems()">Обновить</app-button>
   </div>
+
+  @if (errorMessage()) {
+    <div class="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+      {{ errorMessage() }}
+    </div>
+  }
 
   <app-card>
     <app-table
       [columns]="columns"
-      [data]="items"
+      [data]="items()"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
-      [emptyMessage]="'Уведомлений нет'"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Уведомлений нет'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.student }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.institution }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.orderNumber }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.date }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.status) }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.institution }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.orderNumber }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.date }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="{
+              'bg-amber-100 text-amber-800 ring-amber-200': row.reviewStatus === 'Ожидает вызова',
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.reviewStatus === 'Снято с отсрочки',
+              'bg-rose-100 text-rose-800 ring-rose-200': row.reviewStatus === 'Ошибка данных'
+            }">
+            {{ row.reviewStatus }}
+          </span>
+        </td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
         <div class="flex items-center gap-2">
-          <app-button variant="success" size="sm" (clicked)="openDecision(row, 'confirmed')">Снять отсрочку</app-button>
-          <app-button variant="danger" size="sm" (clicked)="openDecision(row, 'error')">Ошибка</app-button>
+          <app-button variant="success" size="sm" (clicked)="openDecision(row, 'Снято с отсрочки')">Снять отсрочку</app-button>
+          <app-button variant="danger" size="sm" (clicked)="openDecision(row, 'Ошибка данных')">Ошибка</app-button>
         </div>
       </ng-template>
     </app-table>
@@ -31,12 +49,12 @@
 
   <app-modal [show]="showModal" [title]="'Подтверждение'" size="lg" (closed)="closeModal()">
     <div class="space-y-4">
-      <div class="text-sm text-gray-700">
-        @if (selected) {
-          <div>Студент: <span class="font-medium">{{ selected.student }}</span></div>
-          <div>Приказ: <span class="font-medium">{{ selected.orderNumber }}</span></div>
-        }
-      </div>
+      @if (selected) {
+        <div class="text-sm text-slate-700">
+          <div>Гражданин: <span class="font-medium">{{ selected.fullName }}</span></div>
+          <div>Основание: <span class="font-medium">{{ selected.orderNumber }}</span></div>
+        </div>
+      }
       <app-input label="Комментарий" [(ngModel)]="comment"></app-input>
       <div class="flex justify-end gap-2">
         <app-button variant="outline" type="button" (clicked)="closeModal()">Отмена</app-button>

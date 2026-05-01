@@ -25,7 +25,7 @@
       [emptyMessage]="'Записей о рождении нет'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.birthDateTime }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.childFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.motherFullName }}</td>

@@ -1,18 +1,13 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { CardComponent, TableComponent, TableColumn, ButtonComponent, ModalComponent, InputComponent } from '../../../shared/components';
 import { FormsModule } from '@angular/forms';
+import { ButtonComponent, CardComponent, InputComponent, ModalComponent, TableColumn, TableComponent } from '../../../shared/components';
+import { AuthService } from '../../../services/auth.service';
+import { VoenkomatDataService, VoenkomatExpulsionRow } from '../../../services/voenkomat-data.service';
 
-type ExpulsionStatus = 'pending' | 'confirmed' | 'error';
+type ExpulsionStatus = 'Ожидает вызова' | 'Снято с отсрочки' | 'Ошибка данных';
 
-interface ExpulsionItem {
-  id: string;
-  student: string;
-  institution: string;
-  orderNumber: string;
-  date: string;
-  status: ExpulsionStatus;
-}
+type ExpulsionItem = VoenkomatExpulsionRow & { reviewStatus: ExpulsionStatus; comment?: string };
 
 @Component({
   selector: 'app-expulsion-notifications',
@@ -21,29 +16,49 @@ interface ExpulsionItem {
   templateUrl: './expulsion-notifications.component.html',
   styleUrl: './expulsion-notifications.component.css'
 })
-export class ExpulsionNotificationsComponent {
-  columns: TableColumn[] = [
-    { key: 'student', label: 'Студент', sortable: true },
+export class ExpulsionNotificationsComponent implements OnInit {
+  readonly items = signal<ExpulsionItem[]>([]);
+  readonly isLoading = signal(false);
+  readonly isSubmitting = signal(false);
+  readonly errorMessage = signal('');
+
+  readonly columns: TableColumn[] = [
+    { key: 'fullName', label: 'Гражданин', sortable: true },
     { key: 'institution', label: 'Учреждение', sortable: true },
-    { key: 'orderNumber', label: 'Приказ', sortable: true },
+    { key: 'orderNumber', label: 'Основание', sortable: true },
     { key: 'date', label: 'Дата', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true }
-  ];
-
-  statusLabels: Record<ExpulsionStatus, string> = {
-    pending: 'Ожидает',
-    confirmed: 'Снято',
-    error: 'Ошибка'
-  };
-
-  items: ExpulsionItem[] = [
-    { id: 'e1', student: 'Петров Петр', institution: 'Колледж №4', orderNumber: '№12', date: '10.03.2024', status: 'pending' }
+    { key: 'reviewStatus', label: 'Статус', sortable: true }
   ];
 
   showModal = false;
   selected: ExpulsionItem | null = null;
   comment = '';
   action: ExpulsionStatus | null = null;
+
+  constructor(
+    private readonly voenkomatDataService: VoenkomatDataService,
+    private readonly authService: AuthService,
+  ) {}
+
+  ngOnInit(): void {
+    this.loadItems();
+  }
+
+  loadItems(): void {
+    this.isLoading.set(true);
+    this.errorMessage.set('');
+
+    this.voenkomatDataService.getExpulsions().subscribe({
+      next: (items) => {
+        this.items.set(items.map((item) => ({ ...item, reviewStatus: item.status as ExpulsionStatus })));
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.errorMessage.set('Не удалось загрузить уведомления об отчислении.');
+        this.isLoading.set(false);
+      },
+    });
+  }
 
   openDecision(item: ExpulsionItem, action: ExpulsionStatus): void {
     this.selected = item;
@@ -53,20 +68,51 @@ export class ExpulsionNotificationsComponent {
   }
 
   closeModal(): void {
+    if (this.isSubmitting()) {
+      return;
+    }
     this.showModal = false;
     this.selected = null;
     this.action = null;
   }
 
   applyDecision(): void {
-    if (!this.selected || !this.action) return;
-    this.items = this.items.map(item =>
-      item.id === this.selected!.id ? { ...item, status: this.action! } : item
-    );
-    this.closeModal();
-  }
+    if (!this.selected || !this.action) {
+      return;
+    }
 
-  getStatusLabel(status: ExpulsionStatus): string {
-    return this.statusLabels[status] || status;
+    const userId = this.authService.getImpersonatedUserId() ?? this.authService.resolveCurrentUserId();
+    if (!userId) {
+      this.errorMessage.set('Не удалось определить сотрудника военкомата.');
+      return;
+    }
+
+    const decisionMap: Record<Exclude<ExpulsionStatus, 'Ожидает вызова'>, 'DEFERMENT_REMOVED' | 'DATA_ERROR'> = {
+      'Снято с отсрочки': 'DEFERMENT_REMOVED',
+      'Ошибка данных': 'DATA_ERROR',
+    };
+
+    if (this.action === 'Ожидает вызова') {
+      return;
+    }
+
+    this.isSubmitting.set(true);
+    this.voenkomatDataService.processEducationExpulsion(this.selected.sourceId, {
+      decision: decisionMap[this.action],
+      userId,
+      comment: this.comment || null,
+    }).subscribe({
+      next: () => {
+        this.isSubmitting.set(false);
+        this.showModal = false;
+        this.selected = null;
+        this.action = null;
+        this.loadItems();
+      },
+      error: () => {
+        this.isSubmitting.set(false);
+        this.errorMessage.set('Не удалось обработать уведомление об отчислении.');
+      },
+    });
   }
 }

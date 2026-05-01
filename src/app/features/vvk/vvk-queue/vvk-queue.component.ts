@@ -1,160 +1,141 @@
-import { Component, OnInit, signal } from '@angular/core';
+п»їimport { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CardComponent, TableComponent, TableColumn, InputComponent, ButtonComponent, ModalComponent, SelectComponent, SelectOption } from '../../../shared/components';
-import { CitizenReadCardComponent, CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
-import { VvkResultCreateEditComponent } from '../vvk-result-create-edit/vvk-result-create-edit.component';
-import { MedicalRecordReadOnlyComponent } from '../medical-record-read-only/medical-record-read-only.component';
-import { LocalPersonWorkflowService } from '../../../services/local-person-workflow.service';
+import { ActivatedRoute } from '@angular/router';
+import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
+import { CardComponent, TableComponent, TableColumn, InputComponent, SelectComponent, SelectOption, ButtonComponent } from '../../../shared/components';
+import { MedicalRecordsService, ApiMedicalRecord } from '../../../services/medical-records.service';
 
-interface VvkQueueItem {
-  id: string;
-  citizenId: string;
+type Decision = 'FIT' | 'UNFIT';
+
+interface MilitaryRecordItem {
+  id: number;
   fullName: string;
-  birthDate: string;
-  status: 'WAITING' | 'IN_REVIEW' | 'DONE';
-  lastExam: string | null;
-  resultId?: string | null;
+  fatherFullName: string;
+  motherFullName: string;
+  addressLabel: string;
+  clinic: string;
+  decision: Decision;
+  reason: string;
+  defermentReason: string;
+  createdAtRecord: string;
 }
 
 @Component({
   selector: 'app-vvk-queue',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, SelectComponent, ButtonComponent, ModalComponent, CitizenReadCardComponent, VvkResultCreateEditComponent, MedicalRecordReadOnlyComponent],
+  imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, SelectComponent, ButtonComponent],
   templateUrl: './vvk-queue.component.html',
   styleUrl: './vvk-queue.component.css'
 })
 export class VvkQueueComponent implements OnInit {
   filters = {
-    fullName: ''
-  };
-
-  showCreateModal = false;
-  createForm = {
     fullName: '',
-    birthDate: '',
-    status: 'WAITING' as VvkQueueItem['status']
+    address: '',
+    decision: 'all',
   };
-
-  statusOptions: SelectOption[] = [
-    { value: 'WAITING', label: 'Ожидает' },
-    { value: 'IN_REVIEW', label: 'На рассмотрении' },
-    { value: 'DONE', label: 'Завершено' }
-  ];
 
   columns: TableColumn[] = [
-    { key: 'fullName', label: 'ФИО', sortable: true },
-    { key: 'birthDate', label: 'Дата рождения', sortable: true },
-    { key: 'status', label: 'Статус', sortable: true },
-    { key: 'lastExam', label: 'Последнее ВВК', sortable: true }
+    { key: 'fullName', label: 'Р¤РРћ', sortable: true },
+    { key: 'fatherFullName', label: 'Р¤РРћ РѕС‚С†Р°', sortable: true },
+    { key: 'motherFullName', label: 'Р¤РРћ РјР°С‚РµСЂРё', sortable: true },
+    { key: 'addressLabel', label: 'РђРґСЂРµСЃ', sortable: true },
+    { key: 'clinic', label: 'РџРѕР»РёРєР»РёРЅРёРєР°', sortable: true },
+    { key: 'decision', label: 'Р“РѕРґРЅРѕСЃС‚СЊ', sortable: true },
+    { key: 'reason', label: 'РџСЂРёС‡РёРЅР°', sortable: true },
+    { key: 'defermentReason', label: 'РћС‚СЃСЂРѕС‡РєР°', sortable: true },
+    { key: 'createdAtRecord', label: 'Р”Р°С‚Р°', sortable: true },
   ];
 
-  queue: VvkQueueItem[] = [
-    { id: 'q-101', citizenId: 'CIT-771102', fullName: 'Иванов Петр Павлович', birthDate: '01.01.1980', status: 'WAITING', lastExam: '15.01.2025', resultId: null },
-    { id: 'q-098', citizenId: 'CIT-552901', fullName: 'Соколова Марина Андреевна', birthDate: '05.03.1990', status: 'IN_REVIEW', lastExam: null, resultId: 'vvk-098' },
-    { id: 'q-095', citizenId: 'CIT-330115', fullName: 'Поляков Сергей Николаевич', birthDate: '12.09.1967', status: 'DONE', lastExam: '28.01.2026', resultId: 'vvk-101' }
+  decisionOptions: SelectOption[] = [
+    { value: 'all', label: 'Р’СЃРµ' },
+    { value: 'FIT', label: 'Р“РѕРґРµРЅ' },
+    { value: 'UNFIT', label: 'РќРµ РіРѕРґРµРЅ' },
   ];
 
-  selectedCitizen = signal<CitizenReadCardData | null>(null);
-  showResultModal = false;
-  showMedicalModal = false;
-  selectedResultId: string | null = null;
+  records: MilitaryRecordItem[] = [];
+  isLoading = false;
+  errorMessage = '';
 
-  constructor(private readonly workflowService: LocalPersonWorkflowService) {}
+  constructor(
+    private readonly medicalRecordsService: MedicalRecordsService,
+    private readonly route: ActivatedRoute,
+    private readonly cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
-    this.queue.forEach((item) => {
-      this.workflowService.applyVvkQueueStatus(item.fullName, item.status);
+    this.loadData();
+    this.route.queryParamMap.subscribe((params) => {
+      if (params.get('action') !== 'results') {
+        return;
+      }
+      this.filters = { fullName: '', address: '', decision: 'all' };
     });
   }
 
-  get filteredQueue(): VvkQueueItem[] {
-    const byName = this.filters.fullName.toLowerCase();
-    return this.queue.filter(item => {
-      const matchesName = !byName || item.fullName.toLowerCase().includes(byName);
-      return matchesName;
+  get filteredRecords(): MilitaryRecordItem[] {
+    const byName = this.filters.fullName.trim().toLowerCase();
+    const byAddress = this.filters.address.trim().toLowerCase();
+    const byDecision = this.filters.decision;
+
+    return this.records.filter((record) => {
+      const matchesName = !byName || record.fullName.toLowerCase().includes(byName);
+      const matchesAddress = !byAddress || record.addressLabel.toLowerCase().includes(byAddress);
+      const matchesDecision = byDecision === 'all' || record.decision === byDecision;
+      return matchesName && matchesAddress && matchesDecision;
     });
   }
 
-  selectCitizen(item: VvkQueueItem): void {
-    this.selectedCitizen.set({
-      id: item.citizenId,
-      iin: '800101300123',
-      fullName: item.fullName,
-      birthDate: item.birthDate,
-      status: 'ACTIVE'
-    });
+  loadData(): void {
+    this.isLoading = true;
+    this.errorMessage = '';
+
+    this.medicalRecordsService
+      .getAll()
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isLoading = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (records) => {
+          this.records = records.map((record) => this.mapRecord(record));
+        },
+        error: (error: unknown) => {
+          this.records = [];
+          this.errorMessage = error instanceof TimeoutError
+            ? 'РџСЂРµРІС‹С€РµРЅРѕ РІСЂРµРјСЏ РѕР¶РёРґР°РЅРёСЏ РѕС‚РІРµС‚Р° API.'
+            : 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ Р·Р°РїРёСЃРё РґР»СЏ РІРѕРµРЅРєРѕРјР°С‚Р°.';
+        },
+      });
   }
 
-  openCreate(): void {
-    this.showCreateModal = true;
-    this.createForm = {
-      fullName: '',
-      birthDate: '',
-      status: 'WAITING'
+  getStatusLabel(decision: string): string {
+    return decision === 'UNFIT' ? 'РќРµ РіРѕРґРµРЅ' : 'Р“РѕРґРµРЅ';
+  }
+
+  private mapRecord(record: ApiMedicalRecord): MilitaryRecordItem {
+    return {
+      id: record.id,
+      fullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
+      fatherFullName: record.fatherFullName?.trim() || '-',
+      motherFullName: record.motherFullName?.trim() || '-',
+      addressLabel: record.addressLabel?.trim() || '-',
+      clinic: record.clinic?.trim() || '-',
+      decision: (record.decision as Decision) ?? 'FIT',
+      reason: record.reason?.trim() || '-',
+      defermentReason: record.defermentReason?.trim() || '-',
+      createdAtRecord: record.createdAtRecord ? this.formatDate(record.createdAtRecord) : '-',
     };
-  }
-
-  closeCreate(): void {
-    this.showCreateModal = false;
-  }
-
-  saveQueueItem(): void {
-    if (!this.createForm.fullName.trim() || !this.createForm.birthDate) {
-      return;
-    }
-
-    const nextIndex = this.queue.length + 100;
-    const citizenId = `VVK-${nextIndex}`;
-    const item: VvkQueueItem = {
-      id: `q-${nextIndex}`,
-      citizenId,
-      fullName: this.createForm.fullName.trim(),
-      birthDate: this.formatDate(this.createForm.birthDate),
-      status: this.createForm.status,
-      lastExam: null,
-      resultId: null
-    };
-
-    this.queue = [item, ...this.queue];
-    this.workflowService.applyVvkQueueStatus(item.fullName, item.status);
-    this.closeCreate();
-  }
-
-  openResult(item: VvkQueueItem): void {
-    this.selectCitizen(item);
-    this.selectedResultId = item.resultId ?? null;
-    this.showResultModal = true;
-  }
-
-  closeResult(): void {
-    this.showResultModal = false;
-    this.selectedResultId = null;
-  }
-
-  openMedical(item: VvkQueueItem): void {
-    this.selectCitizen(item);
-    this.showMedicalModal = true;
-  }
-
-  closeMedical(): void {
-    this.showMedicalModal = false;
-  }
-
-  getStatusLabel(status: VvkQueueItem['status']): string {
-    const labels: Record<VvkQueueItem['status'], string> = {
-      WAITING: 'Ожидает',
-      IN_REVIEW: 'На рассмотрении',
-      DONE: 'Завершено'
-    };
-    return labels[status];
   }
 
   private formatDate(value: string): string {
-    const parts = value.split('-');
-    if (parts.length !== 3) return value;
-    const [year, month, day] = parts;
-    return `${day}.${month}.${year}`;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleDateString('ru-RU');
   }
 }
-

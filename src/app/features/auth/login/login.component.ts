@@ -1,16 +1,11 @@
-﻿import { HttpErrorResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Router } from '@angular/router';
 import { finalize } from 'rxjs';
-import { AuthService, AuthUser, LoginApiResponse } from '../../../services/auth.service';
-import {
-  ButtonComponent,
-  CardComponent,
-  InputComponent,
-  SelectOption,
-} from '../../../shared/components';
+import { AuthService, LoginApiResponse, type AuthUser } from '../../../services/auth.service';
+import { ButtonComponent, CardComponent, InputComponent } from '../../../shared/components';
 
 @Component({
   selector: 'app-login',
@@ -20,53 +15,25 @@ import {
   styleUrl: './login.component.css',
 })
 export class LoginComponent implements OnInit {
-  private readonly adminUsernameMarker = 'admin';
-  private readonly adminPasswordMarker = 'password';
-
-  email = '';
+  username = '';
   password = '';
-  role = 'student';
-  roleLocked = false;
-  routeRole: string | null = null;
   isSubmitting = false;
-  isLoadingUsers = false;
   submitError = '';
-  private users: AuthUser[] = [];
-
-  roleOptions: SelectOption[] = [
-    { value: 'admin', label: 'Админ Системы' },
-    { value: 'maternity', label: 'ГКБ Роддом' },
-    { value: 'zags', label: 'ЗАГС Центральный' },
-    { value: 'jek', label: 'ЖЭК Центральный' },
-    { value: 'passport', label: 'Паспортный стол Центральный' },
-    { value: 'school', label: 'Школа №21' },
-    { value: 'university', label: 'Колледж №3' },
-    { value: 'clinic', label: 'Поликлиника №1' },
-    { value: 'vvk', label: 'ВВК Центральная' },
-    { value: 'border', label: 'Пограничная служба' },
-    { value: 'superadmin', label: 'Суперадмин Системы' },
-  ];
 
   constructor(
     private readonly router: Router,
-    private readonly route: ActivatedRoute,
     private readonly authService: AuthService,
   ) {}
 
   ngOnInit(): void {
-    const roleFromRoute = this.route.snapshot.data['role'] as string | undefined;
-    if (roleFromRoute) {
-      this.routeRole = roleFromRoute;
-      this.role = roleFromRoute;
-      this.roleLocked = true;
-    }
-
-    this.loadUsers();
+    this.restoreExistingSession();
   }
 
   submit(): void {
-    const username = this.resolveLoginUsername();
-    if (!username || !this.password.trim()) {
+    const username = this.username.trim();
+    const password = this.password.trim();
+
+    if (!username || !password) {
       this.submitError = 'Введите логин и пароль.';
       return;
     }
@@ -75,7 +42,7 @@ export class LoginComponent implements OnInit {
     this.isSubmitting = true;
 
     this.authService
-      .login({ username, password: this.password })
+      .login({ username, password })
       .pipe(
         finalize(() => {
           this.isSubmitting = false;
@@ -89,14 +56,25 @@ export class LoginComponent implements OnInit {
           }
 
           if (!token) {
-            this.submitError = 'Токен не получен от сервера.';
+            this.submitError = 'Сервер не вернул токен авторизации.';
+            return;
+          }
+
+          const currentUser = this.extractBackendUser(raw);
+          const backendRole = this.extractBackendRole(raw);
+          if (!currentUser || !backendRole) {
+            this.submitError = 'Не удалось определить роль пользователя.';
             return;
           }
 
           this.authService.saveToken(token);
-          this.authService.saveCurrentUsername(username);
-          this.applyRoleAfterLogin(username);
-          this.navigateByRole();
+          this.authService.saveCurrentUser({
+            ...currentUser,
+            roleCode: backendRole,
+          });
+          this.authService.saveImpersonatedUserId(null);
+
+          this.navigateByRole(backendRole);
         },
         error: (error: HttpErrorResponse) => {
           this.submitError = this.resolveHttpError(error);
@@ -104,150 +82,82 @@ export class LoginComponent implements OnInit {
       });
   }
 
-  canSelectRole(): boolean {
-    return (
-      this.email.trim().toLowerCase() === this.adminUsernameMarker &&
-      this.password.trim().toLowerCase() === this.adminPasswordMarker
-    );
+  onCredentialsChange(): void {
+    this.submitError = '';
   }
 
-  onRoleChange(role: string): void {
-    this.role = role;
-    this.syncUsernameWithRole();
-  }
-
-  private loadUsers(): void {
-    this.isLoadingUsers = true;
-
-    this.authService
-      .getUsers()
-      .pipe(
-        finalize(() => {
-          this.isLoadingUsers = false;
-        }),
-      )
-      .subscribe({
-        next: (users) => {
-          this.users = users;
-          this.syncUsernameWithRole();
-        },
-        error: () => {
-          this.users = [];
-        },
-      });
-  }
-
-  private syncUsernameWithRole(): void {
-    const username = this.getUsernameForRole(this.role);
-    if (username) {
-      this.email = username;
-    }
-  }
-
-  private resolveLoginUsername(): string {
-    return this.getUsernameForRole(this.role) ?? this.email.trim();
-  }
-
-  private applyRoleAfterLogin(username: string): void {
-    if (this.routeRole) {
-      this.role = this.routeRole;
-      return;
+  private extractBackendUser(response: LoginApiResponse): AuthUser | null {
+    const directUser = this.normalizeAuthUser(response.user);
+    if (directUser) {
+      return directUser;
     }
 
-    if (this.role !== 'student') {
-      return;
+    if (response.data && typeof response.data === 'object' && 'user' in (response.data as Record<string, unknown>)) {
+      return this.normalizeAuthUser((response.data as Record<string, unknown>)['user']);
     }
 
-    const detectedRole = this.detectRoleByUser(username);
-    if (detectedRole) {
-      this.role = detectedRole;
-    }
+    return this.normalizeAuthUser(response.data);
   }
 
-  private detectRoleByUser(username: string): string | null {
-    const normalizedUsername = username.trim().toLowerCase();
-    const matchedUser = this.users.find(
-      (user) => user.username.trim().toLowerCase() === normalizedUsername,
-    );
-    if (matchedUser) {
-      return this.mapRoleIdToRole(matchedUser.roleId);
-    }
-
-    return this.detectRoleByUsernameFallback(normalizedUsername);
-  }
-
-  private getUsernameForRole(role: string): string | null {
-    const roleId = this.mapRoleToRoleId(role);
-    if (roleId !== null) {
-      const userByRoleId = this.users.find(
-        (user) => user.roleId === roleId && !!user.username?.trim(),
-      );
-      if (userByRoleId) {
-        return userByRoleId.username.trim();
-      }
-    }
-
-    const userByFallbackRole = this.users.find(
-      (user) => this.detectRoleByUsernameFallback(user.username) === role,
-    );
-    return userByFallbackRole?.username.trim() ?? null;
-  }
-
-  private mapRoleToRoleId(role: string): number | null {
-    const roleToId: Record<string, number> = {
-      admin: 1,
-      maternity: 2,
-      zags: 3,
-      jek: 4,
-      passport: 5,
-      school: 6,
-      university: 7,
-      clinic: 8,
-      vvk: 9,
-      border: 10,
-    };
-
-    return roleToId[role] ?? null;
-  }
-
-  private mapRoleIdToRole(roleId: number | null): string | null {
-    const idToRole: Record<number, string> = {
-      1: 'admin',
-      2: 'maternity',
-      3: 'zags',
-      4: 'jek',
-      5: 'passport',
-      6: 'school',
-      7: 'university',
-      8: 'clinic',
-      9: 'vvk',
-      10: 'border',
-    };
-
-    if (roleId === null) {
+  private normalizeAuthUser(value: unknown): AuthUser | null {
+    if (!value || typeof value !== 'object') {
       return null;
     }
 
-    return idToRole[roleId] ?? null;
+    const record = value as Record<string, unknown>;
+    const id = Number(record['id']);
+    const username = typeof record['username'] === 'string' ? record['username'].trim() : '';
+    if (!Number.isInteger(id) || id <= 0 || !username) {
+      return null;
+    }
+
+    return {
+      id,
+      username,
+      fullName: typeof record['fullName'] === 'string' ? record['fullName'] : null,
+      email: typeof record['email'] === 'string' ? record['email'] : null,
+      roleId: typeof record['roleId'] === 'number' ? record['roleId'] : Number(record['roleId'] ?? null) || null,
+      roleCode: typeof record['roleCode'] === 'string' ? record['roleCode'] : null,
+      roleName: typeof record['roleName'] === 'string' ? record['roleName'] : null,
+      organizationId:
+        typeof record['organizationId'] === 'number' ? record['organizationId'] : Number(record['organizationId'] ?? null) || null,
+      organizationName: typeof record['organizationName'] === 'string' ? record['organizationName'] : null,
+      isActive: typeof record['isActive'] === 'boolean' ? record['isActive'] : true,
+      lastLogin: typeof record['lastLoginAt'] === 'string' ? record['lastLoginAt'] : null,
+    };
   }
 
-  private detectRoleByUsernameFallback(username: string): string | null {
-    const value = username.trim().toLowerCase();
-    const roleByUsername: Record<string, string> = {
-      admin: 'admin',
-      maternity: 'maternity',
-      zagsemployee: 'zags',
-      jek: 'jek',
-      passportofficer: 'passport',
-      school: 'school',
-      highereducation: 'university',
-      medicalcenter: 'clinic',
-      militaryofficer: 'vvk',
-      borderservice: 'border',
-      borderservice2: 'border',
-    };
+  private extractBackendRole(response: LoginApiResponse): string | null {
+    const userRole = this.extractRoleFromUnknown(response['user']);
+    if (userRole) {
+      return userRole;
+    }
 
-    return roleByUsername[value] ?? null;
+    const nestedRole = this.extractRoleFromUnknown(response['data']);
+    if (nestedRole) {
+      return nestedRole;
+    }
+
+    return this.extractRoleFromUnknown(response['roleCode']);
+  }
+
+  private extractRoleFromUnknown(value: unknown): string | null {
+    if (!value || typeof value !== 'object') {
+      if (typeof value === 'string' && value.trim()) {
+        return value.trim().toLowerCase();
+      }
+      return null;
+    }
+
+    const record = value as Record<string, unknown>;
+    const candidates: unknown[] = [record['roleCode'], record['role'], record['code']];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate.trim().toLowerCase();
+      }
+    }
+
+    return this.extractRoleFromUnknown(record['user']);
   }
 
   private getApiMessage(response: LoginApiResponse): string | null {
@@ -279,56 +189,34 @@ export class LoginComponent implements OnInit {
     return 'Ошибка авторизации. Попробуйте еще раз.';
   }
 
-  private navigateByRole(): void {
-    if (this.role === 'admin') {
-      this.router.navigate(['/admin/dashboard']);
-      return;
-    }
-    if (this.role === 'teacher') {
-      this.router.navigate(['/teacher/dashboard']);
-      return;
-    }
-    if (this.role === 'maternity') {
-      this.router.navigate(['/maternity/birth-records']);
-      return;
-    }
-    if (this.role === 'zags') {
-      this.router.navigate(['/zags/acts']);
-      return;
-    }
-    if (this.role === 'jek') {
-      this.router.navigate(['/jek/registry']);
-      return;
-    }
-    if (this.role === 'passport') {
-      this.router.navigate(['/passport/registry']);
-      return;
-    }
-    if (this.role === 'school') {
-      this.router.navigate(['/school/studies']);
-      return;
-    }
-    if (this.role === 'university') {
-      this.router.navigate(['/university/studies']);
-      return;
-    }
-    if (this.role === 'clinic') {
-      this.router.navigate(['/clinic/records']);
-      return;
-    }
-    if (this.role === 'vvk') {
-      this.router.navigate(['/vvk/queue']);
-      return;
-    }
-    if (this.role === 'border') {
-      this.router.navigate(['/border/crossings']);
-      return;
-    }
-    if (this.role === 'superadmin') {
-      this.router.navigate(['/superadmin/access']);
+  private navigateByRole(role: string): void {
+    const roleRoutes: Record<string, string> = {
+      admin: '/admin/dashboard',
+      maternity: '/maternity/birth-records',
+      zags: '/zags/acts',
+      jek: '/jek/registry',
+      passport: '/passport/registry',
+      school: '/school/studies',
+      university: '/university/studies',
+      clinic: '/clinic/records',
+      vvk: '/vvk/queue',
+      border: '/border/crossings',
+      superadmin: '/superadmin/access',
+    };
+
+    void this.router.navigate([roleRoutes[role] ?? roleRoutes['admin']]);
+  }
+
+  private restoreExistingSession(): void {
+    if (!this.authService.hasActiveSession()) {
       return;
     }
 
-    this.router.navigate(['/student/dashboard']);
+    const storedRole = this.authService.resolveStoredRole();
+    if (!storedRole) {
+      return;
+    }
+
+    this.navigateByRole(storedRole);
   }
 }

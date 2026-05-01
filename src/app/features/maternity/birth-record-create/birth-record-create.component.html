@@ -10,7 +10,18 @@
       <app-input label="Место рождения" placeholder="Например: г. Худжанд" [(ngModel)]="form.placeOfBirth"></app-input>
       <app-select label="Пол" [options]="genderOptions" [(ngModel)]="form.gender"></app-select>
 
-      <app-input label="ФИО ребенка" placeholder="Иванов Али Петрович" [(ngModel)]="form.childFullName"></app-input>
+      <app-input label="ФИО ребенка" placeholder="Можно заполнить позже" [(ngModel)]="form.childFullName"></app-input>
+
+      <app-select
+        label="Ситуация"
+        [options]="birthScenarioOptions"
+        [(ngModel)]="form.birthScenario"
+        (ngModelChange)="onBirthScenarioChange($event)"
+      ></app-select>
+
+      @if (birthScenarioHint) {
+        <p class="md:col-span-2 text-xs text-slate-600">{{ birthScenarioHint }}</p>
+      }
 
       <app-select
         label="Отец (из списка)"
@@ -28,15 +39,33 @@
         (changed)="onMotherSelected($event)"
       ></app-select>
 
-      <app-input label="ФИО отца" placeholder="Иванов Иван Иванович" [(ngModel)]="form.fatherFullName" (ngModelChange)="onFatherNameManualChange()"></app-input>
+      <app-input label="ФИО отца" placeholder="Необязательно" [(ngModel)]="form.fatherFullName" (ngModelChange)="onFatherNameManualChange()"></app-input>
       <app-input label="ФИО матери" placeholder="Иванова Мария Петровна" [(ngModel)]="form.motherFullName" (ngModelChange)="onMotherNameManualChange()"></app-input>
 
       @if (parentLinkHint) {
         <p class="md:col-span-2 text-xs text-blue-700">{{ parentLinkHint }}</p>
       }
 
+      @if (selectedFatherCitizenId || selectedMotherCitizenId || selectedFamilyId) {
+        <div class="md:col-span-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800">
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+            <div>
+              <div class="text-xs uppercase tracking-wide text-slate-500">ID отца</div>
+              <div class="font-medium text-slate-900">{{ selectedFatherCitizenId ?? '—' }}</div>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-wide text-slate-500">ID матери</div>
+              <div class="font-medium text-slate-900">{{ selectedMotherCitizenId ?? '—' }}</div>
+            </div>
+            <div>
+              <div class="text-xs uppercase tracking-wide text-slate-500">Семья</div>
+              <div class="font-medium text-slate-900">{{ selectedFamilyId ?? '—' }}</div>
+            </div>
+          </div>
+        </div>
+      }
+
       <app-input type="number" label="Вес при рождении (кг)" placeholder="3.2" [(ngModel)]="form.birthWeight"></app-input>
-      <app-select label="Статус" [options]="statusOptions" [(ngModel)]="form.status"></app-select>
 
       <div class="md:col-span-2">
         <app-input label="Комментарий" placeholder="Комментарий" [(ngModel)]="form.comment"></app-input>

@@ -21,7 +21,7 @@
 
   @if (dashboard(); as data) {
     <app-card title="Ключевые показатели">
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
         <a routerLink="/admin/citizens" class="rounded-2xl bg-sky-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-sky-700">Граждане в контуре</p>
           <p class="mt-2 text-3xl font-bold text-sky-950">{{ data.totalCitizens }}</p>
@@ -37,6 +37,10 @@
         <a routerLink="/admin/deferment-review" class="rounded-2xl bg-amber-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-amber-700">2+ детей</p>
           <p class="mt-2 text-3xl font-bold text-amber-950">{{ data.familyExemptions }}</p>
+        </a>
+        <a routerLink="/admin/reports" class="rounded-2xl bg-indigo-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+          <p class="text-sm font-medium text-indigo-700">В запасе</p>
+          <p class="mt-2 text-3xl font-bold text-indigo-950">{{ data.totalCompletedService }}</p>
         </a>
         <a routerLink="/admin/reports" class="rounded-2xl bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-slate-700">Остальные мужчины</p>

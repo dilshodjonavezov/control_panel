@@ -44,6 +44,10 @@ export class ReportsComponent implements OnInit {
     this.citizens().filter((citizen) => citizen.voenkomatSection === 'Остальные мужчины'),
   );
 
+  readonly completedService = computed(() =>
+    this.citizens().filter((citizen) => citizen.voenkomatSection === 'В запасе'),
+  );
+
   constructor(private readonly voenkomatDataService: VoenkomatDataService) {}
 
   ngOnInit(): void {

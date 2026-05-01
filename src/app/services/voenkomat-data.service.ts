@@ -216,6 +216,7 @@ export interface VoenkomatCitizenRow {
 export interface VoenkomatDashboardData {
   totalCitizens: number;
   totalConscriptMen: number;
+  totalCompletedService: number;
   totalOtherMen: number;
   activeMilitaryRecords: number;
   familyExemptions: number;
@@ -381,6 +382,7 @@ export class VoenkomatDataService {
     const familyExemptions = snapshot.militaryRecords.filter((item) => item.militaryStatus === 'FAMILY_CIRCUMSTANCES').length;
     const activeEducationDeferments = snapshot.educationRecords.filter((item) => item.isDeferralActive).length;
     const totalConscriptMen = rows.filter((item) => item.voenkomatSection === 'Призывники').length;
+    const totalCompletedService = rows.filter((item) => item.voenkomatSection === 'В запасе').length;
     const totalOtherMen = rows.filter((item) => item.voenkomatSection === 'Остальные мужчины').length;
     const abroadNow = rows.filter((item) => item.borderState === 'За границей').length;
     const missingPassport = rows.filter((item) => item.passportNumber === 'Нет паспорта').length;
@@ -390,6 +392,7 @@ export class VoenkomatDataService {
     return {
       totalCitizens: rows.length,
       totalConscriptMen,
+      totalCompletedService,
       totalOtherMen,
       activeMilitaryRecords,
       familyExemptions,
@@ -403,6 +406,7 @@ export class VoenkomatDataService {
         { label: '2+ детей', count: rows.filter((item) => item.voenkomatSection === 'Освобождение по семье').length, tone: 'bg-amber-100 text-amber-800' },
         { label: 'Учатся', count: rows.filter((item) => item.voenkomatSection === 'Учебная отсрочка').length, tone: 'bg-emerald-100 text-emerald-800' },
         { label: 'Не годен', count: rows.filter((item) => item.voenkomatSection === 'Не годен').length, tone: 'bg-rose-100 text-rose-800' },
+        { label: 'В запасе', count: totalCompletedService, tone: 'bg-indigo-100 text-indigo-800' },
         { label: 'Остальные мужчины', count: totalOtherMen, tone: 'bg-slate-100 text-slate-800' },
       ],
       quickFilters: [
@@ -410,6 +414,7 @@ export class VoenkomatDataService {
         { id: 'family', label: 'Льгота по семье', count: familyExemptions, hint: 'Мужчины с 2 и более детьми' },
         { id: 'study', label: 'Учатся', count: activeEducationDeferments, hint: 'Есть активные учебные основания' },
         { id: 'abroad', label: 'За границей', count: abroadNow, hint: 'Есть открытые записи о выезде' },
+        { id: 'completed-service', label: 'В запасе', count: totalCompletedService, hint: 'Уже отслужили и выведены в отдельный раздел' },
         { id: 'other-men', label: 'Остальные мужчины', count: totalOtherMen, hint: 'Мужчины вне призывной группы и льгот' },
       ],
       linkageItems: [
@@ -668,6 +673,9 @@ export class VoenkomatDataService {
     if (military?.militaryStatus === 'IN_SERVICE') {
       return 'На службе';
     }
+    if (this.hasCompletedService(military)) {
+      return 'Службу прошёл';
+    }
     return 'Нет связки';
   }
 
@@ -724,11 +732,36 @@ export class VoenkomatDataService {
       return 'Не годен';
     }
 
+    if (row.militaryStatus === 'Службу прошёл') {
+      return 'В запасе';
+    }
+
     if (row.age >= 18 && row.age <= 27) {
       return 'Призывники';
     }
 
     return 'Остальные мужчины';
+  }
+
+  private hasCompletedService(military: ApiMilitaryRecord | null): boolean {
+    if (!military) {
+      return false;
+    }
+
+    const normalizedStatus = String(military.militaryStatus ?? '').trim().toUpperCase();
+    const normalizedRecordStatus = String(military.status ?? '').trim().toUpperCase();
+
+    return (
+      normalizedStatus === 'SERVICE_COMPLETED' ||
+      normalizedStatus === 'COMPLETED_SERVICE' ||
+      normalizedStatus === 'COMPLETED' ||
+      normalizedStatus === 'RESERVE' ||
+      normalizedStatus === 'DISCHARGED' ||
+      normalizedRecordStatus === 'SERVICE_COMPLETED' ||
+      normalizedRecordStatus === 'COMPLETED_SERVICE' ||
+      normalizedRecordStatus === 'COMPLETED' ||
+      normalizedRecordStatus === 'DISCHARGED'
+    );
   }
 
   private getReviewStatusLabel(status: string | null | undefined, fallbackApproved: boolean): string {

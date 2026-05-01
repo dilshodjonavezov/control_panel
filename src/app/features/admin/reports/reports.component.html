@@ -13,7 +13,7 @@
     </div>
   }
 
-  <div class="grid gap-4 md:grid-cols-5">
+  <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
     <app-card title="Призывники">
       <div class="text-3xl font-bold text-slate-900">{{ draftList().length }}</div>
       <div class="mt-2 text-sm text-slate-500">Мужчины от 18 до 27 лет.</div>
@@ -29,6 +29,10 @@
     <app-card title="Не годен">
       <div class="text-3xl font-bold text-slate-900">{{ unfit().length }}</div>
       <div class="mt-2 text-sm text-slate-500">По ВВК или медоснованию.</div>
+    </app-card>
+    <app-card title="В запасе">
+      <div class="text-3xl font-bold text-slate-900">{{ completedService().length }}</div>
+      <div class="mt-2 text-sm text-slate-500">Уже отслужили и выделены отдельно.</div>
     </app-card>
     <app-card title="Остальные мужчины">
       <div class="text-3xl font-bold text-slate-900">{{ otherMen().length }}</div>
@@ -98,6 +102,24 @@
       [emptyMessage]="isLoading() ? 'Загрузка...' : 'Негодных нет'"
     >
       <ng-template #unfitTemplate let-row>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.fullName }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ formatDate(row.birthDate) }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.age }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.militaryStatus }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.defermentBasis }}</td>
+        <td class="px-6 py-4 text-sm text-slate-900">{{ row.registrationAddress }}</td>
+      </ng-template>
+    </app-table>
+  </app-card>
+
+  <app-card title="В запасе" subtitle="Отдельный раздел для уже отслуживших">
+    <app-table
+      [columns]="columns"
+      [data]="completedService()"
+      [rowTemplate]="completedTemplate"
+      [emptyMessage]="isLoading() ? 'Загрузка...' : 'Прошедших службу нет'"
+    >
+      <ng-template #completedTemplate let-row>
         <td class="px-6 py-4 text-sm text-slate-900">{{ row.fullName }}</td>
         <td class="px-6 py-4 text-sm text-slate-900">{{ formatDate(row.birthDate) }}</td>
         <td class="px-6 py-4 text-sm text-slate-900">{{ row.age }}</td>

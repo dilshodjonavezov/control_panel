@@ -85,7 +85,7 @@
               'bg-amber-100 text-amber-800 ring-amber-200': row.voenkomatSection === 'Освобождение по семье',
               'bg-emerald-100 text-emerald-800 ring-emerald-200': row.voenkomatSection === 'Учебная отсрочка',
               'bg-rose-100 text-rose-800 ring-rose-200': row.voenkomatSection === 'Не годен',
-              'bg-indigo-100 text-indigo-800 ring-indigo-200': row.voenkomatSection === 'В запасе',
+              'bg-indigo-100 text-indigo-800 ring-indigo-200': row.voenkomatSection === 'Отслужившие',
               'bg-slate-100 text-slate-700 ring-slate-200': row.voenkomatSection === 'Остальные мужчины' || row.voenkomatSection === 'Не военнообязанные'
             }">
             {{ row.voenkomatSection }}
@@ -99,7 +99,7 @@
               'bg-amber-100 text-amber-800 ring-amber-200': row.militaryStatus === 'Освобождение по семье',
               'bg-emerald-100 text-emerald-800 ring-emerald-200': row.militaryStatus === 'Учебная отсрочка',
               'bg-rose-100 text-rose-800 ring-rose-200': row.militaryStatus === 'Не годен',
-              'bg-indigo-100 text-indigo-800 ring-indigo-200': row.militaryStatus === 'Службу прошёл' || row.militaryStatus === 'На службе',
+              'bg-indigo-100 text-indigo-800 ring-indigo-200': row.militaryStatus === 'Службу завершил' || row.militaryStatus === 'На службе',
               'bg-slate-100 text-slate-700 ring-slate-200': row.militaryStatus === 'Нет связки'
             }">
             {{ row.militaryStatus }}

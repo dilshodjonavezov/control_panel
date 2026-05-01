@@ -45,7 +45,7 @@ export class ReportsComponent implements OnInit {
   );
 
   readonly completedService = computed(() =>
-    this.citizens().filter((citizen) => citizen.voenkomatSection === 'В запасе'),
+    this.citizens().filter((citizen) => citizen.voenkomatSection === 'Отслужившие'),
   );
 
   constructor(private readonly voenkomatDataService: VoenkomatDataService) {}

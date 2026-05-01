@@ -30,9 +30,9 @@
       <div class="text-3xl font-bold text-slate-900">{{ unfit().length }}</div>
       <div class="mt-2 text-sm text-slate-500">По ВВК или медоснованию.</div>
     </app-card>
-    <app-card title="В запасе">
+    <app-card title="Отслужившие">
       <div class="text-3xl font-bold text-slate-900">{{ completedService().length }}</div>
-      <div class="mt-2 text-sm text-slate-500">Уже отслужили и выделены отдельно.</div>
+      <div class="mt-2 text-sm text-slate-500">Службу завершили, военный билет уже получен.</div>
     </app-card>
     <app-card title="Остальные мужчины">
       <div class="text-3xl font-bold text-slate-900">{{ otherMen().length }}</div>
@@ -112,7 +112,7 @@
     </app-table>
   </app-card>
 
-  <app-card title="В запасе" subtitle="Отдельный раздел для уже отслуживших">
+  <app-card title="Отслужившие" subtitle="Службу завершили и больше не являются призывниками">
     <app-table
       [columns]="columns"
       [data]="completedService()"

@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 interface ApiResponse<T> {
@@ -111,7 +111,13 @@ export class AddressesService {
   getAll(): Observable<ApiAddress[]> {
     return this.http
       .get<ApiResponse<ApiAddress[]> | ApiAddress[]>(this.apiUrl)
-      .pipe(map((response) => this.unwrapArray<ApiAddress>(response)));
+      .pipe(timeout(10000), map((response) => this.unwrapArray<ApiAddress>(response)), catchError(() => of([])));
+  }
+
+  getByCitizenId(citizenId: number): Observable<ApiAddress[]> {
+    return this.http
+      .get<ApiResponse<ApiAddress[]> | ApiAddress[]>(`${this.apiUrl}?citizenId=${citizenId}`)
+      .pipe(timeout(10000), map((response) => this.unwrapArray<ApiAddress>(response)), catchError(() => of([])));
   }
 
   create(payload: CreateAddressRequest): Observable<boolean> {

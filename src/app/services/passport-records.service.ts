@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 interface ApiResponse<T> {
@@ -64,7 +64,13 @@ export class PassportRecordsService {
   getAll(): Observable<ApiPassportRecord[]> {
     return this.http
       .get<ApiResponse<ApiPassportRecord[]> | ApiPassportRecord[]>(this.apiUrl)
-      .pipe(map((response) => this.unwrapArray<ApiPassportRecord>(response)));
+      .pipe(timeout(10000), map((response) => this.unwrapArray<ApiPassportRecord>(response)), catchError(() => of([])));
+  }
+
+  getByPeopleId(peopleId: number): Observable<ApiPassportRecord[]> {
+    return this.http
+      .get<ApiResponse<ApiPassportRecord[]> | ApiPassportRecord[]>(`${this.apiUrl}?peopleId=${peopleId}`)
+      .pipe(timeout(10000), map((response) => this.unwrapArray<ApiPassportRecord>(response)), catchError(() => of([])));
   }
 
   create(payload: CreatePassportRecordRequest): Observable<boolean> {

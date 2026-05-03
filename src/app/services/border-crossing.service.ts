@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, map } from 'rxjs';
+import { Observable, catchError, map, of, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 interface ApiResponse<T> {
@@ -91,7 +91,7 @@ export class BorderCrossingService {
   getCitizens(): Observable<ApiCitizen[]> {
     return this.http
       .get<ApiResponse<ApiCitizen[]> | ApiCitizen[]>(this.citizensApiUrl)
-      .pipe(map((response) => this.unwrapArray<ApiCitizen>(response)));
+      .pipe(timeout(10000), map((response) => this.unwrapArray<ApiCitizen>(response)), catchError(() => of([])));
   }
 
   private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {

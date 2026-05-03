@@ -124,6 +124,10 @@ export class OrganizationsComponent implements OnInit {
             .filter((organization) => this.isOrganizationType(organization.type))
             .map((organization) => this.mapOrganizationRow(organization, users))
             .sort((left, right) => left.name.localeCompare(right.name, 'ru'));
+
+          if (roles.length === 0 || users.length === 0) {
+            this.errorMessage = 'Часть административных данных не загрузилась. Обновите страницу или войдите заново.';
+          }
         },
         error: () => {
           this.organizations = [];

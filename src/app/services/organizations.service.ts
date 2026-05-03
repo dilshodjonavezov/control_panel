@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, map, of, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 
 interface ApiResponse<T> {
@@ -55,7 +55,7 @@ export class OrganizationsService {
   getOrganizations(): Observable<OrganizationRecord[]> {
     return this.http
       .get<ApiResponse<OrganizationRecord[]> | OrganizationRecord[]>(this.apiUrl)
-      .pipe(map((response) => this.unwrapArray(response)), catchError(() => of([])));
+      .pipe(timeout(10000), map((response) => this.unwrapArray(response)), catchError(() => of([])));
   }
 
   createOrganization(payload: CreateOrganizationRequest): Observable<OrganizationRecord> {

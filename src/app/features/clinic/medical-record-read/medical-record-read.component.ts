@@ -81,6 +81,8 @@ export class MedicalRecordReadComponent implements OnInit {
 
   private graduatedCandidates: ApiSchoolRecord[] = [];
   private citizensById = new Map<number, { fullName: string; fatherFullName: string; motherFullName: string }>();
+  private currentOrganizationId: number | null = null;
+  private currentOrganizationName: string | null = null;
 
   constructor(
     private readonly medicalRecordsService: MedicalRecordsService,
@@ -90,6 +92,8 @@ export class MedicalRecordReadComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.currentOrganizationId = this.authService.getCurrentUser()?.organizationId ?? null;
+    this.currentOrganizationName = this.authService.getCurrentUser()?.organizationName ?? null;
     this.loadData();
     this.route.queryParamMap.subscribe((params) => {
       const action = params.get('action');
@@ -140,7 +144,10 @@ export class MedicalRecordReadComponent implements OnInit {
             }]),
           );
           this.candidateOptions = this.buildCandidateOptions(graduates);
-          this.records = records.map((record) => this.mapRecord(record));
+          const visibleRecords = this.currentOrganizationId
+            ? records.filter((record) => record.organizationId === this.currentOrganizationId)
+            : records;
+          this.records = visibleRecords.map((record) => this.mapRecord(record));
           this.isLoading = false;
           this.cdr.detectChanges();
         },
@@ -326,7 +333,7 @@ export class MedicalRecordReadComponent implements OnInit {
   private resetExamFormData(): ExamForm {
     return {
       peopleId: '',
-      clinic: 'Поликлиника №1',
+      clinic: this.currentOrganizationName?.trim() || 'Поликлиника',
       examDate: new Date().toISOString().slice(0, 10),
       decision: '',
       reason: '',

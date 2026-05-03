@@ -21,7 +21,34 @@ export class Organization {
   name!: string;
 
   @Prop({ type: String, default: null, trim: true })
+  city!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
   addressText!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  phone!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  email!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  headFullName!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  headPosition!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  serviceArea!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  licenseNumber!: string | null;
+
+  @Prop({ type: Number, default: null })
+  capacity!: number | null;
+
+  @Prop({ type: Number, default: null, index: true })
+  educationInstitutionId!: number | null;
 
   @Prop({ default: true })
   isActive!: boolean;

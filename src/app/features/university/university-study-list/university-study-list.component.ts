@@ -18,7 +18,9 @@ import {
   CreateEducationInstitutionRequest,
   EducationInstitutionsService,
 } from '../../../services/education-institutions.service';
+import { AuthService } from '../../../services/auth.service';
 import { ApiEducationRecord, EducationRecordsService } from '../../../services/education-records.service';
+import { OrganizationsService } from '../../../services/organizations.service';
 
 interface EducationInstitutionForm {
   name: string;
@@ -92,10 +94,13 @@ export class UniversityStudyListComponent implements OnInit {
   deletingRecord: InstitutionRow | null = null;
   isDeleting = false;
   deleteErrorMessage = '';
+  private linkedInstitutionId: number | null = null;
 
   constructor(
     private readonly educationInstitutionsService: EducationInstitutionsService,
     private readonly educationRecordsService: EducationRecordsService,
+    private readonly authService: AuthService,
+    private readonly organizationsService: OrganizationsService,
     private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
   ) {}
@@ -143,6 +148,7 @@ export class UniversityStudyListComponent implements OnInit {
     forkJoin({
       institutions: this.educationInstitutionsService.getAll(),
       educationRecords: this.educationRecordsService.getAll(),
+      organizations: this.organizationsService.getOrganizations(),
     })
       .pipe(
         timeout(15000),
@@ -152,8 +158,14 @@ export class UniversityStudyListComponent implements OnInit {
         }),
       )
       .subscribe({
-        next: ({ institutions, educationRecords }) => {
-          this.records = this.mergeRecords(institutions, educationRecords);
+        next: ({ institutions, educationRecords, organizations }) => {
+          const currentOrganizationId = this.authService.getCurrentUser()?.organizationId ?? null;
+          const currentOrganization = organizations.find((item) => item.id === currentOrganizationId) ?? null;
+          this.linkedInstitutionId = currentOrganization?.educationInstitutionId ?? null;
+          const visibleInstitutions = this.linkedInstitutionId
+            ? institutions.filter((institution) => institution.id === this.linkedInstitutionId)
+            : institutions;
+          this.records = this.mergeRecords(visibleInstitutions, educationRecords);
         },
         error: (error: unknown) => {
           this.records = [];

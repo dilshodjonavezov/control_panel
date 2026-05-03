@@ -20,11 +20,13 @@ import {
   CreateSchoolRecordRequest,
   SchoolRecordsService,
 } from '../../../services/school-records.service';
+import { AuthService } from '../../../services/auth.service';
 import {
   CitizenLinksService,
   CitizenLinksSnapshot,
   LinkedCitizenProfile,
 } from '../../../services/citizen-links.service';
+import { OrganizationsService } from '../../../services/organizations.service';
 
 type SchoolStatus = 'Учитcя' | 'Закончил' | 'Отчислен';
 
@@ -125,10 +127,13 @@ export class SchoolStudyListComponent implements OnInit {
 
   private citizens: ApiCitizen[] = [];
   private linksSnapshot: CitizenLinksSnapshot | null = null;
+  private linkedInstitutionId: number | null = null;
 
   constructor(
     private readonly schoolRecordsService: SchoolRecordsService,
     private readonly citizenLinksService: CitizenLinksService,
+    private readonly authService: AuthService,
+    private readonly organizationsService: OrganizationsService,
     private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
   ) {}
@@ -208,21 +213,34 @@ export class SchoolStudyListComponent implements OnInit {
       citizens: this.schoolRecordsService.getCitizens(),
       institutions: this.schoolRecordsService.getInstitutions(),
       links: this.citizenLinksService.getSnapshot(),
+      organizations: this.organizationsService.getOrganizations(),
     })
       .pipe(timeout(15000))
       .subscribe({
-        next: ({ records, citizens, institutions, links }) => {
+        next: ({ records, citizens, institutions, links, organizations }) => {
           this.citizens = citizens;
           this.linksSnapshot = links;
+          const currentOrganizationId = this.authService.getCurrentUser()?.organizationId ?? null;
+          const currentOrganization = organizations.find((item) => item.id === currentOrganizationId) ?? null;
+          this.linkedInstitutionId = currentOrganization?.educationInstitutionId ?? null;
+          const visibleInstitutions = this.linkedInstitutionId
+            ? institutions.filter((institution) => institution.id === this.linkedInstitutionId)
+            : institutions;
+          const visibleRecords = this.linkedInstitutionId
+            ? records.filter((record) => record.institutionId === this.linkedInstitutionId)
+            : records;
           this.peopleOptions = this.buildPeopleOptions(citizens);
           this.institutionOptions = [
             { value: 'all', label: 'Все учреждения' },
-            ...institutions.map((institution) => ({
+            ...visibleInstitutions.map((institution) => ({
               value: institution.id.toString(),
               label: this.formatInstitutionLabel(institution),
             })),
           ];
-          this.records = records.map((record) => this.mapRecord(record));
+          this.records = visibleRecords.map((record) => this.mapRecord(record));
+          if (this.linkedInstitutionId) {
+            this.filters.institutionId = this.linkedInstitutionId.toString();
+          }
           this.isLoading = false;
           this.cdr.detectChanges();
         },
@@ -245,7 +263,9 @@ export class SchoolStudyListComponent implements OnInit {
     this.isEditMode = false;
     this.editingRecordId = null;
     this.formData = this.createDefaultForm();
-    if (!this.formData.institutionId && this.institutionOptions[1]) {
+    if (this.linkedInstitutionId) {
+      this.formData.institutionId = this.linkedInstitutionId.toString();
+    } else if (!this.formData.institutionId && this.institutionOptions[1]) {
       this.formData.institutionId = this.institutionOptions[1].value.toString();
     }
     this.formErrorMessage = '';

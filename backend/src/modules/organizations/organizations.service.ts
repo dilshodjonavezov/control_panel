@@ -25,7 +25,16 @@ export class OrganizationsService implements OnModuleInit {
     const created = await this.organizationModel.create({
       id: nextId,
       ...createOrganizationDto,
+      city: createOrganizationDto.city ?? null,
       addressText: createOrganizationDto.addressText ?? null,
+      phone: createOrganizationDto.phone ?? null,
+      email: createOrganizationDto.email ?? null,
+      headFullName: createOrganizationDto.headFullName ?? null,
+      headPosition: createOrganizationDto.headPosition ?? null,
+      serviceArea: createOrganizationDto.serviceArea ?? null,
+      licenseNumber: createOrganizationDto.licenseNumber ?? null,
+      capacity: createOrganizationDto.capacity ?? null,
+      educationInstitutionId: createOrganizationDto.educationInstitutionId ?? null,
       isActive: createOrganizationDto.isActive ?? true,
     });
     return this.mapOrganization(created.toObject());
@@ -78,7 +87,16 @@ export class OrganizationsService implements OnModuleInit {
       type: organization.type,
       code: organization.code,
       name: organization.name,
+      city: organization.city ?? null,
       addressText: organization.addressText ?? null,
+      phone: organization.phone ?? null,
+      email: organization.email ?? null,
+      headFullName: organization.headFullName ?? null,
+      headPosition: organization.headPosition ?? null,
+      serviceArea: organization.serviceArea ?? null,
+      licenseNumber: organization.licenseNumber ?? null,
+      capacity: organization.capacity ?? null,
+      educationInstitutionId: organization.educationInstitutionId ?? null,
       isActive: organization.isActive,
     } as Organization;
   }

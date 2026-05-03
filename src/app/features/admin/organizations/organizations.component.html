@@ -1,41 +1,116 @@
 <div class="space-y-6">
-  <div class="flex items-center justify-between">
+  <div class="flex items-center justify-between gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Управление организациями</h1>
-      <p class="mt-2 text-gray-600">Школы, колледжи и ВУЗы</p>
+      <h1 class="text-3xl font-bold text-gray-900">Учреждения и доступы</h1>
+      <p class="mt-2 text-gray-600">Админ создаёт школу, колледж, институт, университет или поликлинику и сразу выдаёт логин и пароль для входа.</p>
     </div>
-    <app-button variant="primary" (clicked)="openAdd()">Добавить учреждение</app-button>
+    <div class="flex items-center gap-2">
+      <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
+      <app-button variant="primary" (clicked)="openAdd()">Добавить учреждение</app-button>
+    </div>
   </div>
+
+  @if (errorMessage) {
+    <app-card>
+      <p class="text-sm text-red-600">{{ errorMessage }}</p>
+    </app-card>
+  }
 
   <app-card>
     <app-table
       [columns]="columns"
       [data]="organizations"
+      [loading]="isLoading"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
-      [emptyMessage]="'Учреждений нет'"
+      [emptyMessage]="'Учреждений пока нет'"
     >
       <ng-template #rowTemplate let-row>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.name }}</td>
+        <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.name }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.type }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.city }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.phone }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.headFullName }}</td>
+        <td class="px-6 py-4 text-sm font-medium text-gray-900">{{ row.login }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">
+          <span
+            class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
+            [ngClass]="row.isActive ? 'bg-emerald-100 text-emerald-800 ring-emerald-200' : 'bg-rose-100 text-rose-800 ring-rose-200'"
+          >
+            {{ row.statusLabel }}
+          </span>
+        </td>
       </ng-template>
 
       <ng-template #actionsTemplate let-row>
-        <app-button variant="outline" size="sm" (clicked)="openEdit(row)">Редактировать</app-button>
+        <div class="flex items-center gap-2">
+          <app-button variant="outline" size="sm" (clicked)="openEdit(row)">Редактировать</app-button>
+          <app-button variant="danger" size="sm" (clicked)="toggleStatus(row)">
+            {{ row.isActive ? 'Отключить' : 'Включить' }}
+          </app-button>
+        </div>
       </ng-template>
     </app-table>
   </app-card>
 
-  <app-modal [show]="showModal" [title]="editing ? 'Редактировать учреждение' : 'Добавить учреждение'" size="lg" (closed)="closeModal()">
-    <form class="space-y-4">
-      <app-input label="Название" [(ngModel)]="formData.name" name="name"></app-input>
-      <app-select label="Тип" [options]="typeOptions" [(ngModel)]="formData.type" name="type"></app-select>
-      <app-input label="Город" [(ngModel)]="formData.city" name="city"></app-input>
-      <div class="flex justify-end gap-2">
-        <app-button variant="outline" type="button" (clicked)="closeModal()">Отмена</app-button>
-        <app-button variant="primary" type="button" (clicked)="save()">Сохранить</app-button>
+  <app-modal [show]="showModal" [title]="editing ? 'Редактировать учреждение' : 'Создать учреждение'" size="lg" (closed)="closeModal()">
+    <div class="space-y-4">
+      @if (formErrorMessage) {
+        <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
+      }
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <app-select
+          label="Тип учреждения"
+          [options]="typeOptions"
+          [ngModel]="formData.type"
+          (ngModelChange)="onTypeChange($event)"
+          name="type"
+        ></app-select>
+        <app-input label="Название" [(ngModel)]="formData.name" name="name" placeholder="Например, Школа №5"></app-input>
+        <app-input label="Город" [(ngModel)]="formData.city" name="city"></app-input>
+        <app-input label="Телефон" [(ngModel)]="formData.phone" name="phone"></app-input>
+        <app-input label="Адрес" [(ngModel)]="formData.addressText" name="addressText"></app-input>
+        <app-input label="Email" [(ngModel)]="formData.email" name="email"></app-input>
+        <app-input
+          [label]="getHeadLabel()"
+          [hint]="getHeadHint()"
+          [(ngModel)]="formData.headFullName"
+          name="headFullName"
+        ></app-input>
+
+        @if (shouldShowLicenseField()) {
+          <app-input label="Лицензия или аккредитация" [(ngModel)]="formData.licenseNumber" name="licenseNumber"></app-input>
+        }
+
+        @if (shouldShowCapacityField()) {
+          <app-input label="Количество мест" [(ngModel)]="formData.capacity" name="capacity"></app-input>
+        }
+
+        @if (shouldShowServiceAreaField()) {
+          <app-input label="Зона обслуживания" [(ngModel)]="formData.serviceArea" name="serviceArea"></app-input>
+        }
       </div>
-    </form>
+
+      <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <h3 class="text-sm font-semibold text-slate-900">Учётка для входа</h3>
+        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+          <app-input label="ФИО ответственного" [(ngModel)]="formData.accountFullName" name="accountFullName"></app-input>
+          <app-input label="Логин" [(ngModel)]="formData.username" name="username"></app-input>
+          <app-input
+            [label]="editing ? 'Новый пароль' : 'Пароль'"
+            type="text"
+            [(ngModel)]="formData.password"
+            name="password"
+            [hint]="editing ? 'Оставьте пустым, если пароль менять не нужно.' : ''"
+          ></app-input>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2">
+        <app-button variant="outline" [disabled]="isSaving" (clicked)="closeModal()">Отмена</app-button>
+        <app-button variant="primary" [loading]="isSaving" [disabled]="isSaving" (clicked)="save()">Сохранить</app-button>
+      </div>
+    </div>
   </app-modal>
 </div>

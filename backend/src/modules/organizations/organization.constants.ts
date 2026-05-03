@@ -5,6 +5,8 @@ export const ORGANIZATION_TYPES = [
   'JEK',
   'PASSPORT',
   'SCHOOL',
+  'COLLEGE',
+  'INSTITUTE',
   'UNIVERSITY',
   'CLINIC',
   'VVK',

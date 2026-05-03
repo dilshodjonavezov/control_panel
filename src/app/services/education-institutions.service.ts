@@ -55,10 +55,36 @@ export class EducationInstitutionsService {
       .pipe(map((response) => response.ok));
   }
 
+  createRecord(payload: CreateEducationInstitutionRequest): Observable<ApiEducationInstitution> {
+    return this.http
+      .post<ApiResponse<ApiEducationInstitution> | ApiEducationInstitution>(this.apiUrl, payload)
+      .pipe(
+        map((response) => {
+          if (this.isApiWrapper<ApiEducationInstitution>(response)) {
+            return response.data;
+          }
+          return response;
+        }),
+      );
+  }
+
   update(id: number, payload: CreateEducationInstitutionRequest): Observable<boolean> {
     return this.http
       .put(`${this.apiUrl}/${id}`, payload, { observe: 'response', responseType: 'text' })
       .pipe(map((response) => response.ok));
+  }
+
+  updateRecord(id: number, payload: CreateEducationInstitutionRequest): Observable<ApiEducationInstitution> {
+    return this.http
+      .put<ApiResponse<ApiEducationInstitution> | ApiEducationInstitution>(`${this.apiUrl}/${id}`, payload)
+      .pipe(
+        map((response) => {
+          if (this.isApiWrapper<ApiEducationInstitution>(response)) {
+            return response.data;
+          }
+          return response;
+        }),
+      );
   }
 
   delete(id: number): Observable<boolean> {

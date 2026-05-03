@@ -1,6 +1,6 @@
 export const USER_SEED = [
-  { username: 'admin', password: 'AdminVoen2026', fullName: 'Военкомат', roleCode: 'admin', organizationCode: 'system-admin' },
-  { username: 'superadmin', password: 'SuperAdmin2026', fullName: 'Админ', roleCode: 'superadmin', organizationCode: 'system-admin' },
+  { username: 'voenkomat', password: 'Voenkomat2026', fullName: 'Военкомат', roleCode: 'admin', organizationCode: 'system-admin' },
+  { username: 'admin', password: 'Admin2026', fullName: 'Админ', roleCode: 'superadmin', organizationCode: 'system-admin' },
   { username: 'maternity', password: 'Roddom2026', fullName: 'Сотрудник роддома', roleCode: 'maternity', organizationCode: 'maternity-central' },
   { username: 'zags', password: 'Zags2026', fullName: 'Сотрудник ЗАГС', roleCode: 'zags', organizationCode: 'zags-central' },
   { username: 'jek', password: 'Jek2026', fullName: 'Сотрудник ЖЭК', roleCode: 'jek', organizationCode: 'jek-central' },

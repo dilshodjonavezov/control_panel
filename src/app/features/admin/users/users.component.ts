@@ -90,17 +90,13 @@ export class UsersComponent implements OnInit {
       users: this.authService.getUsers(),
       roles: this.authService.getRoles(),
     })
-      .pipe(
-        finalize(() => {
-          this.isLoading = false;
-        }),
-      )
+      .pipe(finalize(() => { this.isLoading = false; }))
       .subscribe({
         next: ({ users, roles }) => {
-          this.roles = roles.filter((role) => role.isActive !== false && role.code !== 'superadmin');
+          this.roles = roles.filter((role) => role.isActive !== false);
           this.roleOptions = this.roles.map((role) => ({
             value: role.id,
-            label: role.name,
+            label: role.code === 'superadmin' ? 'Админ' : role.name,
           }));
           this.users = users.map((user) => this.mapUser(user));
         },
@@ -133,7 +129,7 @@ export class UsersComponent implements OnInit {
       fullName: user.fullName,
       username: user.username,
       password: '',
-      email: user.email,
+      email: user.email === '—' ? '' : user.email,
       roleId: matchedRole?.id?.toString() ?? '',
     };
     this.showModal = true;
@@ -192,11 +188,7 @@ export class UsersComponent implements OnInit {
       : this.authService.createUser(createPayload);
 
     request$
-      .pipe(
-        finalize(() => {
-          this.isSaving = false;
-        }),
-      )
+      .pipe(finalize(() => { this.isSaving = false; }))
       .subscribe({
         next: () => {
           this.closeModal();
@@ -211,34 +203,36 @@ export class UsersComponent implements OnInit {
   }
 
   toggleStatus(user: UserItem): void {
-    this.authService
-      .updateUser(user.id, { isActive: !user.isActive })
-      .subscribe({
-        next: () => {
-          this.users = this.users.map((item) =>
-            item.id === user.id ? { ...item, isActive: !item.isActive } : item,
-          );
-        },
-        error: () => {
-          this.errorMessage = 'Не удалось изменить статус пользователя.';
-        },
-      });
+    this.authService.updateUser(user.id, { isActive: !user.isActive }).subscribe({
+      next: () => {
+        this.users = this.users.map((item) =>
+          item.id === user.id ? { ...item, isActive: !item.isActive } : item,
+        );
+      },
+      error: () => {
+        this.errorMessage = 'Не удалось изменить статус пользователя.';
+      },
+    });
   }
 
   getRoleLabel(roleCode: string): string {
-    return this.roles.find((role) => role.code === roleCode)?.name ?? roleCode;
+    const matchedRole = this.roles.find((role) => role.code === roleCode);
+    if (!matchedRole) {
+      return roleCode;
+    }
+
+    return matchedRole.code === 'superadmin' ? 'Админ' : matchedRole.name;
   }
 
   private mapUser(user: AuthUser): UserItem {
+    const roleCode = user.roleCode?.trim() || 'unknown';
     return {
       id: user.id,
       fullName: user.fullName?.trim() || `ID ${user.id}`,
       username: user.username,
       email: user.email?.trim() || '—',
-      roleCode: user.roleCode?.trim() || 'unknown',
-      roleName: user.roleCode?.trim() === 'superadmin'
-        ? 'Военкомат'
-        : user.roleName?.trim() || this.getRoleLabel(user.roleCode?.trim() || 'unknown'),
+      roleCode,
+      roleName: this.getRoleLabel(roleCode),
       isActive: user.isActive !== false,
     };
   }

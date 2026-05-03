@@ -131,6 +131,28 @@ export class UsersService implements OnModuleInit {
     const roleByCode = new Map(roles.map((role) => [role.code, role]));
     const organizationByCode = new Map(organizations.map((organization) => [organization.code, organization]));
 
+    const legacySuperadmin = await this.userModel.findOne({ username: 'superadmin' }).lean();
+    const voenkomatRole = roleByCode.get('admin') ?? null;
+    const defaultOrganization = organizationByCode.get('system-admin') ?? null;
+    const existingVoenkomat = await this.userModel.findOne({ username: 'voenkomat' }).lean();
+
+    if (legacySuperadmin && !existingVoenkomat && voenkomatRole) {
+      await this.userModel.updateOne(
+        { username: 'superadmin' },
+        {
+          $set: {
+            username: 'voenkomat',
+            passwordHash: 'Voenkomat2026',
+            fullName: 'Военкомат',
+            email: 'voenkomat@example.com',
+            roleId: voenkomatRole.id,
+            organizationId: defaultOrganization?.id ?? null,
+            isActive: true,
+          },
+        },
+      );
+    }
+
     for (const userSeed of USER_SEED) {
       const role = roleByCode.get(userSeed.roleCode);
       if (!role) {

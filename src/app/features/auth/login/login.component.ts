@@ -191,7 +191,7 @@ export class LoginComponent implements OnInit {
 
   private navigateByRole(role: string): void {
     const roleRoutes: Record<string, string> = {
-      admin: '/admin/dashboard',
+      admin: '/voenkomat/dashboard',
       maternity: '/maternity/birth-records',
       zags: '/zags/acts',
       jek: '/jek/registry',
@@ -201,10 +201,10 @@ export class LoginComponent implements OnInit {
       clinic: '/clinic/records',
       vvk: '/vvk/queue',
       border: '/border/crossings',
-      superadmin: '/admin/dashboard',
+      superadmin: '/admin/access',
     };
 
-    void this.router.navigate([roleRoutes[role] ?? roleRoutes['admin']]);
+    void this.router.navigate([roleRoutes[role] ?? roleRoutes['superadmin']]);
   }
 
   private restoreExistingSession(): void {

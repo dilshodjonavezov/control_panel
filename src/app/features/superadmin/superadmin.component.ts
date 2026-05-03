@@ -20,24 +20,31 @@ export class SuperadminComponent {
       items: [
         {
           id: 'access',
-          path: '/superadmin/access',
-          label: 'Пользователи и доступы',
+          path: '/admin/access',
+          label: 'Организации и доступы',
           icon: '🛡️',
-          hint: 'Назначение ролей и доступ к модулям системы',
+          hint: 'Создание служб, логинов и распределение кабинетов',
+        },
+        {
+          id: 'users',
+          path: '/admin/users',
+          label: 'Пользователи',
+          icon: '👤',
+          hint: 'Отдельные учётные записи и проверка ролей',
         },
       ],
     },
   ];
 
   readonly quickActions: PortalShellQuickAction[] = [
-    { path: '/superadmin/access', label: 'Роли и права', icon: '🔐', description: 'Проверить, кому открыт каждый модуль системы' },
-    { path: '/superadmin/access', label: 'Сеансы и доступ', icon: '🧭', description: 'Контроль учетных записей и служебных пользователей' },
-    { path: '/superadmin/access', label: 'Матрица ролей', icon: '📚', description: 'Единая точка управления правами во всех службах' },
+    { path: '/admin/access', label: 'Создать службу', icon: '🏛️', description: 'Добавить военкомат, роддом, ЗАГС, ЖЭК, ВВК, школу и другие организации' },
+    { path: '/admin/users', label: 'Проверить логины', icon: '🔐', description: 'Проверить, кому выдан доступ и какие роли назначены' },
+    { path: '/admin/access', label: 'Матрица ролей', icon: '📚', description: 'Единая точка управления доступом во всех службах' },
   ];
 
   readonly metrics: PortalShellMetric[] = [
-    { label: 'Роли', value: '11', hint: 'Военкомат, ЗАГС, ЖЭК, учеба, ВВК и другие службы' },
+    { label: 'Роли', value: '12', hint: 'Админ, военкомат, ЗАГС, ЖЭК, учеба, ВВК и другие службы' },
     { label: 'Контроль', value: 'Центральный', hint: 'Доступ управляется из одной административной зоны' },
-    { label: 'Назначение', value: 'Гибкое', hint: 'Права можно быстро сверять и корректировать' },
+    { label: 'Назначение', value: 'Гибкое', hint: 'Логины и организации можно быстро создавать и менять' },
   ];
 }

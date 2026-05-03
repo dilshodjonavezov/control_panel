@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { AdminComponent } from './features/admin/admin.component';
+import { AdminComponent as VoenkomatComponent } from './features/admin/admin.component';
 import { DashboardComponent } from './features/admin/dashboard/dashboard.component';
 import { CitizensComponent } from './features/admin/citizens/citizens.component';
 import { CitizenDetailComponent } from './features/admin/citizen-detail/citizen-detail.component';
@@ -11,7 +11,6 @@ import { DefermentReviewComponent } from './features/admin/deferment-review/defe
 import { ExpulsionNotificationsComponent } from './features/admin/expulsion-notifications/expulsion-notifications.component';
 import { OrganizationsComponent } from './features/admin/organizations/organizations.component';
 import { UsersComponent } from './features/admin/users/users.component';
-import { AdminAuditComponent } from './features/admin/audit/admin-audit.component';
 import { AdminSettingsComponent } from './features/admin/settings/admin-settings.component';
 import { LoginComponent } from './features/auth/login/login.component';
 import { ZagsComponent } from './features/zags/zags.component';
@@ -36,10 +35,13 @@ import { VvkComponent } from './features/vvk/vvk.component';
 import { VvkQueueComponent } from './features/vvk/vvk-queue/vvk-queue.component';
 import { BorderComponent } from './features/border/border.component';
 import { BorderCrossingListComponent } from './features/border/border-crossing-list/border-crossing-list.component';
+import { SuperadminComponent as AdminShellComponent } from './features/superadmin/superadmin.component';
+import { AccessControlComponent } from './features/superadmin/access-control/access-control.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'login/admin', redirectTo: '/login', pathMatch: 'full' },
+  { path: 'login/voenkomat', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login/maternity', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login/zags', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login/jek', redirectTo: '/login', pathMatch: 'full' },
@@ -50,11 +52,34 @@ export const routes: Routes = [
   { path: 'login/vvk', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login/border', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login/superadmin', redirectTo: '/login', pathMatch: 'full' },
-  { path: 'superadmin', redirectTo: '/admin/dashboard', pathMatch: 'full' },
-  { path: 'superadmin/access', redirectTo: '/admin/organizations', pathMatch: 'full' },
+
+  { path: 'superadmin', redirectTo: '/admin/access', pathMatch: 'full' },
+  { path: 'superadmin/access', redirectTo: '/admin/access', pathMatch: 'full' },
+
+  { path: 'admin/dashboard', redirectTo: '/voenkomat/dashboard', pathMatch: 'full' },
+  { path: 'admin/conscripts', redirectTo: '/voenkomat/conscripts', pathMatch: 'full' },
+  { path: 'admin/citizens', redirectTo: '/voenkomat/citizens', pathMatch: 'full' },
+  { path: 'admin/education-registry', redirectTo: '/voenkomat/education-registry', pathMatch: 'full' },
+  { path: 'admin/deferment-review', redirectTo: '/voenkomat/deferment-review', pathMatch: 'full' },
+  { path: 'admin/expulsions', redirectTo: '/voenkomat/expulsions', pathMatch: 'full' },
+  { path: 'admin/school', redirectTo: '/voenkomat/school', pathMatch: 'full' },
+  { path: 'admin/university', redirectTo: '/voenkomat/university', pathMatch: 'full' },
+  { path: 'admin/settings', redirectTo: '/voenkomat/settings', pathMatch: 'full' },
+  { path: 'admin/reports', redirectTo: '/voenkomat/reports', pathMatch: 'full' },
+
   {
     path: 'admin',
-    component: AdminComponent,
+    component: AdminShellComponent,
+    children: [
+      { path: '', redirectTo: 'access', pathMatch: 'full' },
+      { path: 'access', component: AccessControlComponent },
+      { path: 'organizations', component: OrganizationsComponent },
+      { path: 'users', component: UsersComponent },
+    ],
+  },
+  {
+    path: 'voenkomat',
+    component: VoenkomatComponent,
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'dashboard', component: DashboardComponent },
@@ -67,11 +92,9 @@ export const routes: Routes = [
       { path: 'school', component: SchoolComponent },
       { path: 'university', component: UniversityComponent },
       { path: 'organizations', component: OrganizationsComponent },
-      { path: 'users', component: UsersComponent },
-      { path: 'audit', component: AdminAuditComponent },
       { path: 'reports', component: ReportsComponent },
-      { path: 'settings', component: AdminSettingsComponent }
-    ]
+      { path: 'settings', component: AdminSettingsComponent },
+    ],
   },
   {
     path: 'maternity',
@@ -79,8 +102,8 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'birth-records', pathMatch: 'full' },
       { path: 'birth-records', component: BirthRecordListComponent },
-      { path: 'birth-records/:id', component: BirthRecordViewComponent }
-    ]
+      { path: 'birth-records/:id', component: BirthRecordViewComponent },
+    ],
   },
   {
     path: 'zags',
@@ -88,8 +111,8 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'acts', pathMatch: 'full' },
       { path: 'acts', component: ZagsActListComponent },
-      { path: 'acts/:id', component: ZagsActViewComponent }
-    ]
+      { path: 'acts/:id', component: ZagsActViewComponent },
+    ],
   },
   {
     path: 'jek',
@@ -97,24 +120,24 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'registry', pathMatch: 'full' },
       { path: 'registry', component: JekRegistryComponent },
-      { path: 'families', component: JekFamiliesComponent }
-    ]
+      { path: 'families', component: JekFamiliesComponent },
+    ],
   },
   {
     path: 'passport',
     component: PassportComponent,
     children: [
       { path: '', redirectTo: 'registry', pathMatch: 'full' },
-      { path: 'registry', component: PassportRegistryComponent }
-    ]
+      { path: 'registry', component: PassportRegistryComponent },
+    ],
   },
   {
     path: 'school',
     component: SchoolPortalComponent,
     children: [
       { path: '', redirectTo: 'studies', pathMatch: 'full' },
-      { path: 'studies', component: SchoolStudyListComponent }
-    ]
+      { path: 'studies', component: SchoolStudyListComponent },
+    ],
   },
   {
     path: 'university',
@@ -122,32 +145,32 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'studies', pathMatch: 'full' },
       { path: 'studies', component: UniversityStudyListComponent },
-      { path: 'studies/:id', component: UniversityStudyDetailComponent }
-    ]
+      { path: 'studies/:id', component: UniversityStudyDetailComponent },
+    ],
   },
   {
     path: 'clinic',
     component: ClinicComponent,
     children: [
       { path: '', redirectTo: 'records', pathMatch: 'full' },
-      { path: 'records', component: MedicalRecordReadComponent }
-    ]
+      { path: 'records', component: MedicalRecordReadComponent },
+    ],
   },
   {
     path: 'vvk',
     component: VvkComponent,
     children: [
       { path: '', redirectTo: 'queue', pathMatch: 'full' },
-      { path: 'queue', component: VvkQueueComponent }
-    ]
+      { path: 'queue', component: VvkQueueComponent },
+    ],
   },
   {
     path: 'border',
     component: BorderComponent,
     children: [
       { path: '', redirectTo: 'crossings', pathMatch: 'full' },
-      { path: 'crossings', component: BorderCrossingListComponent }
-    ]
+      { path: 'crossings', component: BorderCrossingListComponent },
+    ],
   },
-  { path: '', redirectTo: '/login', pathMatch: 'full' }
+  { path: '', redirectTo: '/login', pathMatch: 'full' },
 ];

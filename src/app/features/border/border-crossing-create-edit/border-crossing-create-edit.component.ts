@@ -41,16 +41,21 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   isReferenceLoading = false;
   isCitizenDetailsLoading = false;
   isSubmitting = false;
+  isCitizenSearchLoading = false;
   errorMessage = '';
   successMessage = '';
 
   form: BorderCrossingForm = this.createDefaultForm();
-  peopleOptions: SelectOption[] = [];
   citizens: ApiCitizen[] = [];
-
   selectedCitizen: ApiCitizen | null = null;
   selectedPassport: ApiPassportRecord | null = null;
   selectedAddress: ApiAddress | null = null;
+
+  citizenSearch = '';
+  citizenPage = 1;
+  readonly citizenPageSize = 15;
+  citizenTotal = 0;
+  hasMoreCitizens = false;
 
   outsideBorderOptions: SelectOption[] = [
     { value: 'true', label: 'Да' },
@@ -65,14 +70,13 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   ) {}
 
   ngOnInit(): void {
-    this.loadReferenceData();
+    this.loadInitialCitizens();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['citizen'] && this.citizen?.id && !this.recordId) {
       this.form.peopleId = this.extractPeopleId(this.citizen.id)?.toString() ?? '';
-      this.syncSelectedCitizen();
-      this.loadCitizenDetails();
+      this.loadSelectedCitizen();
     }
 
     if (changes['recordId'] && this.recordId) {
@@ -102,10 +106,73 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     return `${this.selectedCitizen.fatherFullName?.trim() || 'Отец не указан'} / ${this.selectedCitizen.motherFullName?.trim() || 'Мать не указана'}`;
   }
 
-  onCitizenChanged(value: string | number | null): void {
-    this.form.peopleId = String(value ?? '');
-    this.syncSelectedCitizen();
+  get selectedCitizenLabel(): string {
+    if (!this.selectedCitizen) {
+      return 'Гражданин не выбран';
+    }
+
+    return this.selectedCitizen.fullName?.trim() || `ID ${this.selectedCitizen.id}`;
+  }
+
+  get citizenRangeLabel(): string {
+    if (this.citizenTotal === 0) {
+      return 'Ничего не найдено';
+    }
+
+    const start = (this.citizenPage - 1) * this.citizenPageSize + 1;
+    const end = Math.min(this.citizenPage * this.citizenPageSize, this.citizenTotal);
+    return `${start}-${end} из ${this.citizenTotal}`;
+  }
+
+  searchCitizens(page = 1): void {
+    this.isCitizenSearchLoading = true;
+    this.citizenPage = page;
+
+    this.borderCrossingService
+      .searchCitizens(this.citizenSearch, this.citizenPage, this.citizenPageSize)
+      .pipe(
+        finalize(() => {
+          this.isCitizenSearchLoading = false;
+        }),
+      )
+      .subscribe({
+        next: (response) => {
+          this.citizens = response.items;
+          this.citizenTotal = response.total;
+          this.citizenPage = response.page;
+          this.hasMoreCitizens = response.hasMore;
+        },
+        error: () => {
+          this.citizens = [];
+          this.citizenTotal = 0;
+          this.hasMoreCitizens = false;
+        },
+      });
+  }
+
+  selectCitizen(citizen: ApiCitizen): void {
+    this.selectedCitizen = citizen;
+    this.form.peopleId = citizen.id.toString();
     this.loadCitizenDetails();
+  }
+
+  clearSelectedCitizen(): void {
+    this.form.peopleId = '';
+    this.selectedCitizen = null;
+    this.selectedPassport = null;
+    this.selectedAddress = null;
+  }
+
+  goToPreviousCitizenPage(): void {
+    if (this.citizenPage > 1) {
+      this.searchCitizens(this.citizenPage - 1);
+    }
+  }
+
+  goToNextCitizenPage(): void {
+    if (this.hasMoreCitizens) {
+      this.searchCitizens(this.citizenPage + 1);
+    }
   }
 
   save(): void {
@@ -161,32 +228,28 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     }
   }
 
-  private loadReferenceData(): void {
+  private loadInitialCitizens(): void {
     this.isReferenceLoading = true;
     this.errorMessage = '';
 
     this.borderCrossingService
-      .getCitizens()
+      .searchCitizens('', 1, this.citizenPageSize)
       .pipe(
-        timeout(15000),
         finalize(() => {
           this.isReferenceLoading = false;
         }),
       )
       .subscribe({
-        next: (citizens) => {
-          this.citizens = citizens.slice().sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'));
-          this.peopleOptions = this.citizens.map((citizen) => ({
-            value: citizen.id.toString(),
-            label: citizen.fullName?.trim() || `ID ${citizen.id}`,
-          }));
+        next: (response) => {
+          this.citizens = response.items;
+          this.citizenTotal = response.total;
+          this.citizenPage = response.page;
+          this.hasMoreCitizens = response.hasMore;
 
           if (this.citizen?.id && !this.recordId) {
             this.form.peopleId = this.extractPeopleId(this.citizen.id)?.toString() ?? '';
+            this.loadSelectedCitizen();
           }
-
-          this.syncSelectedCitizen();
-          this.loadCitizenDetails();
 
           if (this.recordId) {
             this.loadRecord();
@@ -194,7 +257,8 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
         },
         error: (error: unknown) => {
           this.citizens = [];
-          this.peopleOptions = [];
+          this.citizenTotal = 0;
+          this.hasMoreCitizens = false;
           this.errorMessage =
             error instanceof TimeoutError
               ? 'Превышено время ожидания ответа API.'
@@ -227,7 +291,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
             return;
           }
           this.applyRecord(record);
-          this.loadCitizenDetails();
+          this.loadSelectedCitizen();
         },
         error: (error: unknown) => {
           this.errorMessage =
@@ -247,19 +311,26 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       country: record.country?.trim() || '',
       description: record.description?.trim() || '',
     };
-    this.syncSelectedCitizen();
   }
 
-  private syncSelectedCitizen(): void {
+  private loadSelectedCitizen(): void {
     const peopleId = Number(this.form.peopleId);
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      this.selectedCitizen = null;
-      this.selectedPassport = null;
-      this.selectedAddress = null;
+      this.clearSelectedCitizen();
       return;
     }
 
-    this.selectedCitizen = this.citizens.find((citizen) => citizen.id === peopleId) ?? null;
+    const localCitizen = this.citizens.find((citizen) => citizen.id === peopleId) ?? null;
+    if (localCitizen) {
+      this.selectedCitizen = localCitizen;
+      this.loadCitizenDetails();
+      return;
+    }
+
+    this.borderCrossingService.getCitizenById(peopleId).subscribe((citizen) => {
+      this.selectedCitizen = citizen;
+      this.loadCitizenDetails();
+    });
   }
 
   private loadCitizenDetails(): void {
@@ -300,7 +371,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     const userId = this.authService.resolveCurrentUserId();
 
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      this.errorMessage = 'Выберите гражданина из общего списка.';
+      this.errorMessage = 'Выберите гражданина из списка ниже.';
       return null;
     }
 

@@ -20,14 +20,101 @@
 
   <app-card title="Данные пересечения">
     <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-      <app-select
-        label="Гражданин"
-        placeholder="Выберите гражданина"
-        [options]="peopleOptions"
-        [disabled]="isReferenceLoading || isLoading"
-        [ngModel]="form.peopleId"
-        (ngModelChange)="onCitizenChanged($event)"
-      ></app-select>
+      <div class="space-y-3 md:col-span-2">
+        <div class="flex flex-col gap-3 md:flex-row md:items-end">
+          <div class="flex-1">
+            <app-input
+              label="Гражданин"
+              placeholder="Введите ФИО или ИИН"
+              [disabled]="isLoading"
+              [(ngModel)]="citizenSearch"
+            ></app-input>
+          </div>
+          <div class="flex gap-3">
+            <app-button
+              variant="secondary"
+              [disabled]="isLoading || isCitizenSearchLoading"
+              [loading]="isCitizenSearchLoading"
+              (clicked)="searchCitizens(1)"
+            >
+              Найти
+            </app-button>
+            @if (selectedCitizen) {
+              <app-button
+                variant="secondary"
+                [disabled]="isLoading || isCitizenDetailsLoading"
+                (clicked)="clearSelectedCitizen()"
+              >
+                Очистить
+              </app-button>
+            }
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Выбранный гражданин</div>
+              <div class="mt-1 text-sm font-semibold text-slate-900">{{ selectedCitizenLabel }}</div>
+            </div>
+            <div class="text-xs text-slate-500">
+              @if (isCitizenSearchLoading) {
+                <span>Идёт загрузка списка...</span>
+              } @else {
+                <span>{{ citizenRangeLabel }}</span>
+              }
+            </div>
+          </div>
+
+          <div class="mt-4 space-y-2">
+            @for (citizen of citizens; track citizen.id) {
+              <button
+                type="button"
+                class="w-full rounded-xl border px-4 py-3 text-left transition"
+                [class.border-brand-500]="selectedCitizen?.id === citizen.id"
+                [class.bg-brand-50]="selectedCitizen?.id === citizen.id"
+                [class.border-slate-200]="selectedCitizen?.id !== citizen.id"
+                [class.bg-white]="selectedCitizen?.id !== citizen.id"
+                [disabled]="isCitizenDetailsLoading && selectedCitizen?.id !== citizen.id"
+                (click)="selectCitizen(citizen)"
+              >
+                <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
+                  <div class="text-sm font-semibold text-slate-900">{{ citizen.fullName }}</div>
+                  <div class="text-xs text-slate-500">ID {{ citizen.id }}</div>
+                </div>
+                <div class="mt-1 text-xs text-slate-500">
+                  Дата рождения: {{ citizen.birthDate || 'Не указана' }}
+                </div>
+              </button>
+            } @empty {
+              <div class="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
+                Граждане не найдены. Уточните запрос и нажмите «Найти».
+              </div>
+            }
+          </div>
+
+          <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div class="text-xs text-slate-500">Загружается только текущая страница списка.</div>
+            <div class="flex gap-2">
+              <app-button
+                variant="secondary"
+                [disabled]="citizenPage <= 1 || isCitizenSearchLoading"
+                (clicked)="goToPreviousCitizenPage()"
+              >
+                Назад
+              </app-button>
+              <app-button
+                variant="secondary"
+                [disabled]="!hasMoreCitizens || isCitizenSearchLoading"
+                (clicked)="goToNextCitizenPage()"
+              >
+                Дальше
+              </app-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <app-input
         label="Дата выезда"
         type="datetime-local"

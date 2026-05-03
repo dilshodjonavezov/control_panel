@@ -67,6 +67,36 @@ export class CitizensService implements OnModuleInit {
     return citizens.map((citizen) => this.mapCitizen(citizen));
   }
 
+  async searchPaged(search?: string, page = 1, limit = 20): Promise<Record<string, unknown>> {
+    const filter: FilterQuery<CitizenDocument> = {};
+    if (search?.trim()) {
+      const value = search.trim();
+      filter.$or = [
+        { fullName: { $regex: value, $options: 'i' } },
+        { firstName: { $regex: value, $options: 'i' } },
+        { lastName: { $regex: value, $options: 'i' } },
+        { iin: { $regex: value, $options: 'i' } },
+      ];
+    }
+
+    const safePage = Number.isInteger(page) && page > 0 ? page : 1;
+    const safeLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 50) : 20;
+    const skip = (safePage - 1) * safeLimit;
+
+    const [citizens, total] = await Promise.all([
+      this.citizenModel.find(filter).sort({ id: -1 }).skip(skip).limit(safeLimit).lean(),
+      this.citizenModel.countDocuments(filter),
+    ]);
+
+    return {
+      items: citizens.map((citizen) => this.mapCitizen(citizen)),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      hasMore: skip + citizens.length < total,
+    };
+  }
+
   async findOne(id: number | string): Promise<Record<string, unknown>> {
     const numericId = this.parseId(id, 'Citizen');
     const citizen = await this.citizenModel.findOne({ id: numericId }).lean();

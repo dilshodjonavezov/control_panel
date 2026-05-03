@@ -22,8 +22,22 @@ export class CitizensController {
   @Get()
   @ApiOperation({ summary: 'Get citizens list' })
   @ApiQuery({ name: 'search', required: false, type: String })
+  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiOkResponse({ type: CitizenResponseDto, isArray: true })
-  findAll(@Query('search') search?: string) {
+  findAll(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    if (page || limit) {
+      return this.citizensService.searchPaged(
+        search,
+        page ? Number(page) : 1,
+        limit ? Number(limit) : 20,
+      );
+    }
+
     return this.citizensService.findAll(search);
   }
 

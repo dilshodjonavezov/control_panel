@@ -9,6 +9,14 @@ interface ApiResponse<T> {
   data?: T;
 }
 
+export interface PagedCitizensResponse {
+  items: ApiCitizen[];
+  total: number;
+  page: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface ApiCitizen {
   id: number;
   fullName: string;
@@ -92,6 +100,47 @@ export class BorderCrossingService {
     return this.http
       .get<ApiResponse<ApiCitizen[]> | ApiCitizen[]>(this.citizensApiUrl)
       .pipe(timeout(10000), map((response) => this.unwrapArray<ApiCitizen>(response)), catchError(() => of([])));
+  }
+
+  searchCitizens(search: string, page = 1, limit = 20): Observable<PagedCitizensResponse> {
+    const params = new URLSearchParams();
+    if (search.trim()) {
+      params.set('search', search.trim());
+    }
+    params.set('page', String(page));
+    params.set('limit', String(limit));
+
+    return this.http
+      .get<PagedCitizensResponse>(`${this.citizensApiUrl}?${params.toString()}`)
+      .pipe(
+        timeout(10000),
+        map((response) => ({
+          items: Array.isArray(response?.items) ? response.items : [],
+          total: Number(response?.total ?? 0),
+          page: Number(response?.page ?? page),
+          limit: Number(response?.limit ?? limit),
+          hasMore: Boolean(response?.hasMore),
+        })),
+        catchError(() =>
+          of({
+            items: [],
+            total: 0,
+            page,
+            limit,
+            hasMore: false,
+          }),
+        ),
+      );
+  }
+
+  getCitizenById(id: number): Observable<ApiCitizen | null> {
+    return this.http
+      .get<ApiResponse<ApiCitizen> | ApiCitizen>(`${this.citizensApiUrl}/${id}`)
+      .pipe(
+        timeout(10000),
+        map((response) => this.unwrapOne<ApiCitizen>(response)),
+        catchError(() => of(null)),
+      );
   }
 
   private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {

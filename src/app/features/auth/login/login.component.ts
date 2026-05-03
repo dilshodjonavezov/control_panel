@@ -201,7 +201,7 @@ export class LoginComponent implements OnInit {
       clinic: '/clinic/records',
       vvk: '/vvk/queue',
       border: '/border/crossings',
-      superadmin: '/superadmin/access',
+      superadmin: '/admin/dashboard',
     };
 
     void this.router.navigate([roleRoutes[role] ?? roleRoutes['admin']]);

@@ -36,8 +36,6 @@ import { VvkComponent } from './features/vvk/vvk.component';
 import { VvkQueueComponent } from './features/vvk/vvk-queue/vvk-queue.component';
 import { BorderComponent } from './features/border/border.component';
 import { BorderCrossingListComponent } from './features/border/border-crossing-list/border-crossing-list.component';
-import { SuperadminComponent } from './features/superadmin/superadmin.component';
-import { AccessControlComponent } from './features/superadmin/access-control/access-control.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -52,6 +50,8 @@ export const routes: Routes = [
   { path: 'login/vvk', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login/border', redirectTo: '/login', pathMatch: 'full' },
   { path: 'login/superadmin', redirectTo: '/login', pathMatch: 'full' },
+  { path: 'superadmin', redirectTo: '/admin/dashboard', pathMatch: 'full' },
+  { path: 'superadmin/access', redirectTo: '/admin/organizations', pathMatch: 'full' },
   {
     path: 'admin',
     component: AdminComponent,
@@ -147,14 +147,6 @@ export const routes: Routes = [
     children: [
       { path: '', redirectTo: 'crossings', pathMatch: 'full' },
       { path: 'crossings', component: BorderCrossingListComponent }
-    ]
-  },
-  {
-    path: 'superadmin',
-    component: SuperadminComponent,
-    children: [
-      { path: '', redirectTo: 'access', pathMatch: 'full' },
-      { path: 'access', component: AccessControlComponent }
     ]
   },
   { path: '', redirectTo: '/login', pathMatch: 'full' }

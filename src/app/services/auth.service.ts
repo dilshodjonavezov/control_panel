@@ -183,7 +183,7 @@ export class AuthService {
   resolveStoredRole(): string | null {
     const currentUser = this.getCurrentUser();
     if (currentUser?.roleCode?.trim()) {
-      return currentUser.roleCode.trim().toLowerCase();
+      return this.normalizeRoleCode(currentUser.roleCode);
     }
 
     const impersonatedUserId = this.getImpersonatedUserId();
@@ -212,7 +212,7 @@ export class AuthService {
 
     const userIdByUsername: Record<string, number> = {
       admin: 1,
-      superadmin: 2,
+      superadmin: 1,
       maternity: 3,
       zags: 4,
       jek: 5,
@@ -249,7 +249,7 @@ export class AuthService {
   private resolveRoleByUserId(userId: number): string | null {
     const roleByUserId: Record<number, string> = {
       1: 'admin',
-      2: 'superadmin',
+      2: 'admin',
       3: 'maternity',
       4: 'zags',
       5: 'jek',
@@ -272,7 +272,7 @@ export class AuthService {
 
     const roleByUsername: Record<string, string> = {
       admin: 'admin',
-      superadmin: 'superadmin',
+      superadmin: 'admin',
       maternity: 'maternity',
       zags: 'zags',
       jek: 'jek',
@@ -292,6 +292,15 @@ export class AuthService {
     };
 
     return roleByUsername[normalizedUsername] ?? null;
+  }
+
+  private normalizeRoleCode(value: string | null | undefined): string | null {
+    const normalized = (value ?? '').trim().toLowerCase();
+    if (!normalized) {
+      return null;
+    }
+
+    return normalized === 'superadmin' ? 'admin' : normalized;
   }
 
   private unwrapArray<T>(response: ApiResponse<T[]> | T[]): T[] {

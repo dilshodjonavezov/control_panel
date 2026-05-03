@@ -97,7 +97,7 @@ export class UsersComponent implements OnInit {
       )
       .subscribe({
         next: ({ users, roles }) => {
-          this.roles = roles.filter((role) => role.isActive !== false);
+          this.roles = roles.filter((role) => role.isActive !== false && role.code !== 'superadmin');
           this.roleOptions = this.roles.map((role) => ({
             value: role.id,
             label: role.name,
@@ -236,7 +236,9 @@ export class UsersComponent implements OnInit {
       username: user.username,
       email: user.email?.trim() || '—',
       roleCode: user.roleCode?.trim() || 'unknown',
-      roleName: user.roleName?.trim() || this.getRoleLabel(user.roleCode?.trim() || 'unknown'),
+      roleName: user.roleCode?.trim() === 'superadmin'
+        ? 'Военкомат'
+        : user.roleName?.trim() || this.getRoleLabel(user.roleCode?.trim() || 'unknown'),
       isActive: user.isActive !== false,
     };
   }

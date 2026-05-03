@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { finalize, forkJoin, of, switchMap } from 'rxjs';
@@ -100,6 +100,7 @@ export class OrganizationsComponent implements OnInit {
     private readonly organizationsService: OrganizationsService,
     private readonly authService: AuthService,
     private readonly educationInstitutionsService: EducationInstitutionsService,
+    private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -115,7 +116,6 @@ export class OrganizationsComponent implements OnInit {
       users: this.authService.getUsers(),
       roles: this.authService.getRoles(),
     })
-      .pipe(finalize(() => (this.isLoading = false)))
       .subscribe({
         next: ({ organizations, users, roles }) => {
           this.roles = roles.filter((role) => role.isActive !== false);
@@ -128,10 +128,15 @@ export class OrganizationsComponent implements OnInit {
           if (roles.length === 0 || users.length === 0) {
             this.errorMessage = 'Часть административных данных не загрузилась. Обновите страницу или войдите заново.';
           }
+
+          this.isLoading = false;
+          this.cdr.detectChanges();
         },
         error: () => {
           this.organizations = [];
           this.errorMessage = 'Не удалось загрузить организации.';
+          this.isLoading = false;
+          this.cdr.detectChanges();
         },
       });
   }

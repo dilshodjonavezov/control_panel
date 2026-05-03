@@ -1,12 +1,15 @@
 <div class="space-y-6">
   <div class="flex items-center justify-between gap-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Учреждения и доступы</h1>
-      <p class="mt-2 text-gray-600">Админ создаёт школу, колледж, институт, университет или поликлинику и сразу выдаёт логин и пароль для входа.</p>
+      <h1 class="text-3xl font-bold text-gray-900">Организации и доступы</h1>
+      <p class="mt-2 text-gray-600">
+        Админ создаёт военкомат, роддом, ЗАГС, ЖЭК, паспортный стол, школу, колледж, институт, университет,
+        поликлинику, ВВК и погранслужбу, а затем сразу выдаёт логин и пароль для входа.
+      </p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
-      <app-button variant="primary" (clicked)="openAdd()">Добавить учреждение</app-button>
+      <app-button variant="primary" (clicked)="openAdd()">Добавить организацию</app-button>
     </div>
   </div>
 
@@ -23,7 +26,7 @@
       [loading]="isLoading"
       [rowTemplate]="rowTemplate"
       [actionsTemplate]="actionsTemplate"
-      [emptyMessage]="'Учреждений пока нет'"
+      [emptyMessage]="'Организаций пока нет'"
     >
       <ng-template #rowTemplate let-row>
         <td class="px-6 py-4 text-sm font-semibold text-gray-900">{{ row.name }}</td>
@@ -53,7 +56,7 @@
     </app-table>
   </app-card>
 
-  <app-modal [show]="showModal" [title]="editing ? 'Редактировать учреждение' : 'Создать учреждение'" size="lg" (closed)="closeModal()">
+  <app-modal [show]="showModal" [title]="editing ? 'Редактировать организацию' : 'Создать организацию'" size="lg" (closed)="closeModal()">
     <div class="space-y-4">
       @if (formErrorMessage) {
         <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
@@ -61,7 +64,7 @@
 
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <app-select
-          label="Тип учреждения"
+          label="Тип организации"
           [options]="typeOptions"
           [ngModel]="formData.type"
           (ngModelChange)="onTypeChange($event)"
@@ -88,12 +91,12 @@
         }
 
         @if (shouldShowServiceAreaField()) {
-          <app-input label="Зона обслуживания" [(ngModel)]="formData.serviceArea" name="serviceArea"></app-input>
+          <app-input [label]="getServiceAreaLabel()" [(ngModel)]="formData.serviceArea" name="serviceArea"></app-input>
         }
       </div>
 
       <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <h3 class="text-sm font-semibold text-slate-900">Учётка для входа</h3>
+        <h3 class="text-sm font-semibold text-slate-900">Учётная запись для входа</h3>
         <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
           <app-input label="ФИО ответственного" [(ngModel)]="formData.accountFullName" name="accountFullName"></app-input>
           <app-input label="Логин" [(ngModel)]="formData.username" name="username"></app-input>

@@ -35,7 +35,19 @@ interface OrganizationTableItem {
   linkedUser: AuthUser | null;
 }
 
-type InstitutionType = 'SCHOOL' | 'COLLEGE' | 'INSTITUTE' | 'UNIVERSITY' | 'CLINIC';
+type OrganizationType =
+  | 'ADMIN'
+  | 'MATERNITY'
+  | 'ZAGS'
+  | 'JEK'
+  | 'PASSPORT'
+  | 'SCHOOL'
+  | 'COLLEGE'
+  | 'INSTITUTE'
+  | 'UNIVERSITY'
+  | 'CLINIC'
+  | 'VVK'
+  | 'BORDER';
 
 @Component({
   selector: 'app-organizations',
@@ -56,15 +68,22 @@ export class OrganizationsComponent implements OnInit {
   private users: AuthUser[] = [];
 
   readonly typeOptions: SelectOption[] = [
+    { value: 'ADMIN', label: 'Военкомат' },
+    { value: 'MATERNITY', label: 'Роддом' },
+    { value: 'ZAGS', label: 'ЗАГС' },
+    { value: 'JEK', label: 'ЖЭК' },
+    { value: 'PASSPORT', label: 'Паспортный стол' },
     { value: 'SCHOOL', label: 'Школа' },
     { value: 'COLLEGE', label: 'Колледж' },
     { value: 'INSTITUTE', label: 'Институт' },
     { value: 'UNIVERSITY', label: 'Университет' },
     { value: 'CLINIC', label: 'Поликлиника' },
+    { value: 'VVK', label: 'ВВК' },
+    { value: 'BORDER', label: 'Погранслужба' },
   ];
 
   readonly columns: TableColumn[] = [
-    { key: 'name', label: 'Учреждение', sortable: true },
+    { key: 'name', label: 'Организация', sortable: true },
     { key: 'type', label: 'Тип', sortable: true },
     { key: 'city', label: 'Город', sortable: true },
     { key: 'phone', label: 'Телефон', sortable: false },
@@ -102,13 +121,13 @@ export class OrganizationsComponent implements OnInit {
           this.roles = roles.filter((role) => role.isActive !== false);
           this.users = users;
           this.organizations = organizations
-            .filter((organization) => this.isInstitutionType(organization.type))
+            .filter((organization) => this.isOrganizationType(organization.type))
             .map((organization) => this.mapOrganizationRow(organization, users))
             .sort((left, right) => left.name.localeCompare(right.name, 'ru'));
         },
         error: () => {
           this.organizations = [];
-          this.errorMessage = 'Не удалось загрузить учреждения.';
+          this.errorMessage = 'Не удалось загрузить организации.';
         },
       });
   }
@@ -124,7 +143,7 @@ export class OrganizationsComponent implements OnInit {
     this.editing = item;
     this.formErrorMessage = '';
     this.formData = {
-      type: this.isInstitutionType(item.organization.type) ? item.organization.type : 'SCHOOL',
+      type: this.isOrganizationType(item.organization.type) ? item.organization.type : 'ADMIN',
       name: item.organization.name ?? '',
       city: item.organization.city ?? '',
       addressText: item.organization.addressText ?? '',
@@ -189,6 +208,7 @@ export class OrganizationsComponent implements OnInit {
               return this.authService.updateUser(linkedUser.id, {
                 ...userPayload,
                 organizationId: organization.id,
+                ...(this.formData.password.trim() ? { password: this.formData.password.trim() } : {}),
               } as UpdateAuthUserRequest);
             }
 
@@ -212,8 +232,8 @@ export class OrganizationsComponent implements OnInit {
         },
         error: () => {
           this.formErrorMessage = this.editing
-            ? 'Не удалось обновить учреждение и его учётку.'
-            : 'Не удалось создать учреждение и его учётку.';
+            ? 'Не удалось обновить организацию и её учётную запись.'
+            : 'Не удалось создать организацию и её учётную запись.';
         },
       });
   }
@@ -239,17 +259,17 @@ export class OrganizationsComponent implements OnInit {
           this.loadData();
         },
         error: () => {
-          this.errorMessage = 'Не удалось изменить статус учреждения.';
+          this.errorMessage = 'Не удалось изменить статус организации.';
         },
       });
   }
 
   onTypeChange(value: string | number | null): void {
-    if (!value || !this.isInstitutionType(String(value))) {
+    if (!value || !this.isOrganizationType(String(value))) {
       return;
     }
 
-    this.formData.type = String(value) as InstitutionType;
+    this.formData.type = String(value) as OrganizationType;
     if (this.formData.accountFullName.trim() === '') {
       this.formData.accountFullName = this.getDefaultAccountName(this.formData.name, String(value));
     }
@@ -261,23 +281,37 @@ export class OrganizationsComponent implements OnInit {
 
   getHeadLabel(): string {
     switch (this.formData.type) {
+      case 'ADMIN':
+        return 'Военный комиссар';
+      case 'MATERNITY':
+        return 'Главный врач роддома';
+      case 'ZAGS':
+        return 'Начальник ЗАГС';
+      case 'JEK':
+        return 'Начальник ЖЭК';
+      case 'PASSPORT':
+        return 'Начальник паспортного стола';
       case 'SCHOOL':
         return 'Директор школы';
-      case 'CLINIC':
-        return 'Главный врач';
       case 'COLLEGE':
         return 'Директор колледжа';
       case 'INSTITUTE':
         return 'Ректор или директор института';
       case 'UNIVERSITY':
         return 'Ректор университета';
+      case 'CLINIC':
+        return 'Главный врач';
+      case 'VVK':
+        return 'Председатель ВВК';
+      case 'BORDER':
+        return 'Начальник погранслужбы';
       default:
         return 'Руководитель';
     }
   }
 
   getHeadHint(): string {
-    return 'Главное ответственное лицо учреждения.';
+    return 'Главное ответственное лицо организации.';
   }
 
   shouldShowLicenseField(): boolean {
@@ -289,7 +323,18 @@ export class OrganizationsComponent implements OnInit {
   }
 
   shouldShowServiceAreaField(): boolean {
-    return this.formData.type === 'CLINIC';
+    return this.formData.type === 'CLINIC' || this.formData.type === 'JEK' || this.formData.type === 'BORDER';
+  }
+
+  getServiceAreaLabel(): string {
+    switch (this.formData.type) {
+      case 'JEK':
+        return 'Район обслуживания';
+      case 'BORDER':
+        return 'Участок или направление';
+      default:
+        return 'Зона обслуживания';
+    }
   }
 
   private mapOrganizationRow(organization: OrganizationRecord, users: AuthUser[]): OrganizationTableItem {
@@ -311,25 +356,27 @@ export class OrganizationsComponent implements OnInit {
     };
   }
 
-  private resolveRoleForType(type: string): AuthRole | null {
-    const roleCode =
-      type === 'SCHOOL'
-        ? 'school'
-        : type === 'CLINIC'
-          ? 'clinic'
-          : type === 'COLLEGE' || type === 'INSTITUTE' || type === 'UNIVERSITY'
-            ? 'university'
-            : null;
+  private resolveRoleForType(type: OrganizationType): AuthRole | null {
+    const roleCodeMap: Record<OrganizationType, string> = {
+      ADMIN: 'admin',
+      MATERNITY: 'maternity',
+      ZAGS: 'zags',
+      JEK: 'jek',
+      PASSPORT: 'passport',
+      SCHOOL: 'school',
+      COLLEGE: 'university',
+      INSTITUTE: 'university',
+      UNIVERSITY: 'university',
+      CLINIC: 'clinic',
+      VVK: 'vvk',
+      BORDER: 'border',
+    };
 
-    if (!roleCode) {
-      return null;
-    }
-
-    return this.roles.find((role) => role.code === roleCode) ?? null;
+    return this.roles.find((role) => role.code === roleCodeMap[type]) ?? null;
   }
 
   private buildOrganizationPayload(): CreateOrganizationRequest {
-    const type = this.formData.type as InstitutionType;
+    const type = this.formData.type as OrganizationType;
     return {
       type,
       code: this.editing?.organization.code ?? this.generateCode(type, this.formData.name, this.formData.city),
@@ -369,7 +416,7 @@ export class OrganizationsComponent implements OnInit {
 
   private validateForm(): string | null {
     if (!this.formData.name.trim()) {
-      return 'Укажите название учреждения.';
+      return 'Укажите название организации.';
     }
     if (!this.formData.city.trim()) {
       return 'Укажите город.';
@@ -378,7 +425,7 @@ export class OrganizationsComponent implements OnInit {
       return 'Укажите телефон.';
     }
     if (!this.formData.headFullName.trim()) {
-      return 'Укажите руководителя учреждения.';
+      return 'Укажите руководителя организации.';
     }
     if (!this.formData.username.trim()) {
       return 'Укажите логин для входа.';
@@ -398,7 +445,7 @@ export class OrganizationsComponent implements OnInit {
 
   private createEmptyForm() {
     return {
-      type: 'SCHOOL' as InstitutionType,
+      type: 'ADMIN' as OrganizationType,
       name: '',
       city: '',
       addressText: '',
@@ -435,8 +482,21 @@ export class OrganizationsComponent implements OnInit {
     return normalized ? normalized : null;
   }
 
-  private isInstitutionType(value: string): value is InstitutionType {
-    return value === 'SCHOOL' || value === 'COLLEGE' || value === 'INSTITUTE' || value === 'UNIVERSITY' || value === 'CLINIC';
+  private isOrganizationType(value: string): value is OrganizationType {
+    return (
+      value === 'ADMIN' ||
+      value === 'MATERNITY' ||
+      value === 'ZAGS' ||
+      value === 'JEK' ||
+      value === 'PASSPORT' ||
+      value === 'SCHOOL' ||
+      value === 'COLLEGE' ||
+      value === 'INSTITUTE' ||
+      value === 'UNIVERSITY' ||
+      value === 'CLINIC' ||
+      value === 'VVK' ||
+      value === 'BORDER'
+    );
   }
 
   private shouldCreateEducationInstitution(): boolean {

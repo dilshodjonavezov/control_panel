@@ -155,7 +155,7 @@ export class CitizensComponent implements OnInit {
   }
 
   viewDetails(row: VoenkomatCitizenRow): void {
-    this.router.navigate(['/admin/citizens', row.id]);
+    this.router.navigate(['/voenkomat/citizens', row.id]);
   }
 
   getBirthYearOptions(): SelectOption[] {

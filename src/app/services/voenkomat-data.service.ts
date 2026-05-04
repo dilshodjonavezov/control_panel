@@ -211,6 +211,7 @@ export interface VoenkomatCitizenRow {
   borderCountry: string;
   passportNumber: string;
   lifeStatus: string;
+  spouseName: string;
 }
 
 export interface VoenkomatDashboardData {
@@ -458,12 +459,35 @@ export class VoenkomatDataService {
           borderCountry: border?.country ?? '—',
           passportNumber: passport?.passportNumber ?? 'Нет паспорта',
           lifeStatus: citizen.lifeStatus,
+          spouseName: this.getSpouseName(citizen, family),
         } as VoenkomatCitizenRow;
       })
-      .map((row) => ({
-        ...row,
-        voenkomatSection: this.getVoenkomatSection(row),
-      }))
+      .map((row) => {
+        const citizen = snapshot.citizens.find((item) => item.id === row.id);
+        const family = citizen ? this.findFamily(snapshot.families, citizen) : null;
+        const normalizedChildrenCount = citizen ? this.countCitizenChildren(snapshot, citizen, family) : row.childrenCount;
+        const normalizedMilitaryStatus =
+          row.militaryStatus === 'РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ РїРѕ СЃРµРјСЊРµ' || normalizedChildrenCount >= 2 || family?.eligibleFatherForMilitaryExemption
+            ? 'РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ РїРѕ СЃРµРјСЊРµ'
+            : row.militaryStatus;
+        const normalizedDefermentBasis =
+          normalizedChildrenCount >= 2 || family?.eligibleFatherForMilitaryExemption
+            ? `Освобождение по семье: ${normalizedChildrenCount} детей`
+            : row.defermentBasis;
+
+        const normalizedRow = {
+          ...row,
+          childrenCount: normalizedChildrenCount,
+          militaryStatus: normalizedMilitaryStatus,
+          defermentBasis: normalizedDefermentBasis,
+          spouseName: citizen ? this.getSpouseName(citizen, family) : row.spouseName,
+        };
+
+        return {
+          ...normalizedRow,
+          voenkomatSection: this.getVoenkomatSection(normalizedRow),
+        };
+      })
       .sort((left, right) => right.age - left.age || left.fullName.localeCompare(right.fullName, 'ru'));
   }
 
@@ -702,7 +726,15 @@ export class VoenkomatDataService {
     return 'Нет решения ВВК';
   }
 
-  private getDefermentBasis(military: ApiMilitaryRecord | null, education: ApiEducationRecord | null, family: ApiFamily | null): string {
+  private getDefermentBasis(
+    military: ApiMilitaryRecord | null,
+    education: ApiEducationRecord | null,
+    family: ApiFamily | null,
+    childrenCount = 0,
+  ): string {
+    if (childrenCount >= 2 || family?.eligibleFatherForMilitaryExemption) {
+      return `Освобождение по семье: ${childrenCount} детей`;
+    }
     if (military?.militaryStatus === 'FAMILY_CIRCUMSTANCES') {
       return military.familyExemptionReason ?? 'Семейное основание';
     }
@@ -741,6 +773,45 @@ export class VoenkomatDataService {
     }
 
     return 'Остальные мужчины';
+  }
+
+  private countCitizenChildren(snapshot: Snapshot, citizen: ApiCitizen, family: ApiFamily | null): number {
+    const counts = [
+      family?.childrenCount ?? 0,
+      family?.childCitizenIds?.length ?? 0,
+      family?.children?.length ?? 0,
+      snapshot.citizens.filter((item) => item.fatherCitizenId === citizen.id).length,
+      snapshot.zagsBirthRecords.filter(
+        (item) => (item.fatherFullName ?? '').trim().toLowerCase() === citizen.fullName.trim().toLowerCase(),
+      ).length,
+    ];
+
+    const latestMilitaryRecord = this.getLatestByDate(
+      snapshot.militaryRecords.filter((item) => item.peopleId === citizen.id),
+      (item) => item.enlistDate,
+    );
+
+    if (typeof latestMilitaryRecord?.childrenCount === 'number') {
+      counts.push(latestMilitaryRecord.childrenCount);
+    }
+
+    return Math.max(...counts, 0);
+  }
+
+  private getSpouseName(citizen: ApiCitizen, family: ApiFamily | null): string {
+    if (!family) {
+      return 'Не указана';
+    }
+
+    if (family.fatherCitizenId === citizen.id) {
+      return family.motherFullName?.trim() || 'Не указана';
+    }
+
+    if (family.motherCitizenId === citizen.id) {
+      return family.fatherFullName?.trim() || 'Не указан';
+    }
+
+    return family.motherFullName?.trim() || family.fatherFullName?.trim() || 'Не указана';
   }
 
   private hasCompletedService(military: ApiMilitaryRecord | null): boolean {

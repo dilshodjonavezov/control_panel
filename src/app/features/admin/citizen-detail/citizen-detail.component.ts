@@ -46,7 +46,7 @@ export class CitizenDetailComponent implements OnInit {
   }
 
   goBack(): void {
-    this.router.navigate(['/admin/citizens']);
+    this.router.navigate(['/voenkomat/citizens']);
   }
 
   formatDate(date?: string | null): string {

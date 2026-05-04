@@ -36,6 +36,10 @@
             <div class="font-semibold">{{ detail()!.citizen.militaryStatus }}</div>
           </div>
           <div>
+            <div class="text-slate-500">Супруга</div>
+            <div class="font-semibold">{{ detail()!.citizen.spouseName || 'Не указана' }}</div>
+          </div>
+          <div>
             <div class="text-slate-500">Годность</div>
             <div class="font-semibold">{{ detail()!.citizen.fitnessCategory }}</div>
           </div>

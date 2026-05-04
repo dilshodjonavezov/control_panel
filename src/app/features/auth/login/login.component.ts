@@ -171,11 +171,16 @@ export class LoginComponent implements OnInit {
 
   private resolveHttpError(error: HttpErrorResponse): string {
     const errorPayload = error.error as Record<string, unknown> | string | null;
+
     if (errorPayload && typeof errorPayload === 'object') {
       const message = errorPayload['message'];
       if (typeof message === 'string' && message.trim()) {
-        return message;
+        return error.status === 401 ? 'Неверный логин или пароль.' : message;
       }
+    }
+
+    if (error.status === 401) {
+      return 'Неверный логин или пароль.';
     }
 
     if (error.status === 0) {

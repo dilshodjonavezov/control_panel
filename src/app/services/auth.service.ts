@@ -86,6 +86,7 @@ export class AuthService {
 
   login(payload: LoginRequest): Observable<LoginResult> {
     return this.http.post<LoginApiResponse>(`${this.apiUrl}/login`, payload).pipe(
+      timeout(10000),
       map((response) => ({
         token: this.extractToken(response),
         raw: response,

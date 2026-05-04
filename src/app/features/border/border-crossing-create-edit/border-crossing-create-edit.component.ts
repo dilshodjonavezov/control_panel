@@ -2,8 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, of, switchMap, timeout, TimeoutError } from 'rxjs';
-import { AddressesService, ApiAddress } from '../../../services/addresses.service';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, map, of, switchMap, timeout, TimeoutError } from 'rxjs';
+import { AddressesService, ApiAddress, ApiFamily } from '../../../services/addresses.service';
 import { AuthService } from '../../../services/auth.service';
 import {
   ApiBorderCrossing,
@@ -55,6 +55,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   selectedCitizen: ApiCitizen | null = null;
   selectedPassport: ApiPassportRecord | null = null;
   selectedAddress: ApiAddress | null = null;
+  selectedFamily: ApiFamily | null = null;
 
   citizenSearch = '';
   citizenPage = 1;
@@ -62,6 +63,10 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   citizenTotal = 0;
   currentCitizenPageCount = 0;
   hasMoreCitizens = false;
+
+  private allPassports: ApiPassportRecord[] | null = null;
+  private allAddresses: ApiAddress[] | null = null;
+  private allFamilies: ApiFamily[] | null = null;
 
   outsideBorderOptions: SelectOption[] = [
     { value: 'true', label: 'Да' },
@@ -103,6 +108,13 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       return 'Загрузка адреса...';
     }
     return this.selectedAddress?.fullAddress?.trim() || 'Нет активного адреса';
+  }
+
+  get familyLabel(): string {
+    if (this.isCitizenDetailsLoading) {
+      return 'Загрузка семьи...';
+    }
+    return this.selectedFamily?.familyName?.trim() || 'Семья не найдена';
   }
 
   get parentSummary(): string {
@@ -193,6 +205,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     this.selectedCitizen = null;
     this.selectedPassport = null;
     this.selectedAddress = null;
+    this.selectedFamily = null;
   }
 
   goToPreviousCitizenPage(): void {
@@ -408,6 +421,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
       this.selectedPassport = null;
       this.selectedAddress = null;
+      this.selectedFamily = null;
       this.isCitizenDetailsLoading = false;
       return;
     }
@@ -415,25 +429,89 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     this.isCitizenDetailsLoading = true;
 
     forkJoin({
-      passports: this.passportRecordsService.getByPeopleId(peopleId),
-      addresses: this.addressesService.getByCitizenId(peopleId),
+      passports: this.passportRecordsService.getByPeopleId(peopleId).pipe(catchError(() => of([]))),
+      addresses: this.addressesService.getByCitizenId(peopleId).pipe(catchError(() => of([]))),
     })
       .pipe(
         timeout(15000),
+        switchMap(({ passports, addresses }) => {
+          const hasDirectPassport = passports.length > 0;
+          const hasDirectAddress = addresses.length > 0;
+          const hasFamilyId = this.selectedCitizen?.familyId != null;
+
+          if (hasDirectPassport && hasDirectAddress && hasFamilyId) {
+            return of({
+              directPassports: passports,
+              directAddresses: addresses,
+              fallbackPassports: this.allPassports ?? [],
+              fallbackAddresses: this.allAddresses ?? [],
+              families: this.allFamilies ?? [],
+            });
+          }
+
+          return this.ensureFallbackReferences().pipe(
+            map((fallback) => ({
+              directPassports: passports,
+              directAddresses: addresses,
+              fallbackPassports: fallback.passports,
+              fallbackAddresses: fallback.addresses,
+              families: fallback.families,
+            })),
+          );
+        }),
         finalize(() => {
           this.isCitizenDetailsLoading = false;
         }),
       )
       .subscribe({
-        next: ({ passports, addresses }) => {
-          this.selectedPassport = passports[0] ?? null;
-          this.selectedAddress = addresses.find((address) => address.isActive) ?? addresses[0] ?? null;
+        next: ({ directPassports, directAddresses, fallbackPassports, fallbackAddresses, families }) => {
+          this.selectedFamily =
+            families.find((family) => family.id === this.selectedCitizen?.familyId) ??
+            families.find((family) => family.memberCitizenIds.includes(peopleId) || family.childCitizenIds?.includes(peopleId)) ??
+            null;
+
+          this.selectedPassport =
+            directPassports[0] ??
+            fallbackPassports.find((passport) => passport.peopleId === peopleId || passport.citizenId === peopleId) ??
+            null;
+
+          this.selectedAddress =
+            directAddresses.find((address) => address.isActive) ??
+            directAddresses[0] ??
+            fallbackAddresses.find((address) => address.citizenId === peopleId && address.isActive) ??
+            fallbackAddresses.find((address) => this.selectedFamily?.id != null && address.familyId === this.selectedFamily.id && address.isActive) ??
+            fallbackAddresses.find((address) => address.citizenId === peopleId) ??
+            null;
         },
         error: () => {
           this.selectedPassport = null;
           this.selectedAddress = null;
+          this.selectedFamily = null;
         },
       });
+  }
+
+  private ensureFallbackReferences() {
+    if (this.allPassports && this.allAddresses && this.allFamilies) {
+      return of({
+        passports: this.allPassports,
+        addresses: this.allAddresses,
+        families: this.allFamilies,
+      });
+    }
+
+    return forkJoin({
+      passports: this.passportRecordsService.getAll().pipe(catchError(() => of([]))),
+      addresses: this.addressesService.getAll().pipe(catchError(() => of([]))),
+      families: this.addressesService.getFamilies().pipe(catchError(() => of([]))),
+    }).pipe(
+      map(({ passports, addresses, families }) => {
+        this.allPassports = passports;
+        this.allAddresses = addresses;
+        this.allFamilies = families;
+        return { passports, addresses, families };
+      }),
+    );
   }
 
   private buildPayload(): CreateBorderCrossingRequest | null {

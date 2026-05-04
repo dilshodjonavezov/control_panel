@@ -2,7 +2,7 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Поликлиника</h1>
-      <p class="mt-2 text-gray-600">Осмотры выпускников школы и решение по годности.</p>
+      <p class="mt-2 text-gray-600">Медкарты, осмотры и решения по годности для дальнейшей передачи в ВВК.</p>
     </div>
     <app-button variant="primary" (clicked)="openCreateExamModal()">Новый осмотр</app-button>
   </div>
@@ -59,13 +59,13 @@
     </app-table>
   </app-card>
 
-  <app-modal [show]="showExamModal" [title]="isEditExamMode ? 'Изменение осмотра' : 'Осмотр выпускника'" size="xl" (closed)="closeExamModal()">
+  <app-modal [show]="showExamModal" [title]="isEditExamMode ? 'Изменение осмотра' : 'Осмотр гражданина'" size="xl" (closed)="closeExamModal()">
     <div class="space-y-4">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <app-select
-          label="Выпускник"
+          label="Гражданин"
           [options]="candidateOptions"
-          placeholder="Выберите выпускника"
+          placeholder="Выберите гражданина"
           [(ngModel)]="examForm.peopleId"
           (changed)="onCandidateChanged($event)"
         ></app-select>
@@ -76,6 +76,59 @@
         <app-input label="Причина" [(ngModel)]="examForm.reason"></app-input>
         <app-input label="Причина отсрочки" [(ngModel)]="examForm.defermentReason"></app-input>
         <app-input label="Комментарий" [(ngModel)]="examForm.notes"></app-input>
+
+        @if (examForm.peopleId) {
+          <div class="md:col-span-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 space-y-3">
+            <div>
+              <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Пациент</div>
+              <div class="text-base font-semibold text-gray-900">{{ currentSelectedPersonName || '—' }}</div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Дата рождения</div>
+                <div class="text-gray-900">{{ currentSelectedBirthDate || '—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Гражданство</div>
+                <div class="text-gray-900">{{ currentSelectedCitizenship || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Пол</div>
+                <div class="text-gray-900">{{ currentSelectedGender || '—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Семья</div>
+                <div class="text-gray-900">{{ currentSelectedFamily || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Отец</div>
+                <div class="text-gray-900">{{ currentSelectedFather || '—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Мать</div>
+                <div class="text-gray-900">{{ currentSelectedMother || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Адрес</div>
+                <div class="text-gray-900">{{ currentSelectedAddress || '—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Паспорт</div>
+                <div class="text-gray-900">{{ currentSelectedPassport || '—' }}</div>
+              </div>
+            </div>
+          </div>
+        }
       </div>
 
       @if (examErrorMessage) {

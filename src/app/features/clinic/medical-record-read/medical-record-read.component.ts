@@ -2,10 +2,21 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
-import { CardComponent, TableComponent, TableColumn, InputComponent, SelectComponent, SelectOption, ButtonComponent, ModalComponent } from '../../../shared/components';
+import { catchError, finalize, forkJoin, of, TimeoutError, timeout } from 'rxjs';
+import {
+  ButtonComponent,
+  CardComponent,
+  InputComponent,
+  ModalComponent,
+  SelectComponent,
+  SelectOption,
+  TableComponent,
+  TableColumn,
+} from '../../../shared/components';
 import { AuthService } from '../../../services/auth.service';
-import { MedicalRecordsService, ApiMedicalRecord, ApiSchoolRecord, CreateMedicalRecordRequest } from '../../../services/medical-records.service';
+import { MedicalRecordsService, ApiMedicalRecord, CreateMedicalRecordRequest } from '../../../services/medical-records.service';
+import { AddressesService, ApiAddress, ApiCitizen, ApiFamily } from '../../../services/addresses.service';
+import { PassportRecordsService, ApiPassportRecord } from '../../../services/passport-records.service';
 
 type Decision = 'FIT' | 'UNFIT';
 
@@ -39,7 +50,7 @@ interface ExamForm {
   standalone: true,
   imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, SelectComponent, ButtonComponent, ModalComponent],
   templateUrl: './medical-record-read.component.html',
-  styleUrl: './medical-record-read.component.css'
+  styleUrl: './medical-record-read.component.css',
 })
 export class MedicalRecordReadComponent implements OnInit {
   filters = {
@@ -79,13 +90,17 @@ export class MedicalRecordReadComponent implements OnInit {
 
   examForm: ExamForm = this.resetExamFormData();
 
-  private graduatedCandidates: ApiSchoolRecord[] = [];
-  private citizensById = new Map<number, { fullName: string; fatherFullName: string; motherFullName: string }>();
+  private citizens: ApiCitizen[] = [];
+  private addresses: ApiAddress[] = [];
+  private passports: ApiPassportRecord[] = [];
+  private families: ApiFamily[] = [];
   private currentOrganizationId: number | null = null;
   private currentOrganizationName: string | null = null;
 
   constructor(
     private readonly medicalRecordsService: MedicalRecordsService,
+    private readonly addressesService: AddressesService,
+    private readonly passportRecordsService: PassportRecordsService,
     private readonly authService: AuthService,
     private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
@@ -123,27 +138,64 @@ export class MedicalRecordReadComponent implements OnInit {
     });
   }
 
+  get currentSelectedPersonName(): string {
+    return this.getSelectedCitizen()?.fullName?.trim() || '';
+  }
+
+  get currentSelectedBirthDate(): string {
+    const citizen = this.getSelectedCitizen();
+    return citizen?.birthDate ? this.formatDate(citizen.birthDate) : '';
+  }
+
+  get currentSelectedGender(): string {
+    const citizen = this.getSelectedCitizen();
+    return this.formatGender(citizen?.gender ?? '');
+  }
+
+  get currentSelectedCitizenship(): string {
+    return this.getSelectedCitizen()?.citizenship?.trim() || '';
+  }
+
+  get currentSelectedFather(): string {
+    return this.resolveFatherName(this.getSelectedCitizen()) || '';
+  }
+
+  get currentSelectedMother(): string {
+    return this.resolveMotherName(this.getSelectedCitizen()) || '';
+  }
+
+  get currentSelectedFamily(): string {
+    const family = this.findFamilyForCitizen(this.getSelectedCitizen());
+    return family?.familyName?.trim() || (family ? `Семья #${family.id}` : '');
+  }
+
+  get currentSelectedAddress(): string {
+    return this.findAddressForCitizen(this.getSelectedCitizen())?.fullAddress?.trim() || '';
+  }
+
+  get currentSelectedPassport(): string {
+    return this.findPassportForCitizen(this.getSelectedCitizen())?.passportNumber?.trim() || '';
+  }
+
   loadData(): void {
     this.isLoading = true;
     this.errorMessage = '';
 
     forkJoin({
-      records: this.medicalRecordsService.getAll(),
-      graduates: this.medicalRecordsService.getGraduatedSchoolRecords(),
-      citizens: this.medicalRecordsService.getCitizens(),
+      records: this.medicalRecordsService.getAll().pipe(catchError(() => of([]))),
+      citizens: this.medicalRecordsService.getCitizens().pipe(catchError(() => of([]))),
+      addresses: this.addressesService.getAll().pipe(catchError(() => of([]))),
+      passports: this.passportRecordsService.getAll().pipe(catchError(() => of([]))),
+      families: this.addressesService.getFamilies().pipe(catchError(() => of([]))),
     })
       .pipe(timeout(15000))
       .subscribe({
-        next: ({ records, graduates, citizens }) => {
-          this.graduatedCandidates = graduates;
-          this.citizensById = new Map(
-            citizens.map((citizen) => [citizen.id, {
-              fullName: citizen.fullName,
-              fatherFullName: citizen.fatherFullName ?? '',
-              motherFullName: citizen.motherFullName ?? '',
-            }]),
-          );
-          this.candidateOptions = this.buildCandidateOptions(graduates);
+        next: ({ records, citizens, addresses, passports, families }) => {
+          this.citizens = citizens;
+          this.addresses = addresses;
+          this.passports = passports;
+          this.families = families;
+          this.candidateOptions = this.buildCandidateOptions(citizens);
           const visibleRecords = this.currentOrganizationId
             ? records.filter((record) => record.organizationId === this.currentOrganizationId)
             : records;
@@ -154,8 +206,10 @@ export class MedicalRecordReadComponent implements OnInit {
         error: (error: unknown) => {
           this.records = [];
           this.candidateOptions = [];
-          this.graduatedCandidates = [];
-          this.citizensById.clear();
+          this.citizens = [];
+          this.addresses = [];
+          this.passports = [];
+          this.families = [];
           this.errorMessage = error instanceof TimeoutError
             ? 'Превышено время ожидания ответа API.'
             : 'Не удалось загрузить медицинские записи.';
@@ -260,13 +314,15 @@ export class MedicalRecordReadComponent implements OnInit {
   }
 
   private mapRecord(record: ApiMedicalRecord): MedicalVisitItem {
+    const citizen = this.findCitizenById(record.peopleId);
+
     return {
       id: record.id,
       peopleId: record.peopleId,
-      patientFullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
-      fatherFullName: record.fatherFullName?.trim() || '-',
-      motherFullName: record.motherFullName?.trim() || '-',
-      addressLabel: record.addressLabel?.trim() || '-',
+      patientFullName: citizen?.fullName?.trim() || record.peopleFullName?.trim() || `ID ${record.peopleId}`,
+      fatherFullName: this.resolveFatherName(citizen) || record.fatherFullName?.trim() || '-',
+      motherFullName: this.resolveMotherName(citizen) || record.motherFullName?.trim() || '-',
+      addressLabel: this.findAddressForCitizen(citizen)?.fullAddress?.trim() || record.addressLabel?.trim() || '-',
       clinic: record.clinic?.trim() || '-',
       date: this.formatDate(record.createdAtRecord),
       decision: (record.decision as Decision) ?? 'FIT',
@@ -276,19 +332,24 @@ export class MedicalRecordReadComponent implements OnInit {
     };
   }
 
-  private buildCandidateOptions(records: ApiSchoolRecord[]): SelectOption[] {
-    return records
+  private buildCandidateOptions(citizens: ApiCitizen[]): SelectOption[] {
+    return citizens
       .slice()
-      .sort((a, b) => (a.peopleFullName ?? '').localeCompare(b.peopleFullName ?? '', 'ru'))
-      .map((record) => {
-        const citizen = this.citizensById.get(record.peopleId);
+      .sort((a, b) => (a.fullName ?? '').localeCompare(b.fullName ?? '', 'ru'))
+      .map((citizen) => {
         const parentBits: string[] = [];
-        if (citizen?.fatherFullName) parentBits.push(`отец: ${citizen.fatherFullName}`);
-        if (citizen?.motherFullName) parentBits.push(`мать: ${citizen.motherFullName}`);
-        const label = record.peopleFullName?.trim() || `ID ${record.peopleId}`;
+        const fatherName = this.resolveFatherName(citizen);
+        const motherName = this.resolveMotherName(citizen);
+        if (fatherName) {
+          parentBits.push(`отец: ${fatherName}`);
+        }
+        if (motherName) {
+          parentBits.push(`мать: ${motherName}`);
+        }
+
         return {
-          value: String(record.peopleId),
-          label: parentBits.length > 0 ? `${label} (${parentBits.join(', ')})` : label,
+          value: String(citizen.id),
+          label: parentBits.length > 0 ? `${citizen.fullName} (${parentBits.join(', ')})` : citizen.fullName,
         };
       });
   }
@@ -298,7 +359,7 @@ export class MedicalRecordReadComponent implements OnInit {
     const userId = this.authService.resolveCurrentUserId();
 
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      this.examErrorMessage = 'Выберите выпускника школы.';
+      this.examErrorMessage = 'Выберите гражданина.';
       return null;
     }
     if (!userId) {
@@ -340,6 +401,88 @@ export class MedicalRecordReadComponent implements OnInit {
       defermentReason: '',
       notes: '',
     };
+  }
+
+  private getSelectedCitizen(): ApiCitizen | null {
+    const peopleId = Number(this.examForm.peopleId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      return null;
+    }
+    return this.findCitizenById(peopleId);
+  }
+
+  private findCitizenById(id: number): ApiCitizen | null {
+    return this.citizens.find((citizen) => citizen.id === id) ?? null;
+  }
+
+  private resolveFatherName(citizen: ApiCitizen | null): string {
+    if (!citizen) {
+      return '';
+    }
+    if (citizen.fatherFullName?.trim()) {
+      return citizen.fatherFullName.trim();
+    }
+    if (citizen.fatherCitizenId) {
+      return this.findCitizenById(citizen.fatherCitizenId)?.fullName?.trim() || '';
+    }
+    return this.findFamilyForCitizen(citizen)?.fatherFullName?.trim() || '';
+  }
+
+  private resolveMotherName(citizen: ApiCitizen | null): string {
+    if (!citizen) {
+      return '';
+    }
+    if (citizen.motherFullName?.trim()) {
+      return citizen.motherFullName.trim();
+    }
+    if (citizen.motherCitizenId) {
+      return this.findCitizenById(citizen.motherCitizenId)?.fullName?.trim() || '';
+    }
+    return this.findFamilyForCitizen(citizen)?.motherFullName?.trim() || '';
+  }
+
+  private findFamilyForCitizen(citizen: ApiCitizen | null): ApiFamily | null {
+    if (!citizen) {
+      return null;
+    }
+
+    return (
+      this.families.find((item) => item.id === citizen.familyId) ??
+      this.families.find(
+        (item) => item.memberCitizenIds.includes(citizen.id) || item.childCitizenIds?.includes(citizen.id),
+      ) ??
+      null
+    );
+  }
+
+  private findAddressForCitizen(citizen: ApiCitizen | null): ApiAddress | null {
+    if (!citizen) {
+      return null;
+    }
+    const family = this.findFamilyForCitizen(citizen);
+    return (
+      this.addresses.find((item) => item.citizenId === citizen.id && item.isActive) ??
+      this.addresses.find((item) => item.familyId === family?.id && item.isActive) ??
+      null
+    );
+  }
+
+  private findPassportForCitizen(citizen: ApiCitizen | null): ApiPassportRecord | null {
+    if (!citizen) {
+      return null;
+    }
+    return this.passports.find((item) => item.peopleId === citizen.id || item.citizenId === citizen.id) ?? null;
+  }
+
+  private formatGender(value: string): string {
+    const normalized = value.trim().toUpperCase();
+    if (normalized === 'MALE') {
+      return 'Мужской';
+    }
+    if (normalized === 'FEMALE') {
+      return 'Женский';
+    }
+    return value.trim();
   }
 
   private formatDate(value: string | null): string {

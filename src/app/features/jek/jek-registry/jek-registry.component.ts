@@ -376,7 +376,7 @@ export class JekRegistryComponent implements OnInit {
     }
 
     if (!this.formData.region.trim()) {
-      this.formErrorMessage = 'Укажите регион.';
+      this.formErrorMessage = 'Укажите область.';
       return null;
     }
 

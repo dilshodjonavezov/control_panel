@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
 import {
   ButtonComponent,
@@ -54,6 +54,7 @@ interface InstitutionRow extends ApiEducationInstitution {
   styleUrl: './university-study-list.component.css',
 })
 export class UniversityStudyListComponent implements OnInit {
+  isRedirectingToInstitution = false;
   institutionTypeOptions: SelectOption[] = [
     { value: 'UNIVERSITY', label: 'Университет' },
     { value: 'COLLEGE', label: 'Колледж' },
@@ -102,6 +103,7 @@ export class UniversityStudyListComponent implements OnInit {
     private readonly authService: AuthService,
     private readonly organizationsService: OrganizationsService,
     private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
@@ -162,6 +164,14 @@ export class UniversityStudyListComponent implements OnInit {
           const currentOrganizationId = this.authService.getCurrentUser()?.organizationId ?? null;
           const currentOrganization = organizations.find((item) => item.id === currentOrganizationId) ?? null;
           this.linkedInstitutionId = currentOrganization?.educationInstitutionId ?? null;
+          if (this.linkedInstitutionId) {
+            this.isRedirectingToInstitution = true;
+            void this.router.navigate(['/university/studies', this.linkedInstitutionId], {
+              queryParams: this.route.snapshot.queryParams,
+              replaceUrl: true,
+            });
+            return;
+          }
           const visibleInstitutions = this.linkedInstitutionId
             ? institutions.filter((institution) => institution.id === this.linkedInstitutionId)
             : institutions;
@@ -300,6 +310,14 @@ export class UniversityStudyListComponent implements OnInit {
       return 'Школа';
     }
     return '';
+  }
+
+  get pageTitle(): string {
+    return 'Учебные заведения';
+  }
+
+  get pageDescription(): string {
+    return 'Этот экран нужен только как общий список заведений. Кабинет колледжа или вуза должен работать внутри своего учреждения.';
   }
 
   private mergeRecords(

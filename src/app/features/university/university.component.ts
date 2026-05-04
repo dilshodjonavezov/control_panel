@@ -5,6 +5,7 @@ import {
   PortalShellNavSection,
   PortalShellQuickAction,
 } from '../../shared/components/portal-shell/portal-shell.component';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-university',
@@ -14,16 +15,21 @@ import {
   styleUrl: './university.component.css',
 })
 export class UniversityComponent {
+  readonly currentUser;
+  readonly institutionName;
+  readonly accountEmail;
+  readonly avatarLetter;
+
   readonly navSections: PortalShellNavSection[] = [
     {
-      title: 'Колледж и вуз',
+      title: 'Учебный учет',
       items: [
         {
           id: 'studies',
           path: '/university/studies',
-          label: 'Реестр обучения',
+          label: 'Студенты и обучение',
           icon: '🎓',
-          hint: 'Студенты, курсы, факультеты и текущий статус',
+          hint: 'Реестр студентов, факультетов, специальностей и статусов обучения',
         },
       ],
     },
@@ -32,30 +38,49 @@ export class UniversityComponent {
   readonly quickActions: PortalShellQuickAction[] = [
     {
       path: '/university/studies',
-      label: 'Зачисление',
+      label: 'Добавить студента',
       icon: '➕',
       description: 'Открыть форму новой записи об обучении',
       queryParams: { action: 'create' },
     },
     {
       path: '/university/studies',
-      label: 'Проверить отчисления',
+      label: 'Риск отчисления',
       icon: '⚠️',
-      description: 'Показать записи с риском потери отсрочки',
+      description: 'Перейти к записям, которые влияют на отсрочку и статус учебы',
       queryParams: { action: 'expulsions' },
     },
     {
       path: '/university/studies',
-      label: 'Статус отсрочки',
+      label: 'Учебная отсрочка',
       icon: '🛡️',
-      description: 'Показать записи, связанные с учебной отсрочкой',
+      description: 'Показать записи, связанные с активной учебной отсрочкой',
       queryParams: { action: 'deferment' },
     },
   ];
 
   readonly metrics: PortalShellMetric[] = [
-    { label: 'Колледж', value: 'Активен', hint: 'Учебные записи готовы для отсрочек и сверок' },
-    { label: 'Риск', value: 'Отчисление', hint: 'Потеря статуса обучения влияет на вызов в военкомат' },
-    { label: 'Связь', value: 'Военкомат', hint: 'Учебный модуль встроен в общую бизнес-логику проекта' },
+    {
+      label: 'Учреждение',
+      value: 'Колледж / ВУЗ',
+      hint: 'Кабинет работает с конкретным учреждением, а не с реестром всех заведений',
+    },
+    {
+      label: 'Фокус',
+      value: 'Студенты',
+      hint: 'Здесь ведутся зачисления, обучение, выпуск и отчисление студентов',
+    },
+    {
+      label: 'Связь',
+      value: 'Военкомат',
+      hint: 'Статус учебы влияет на отсрочки и дальнейший военный учет',
+    },
   ];
+
+  constructor(private readonly authService: AuthService) {
+    this.currentUser = this.authService.getCurrentUser();
+    this.institutionName = this.currentUser?.organizationName?.trim() || 'Колледж / ВУЗ';
+    this.accountEmail = this.currentUser?.email?.trim() || 'university@example.com';
+    this.avatarLetter = this.institutionName.charAt(0).toUpperCase() || 'К';
+  }
 }

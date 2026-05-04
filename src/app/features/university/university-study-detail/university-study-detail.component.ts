@@ -144,6 +144,12 @@ export class UniversityStudyDetailComponent implements OnInit {
 
     this.institutionId = id;
     this.loadData(id);
+    this.route.queryParamMap.subscribe((params) => {
+      const action = params.get('action');
+      if (action === 'create') {
+        this.openCreateModal();
+      }
+    });
   }
 
   get formModalTitle(): string {
@@ -160,7 +166,7 @@ export class UniversityStudyDetailComponent implements OnInit {
   }
 
   get pageDescription(): string {
-    return 'В списке отображаются только выпускники школы, которые прошли медосмотр с решением FIT.';
+    return 'Кабинет показывает студентов и учебные записи только этого колледжа или вуза.';
   }
 
   get currentSelectedFather(): string {

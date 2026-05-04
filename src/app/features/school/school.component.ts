@@ -5,6 +5,7 @@ import {
   PortalShellNavSection,
   PortalShellQuickAction,
 } from '../../shared/components/portal-shell/portal-shell.component';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-school',
@@ -14,6 +15,11 @@ import {
   styleUrl: './school.component.css',
 })
 export class SchoolComponent {
+  readonly currentUser;
+  readonly schoolName;
+  readonly accountEmail;
+  readonly avatarLetter;
+
   readonly navSections: PortalShellNavSection[] = [
     {
       title: 'Школьный учет',
@@ -21,9 +27,9 @@ export class SchoolComponent {
         {
           id: 'studies',
           path: '/school/studies',
-          label: 'Реестр обучения',
+          label: 'Ученики и классы',
           icon: '🏫',
-          hint: 'Ученики, классы и текущий статус обучения',
+          hint: 'Реестр школьников, классов и текущих статусов обучения',
         },
       ],
     },
@@ -39,23 +45,42 @@ export class SchoolComponent {
     },
     {
       path: '/school/studies',
-      label: 'Проверить выпускников',
+      label: 'Выпускные классы',
       icon: '🎓',
       description: 'Показать старшие классы и выпускной поток',
       queryParams: { action: 'graduates' },
     },
     {
       path: '/school/studies',
-      label: 'Подготовить отсрочки',
+      label: 'Подтвердить учебу',
       icon: '📘',
-      description: 'Показать учащихся для подтверждения учебного статуса',
+      description: 'Показать учащихся для дальнейшей связки с военкоматом',
       queryParams: { action: 'deferment' },
     },
   ];
 
   readonly metrics: PortalShellMetric[] = [
-    { label: 'Учет', value: 'Школа', hint: 'Начальный образовательный контур для будущих призывников' },
-    { label: 'Статус', value: 'Учеба', hint: 'Текущий процесс обучения синхронизирован с военкоматом' },
-    { label: 'Переход', value: 'Далее', hint: 'После школы данные подхватывает колледж или вуз' },
+    {
+      label: 'Учреждение',
+      value: 'Школа',
+      hint: 'Школьный контур передает данные дальше в колледж, вуз и военкомат',
+    },
+    {
+      label: 'Фокус',
+      value: 'Ученики',
+      hint: 'Здесь ведется реестр школьников, классов и статусов обучения',
+    },
+    {
+      label: 'Связь',
+      value: 'Военкомат',
+      hint: 'Школьные записи используются для будущих учебных отсрочек и общего учета',
+    },
   ];
+
+  constructor(private readonly authService: AuthService) {
+    this.currentUser = this.authService.getCurrentUser();
+    this.schoolName = this.currentUser?.organizationName?.trim() || 'Школа';
+    this.accountEmail = this.currentUser?.email?.trim() || 'school@example.com';
+    this.avatarLetter = this.schoolName.charAt(0).toUpperCase() || 'Ш';
+  }
 }

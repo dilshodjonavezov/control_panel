@@ -217,6 +217,7 @@ export interface VoenkomatCitizenRow {
 export interface VoenkomatDashboardData {
   totalCitizens: number;
   totalConscriptMen: number;
+  totalInService: number;
   totalCompletedService: number;
   totalOtherMen: number;
   activeMilitaryRecords: number;
@@ -383,6 +384,7 @@ export class VoenkomatDataService {
     const familyExemptions = snapshot.militaryRecords.filter((item) => item.militaryStatus === 'FAMILY_CIRCUMSTANCES').length;
     const activeEducationDeferments = snapshot.educationRecords.filter((item) => item.isDeferralActive).length;
     const totalConscriptMen = rows.filter((item) => item.voenkomatSection === 'Призывники').length;
+    const totalInService = rows.filter((item) => item.militaryStatus === 'На службе').length;
     const totalCompletedService = rows.filter((item) => item.voenkomatSection === 'Отслужившие').length;
     const totalOtherMen = rows.filter((item) => item.voenkomatSection === 'Остальные мужчины').length;
     const abroadNow = rows.filter((item) => item.borderState === 'За границей').length;
@@ -393,6 +395,7 @@ export class VoenkomatDataService {
     return {
       totalCitizens: rows.length,
       totalConscriptMen,
+      totalInService,
       totalCompletedService,
       totalOtherMen,
       activeMilitaryRecords,

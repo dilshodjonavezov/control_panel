@@ -2,7 +2,7 @@
   <div class="flex items-start justify-between gap-4">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Панель управления</h1>
-      <p class="mt-2 text-gray-600">Сводка строится по правилам военкомата: женщины не попадают в призывники, мужчины разделены на призыв, учебу, семью, медоснование и остальных.</p>
+      <p class="mt-2 text-gray-600">Сводка строится по правилам военкомата: мужчины разделены на призыв, учебу, семейную льготу, службу и остальные группы.</p>
     </div>
     <button
       type="button"
@@ -22,27 +22,27 @@
   @if (dashboard(); as data) {
     <app-card title="Ключевые показатели">
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-        <a routerLink="/admin/citizens" class="rounded-2xl bg-sky-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+        <a routerLink="/voenkomat/citizens" class="rounded-2xl bg-sky-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-sky-700">Граждане в контуре</p>
           <p class="mt-2 text-3xl font-bold text-sky-950">{{ data.totalCitizens }}</p>
         </a>
-        <a routerLink="/admin/reports" class="rounded-2xl bg-blue-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+        <a routerLink="/voenkomat/reports" class="rounded-2xl bg-blue-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-blue-700">Призывники 18-27</p>
           <p class="mt-2 text-3xl font-bold text-blue-950">{{ data.totalConscriptMen }}</p>
         </a>
-        <a routerLink="/admin/deferment-review" class="rounded-2xl bg-emerald-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+        <a routerLink="/voenkomat/deferment-review" class="rounded-2xl bg-emerald-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-emerald-700">Учатся</p>
           <p class="mt-2 text-3xl font-bold text-emerald-950">{{ data.activeEducationDeferments }}</p>
         </a>
-        <a routerLink="/admin/deferment-review" class="rounded-2xl bg-amber-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
-          <p class="text-sm font-medium text-amber-700">2+ детей</p>
-          <p class="mt-2 text-3xl font-bold text-amber-950">{{ data.familyExemptions }}</p>
+        <a routerLink="/voenkomat/reports" class="rounded-2xl bg-amber-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+          <p class="text-sm font-medium text-amber-700">В армии</p>
+          <p class="mt-2 text-3xl font-bold text-amber-950">{{ data.totalInService }}</p>
         </a>
-        <a routerLink="/admin/reports" class="rounded-2xl bg-indigo-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+        <a routerLink="/voenkomat/reports" class="rounded-2xl bg-indigo-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-indigo-700">Отслужившие</p>
           <p class="mt-2 text-3xl font-bold text-indigo-950">{{ data.totalCompletedService }}</p>
         </a>
-        <a routerLink="/admin/reports" class="rounded-2xl bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
+        <a routerLink="/voenkomat/reports" class="rounded-2xl bg-slate-50 p-5 transition hover:-translate-y-0.5 hover:shadow-md">
           <p class="text-sm font-medium text-slate-700">Остальные мужчины</p>
           <p class="mt-2 text-3xl font-bold text-slate-950">{{ data.totalOtherMen }}</p>
         </a>
@@ -66,7 +66,7 @@
           <div class="flex items-center justify-between rounded-2xl bg-rose-50 px-4 py-3">
             <div>
               <div class="text-sm font-semibold text-rose-900">Без паспорта</div>
-              <div class="text-xs text-rose-700">Граждане есть, документ не привязан</div>
+              <div class="text-xs text-rose-700">Гражданин есть, но документ ещё не привязан</div>
             </div>
             <div class="text-2xl font-bold text-rose-900">{{ data.missingPassport }}</div>
           </div>
@@ -80,7 +80,7 @@
           <div class="flex items-center justify-between rounded-2xl bg-violet-50 px-4 py-3">
             <div>
               <div class="text-sm font-semibold text-violet-900">Без решения ВВК</div>
-              <div class="text-xs text-violet-700">Военный контур еще не получил итог по годности</div>
+              <div class="text-xs text-violet-700">Военный контур ещё не получил итог по годности</div>
             </div>
             <div class="text-2xl font-bold text-violet-900">{{ data.pendingMedical }}</div>
           </div>

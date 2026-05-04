@@ -58,3 +58,7 @@ export class Citizen {
 }
 
 export const CitizenSchema = SchemaFactory.createForClass(Citizen);
+CitizenSchema.index({ fullName: 1 });
+CitizenSchema.index({ lastName: 1 });
+CitizenSchema.index({ firstName: 1 });
+CitizenSchema.index({ iin: 1 });

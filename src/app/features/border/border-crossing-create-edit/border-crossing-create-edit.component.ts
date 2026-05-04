@@ -1,15 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Input, OnChanges, OnInit, Output, SimpleChanges, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
-import { finalize, forkJoin, timeout, TimeoutError } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, finalize, forkJoin, of, switchMap, timeout, TimeoutError } from 'rxjs';
+import { AddressesService, ApiAddress } from '../../../services/addresses.service';
 import { AuthService } from '../../../services/auth.service';
 import {
   ApiBorderCrossing,
   ApiCitizen,
   BorderCrossingService,
   CreateBorderCrossingRequest,
+  PagedCitizensResponse,
 } from '../../../services/border-crossing.service';
-import { AddressesService, ApiAddress } from '../../../services/addresses.service';
 import { PassportRecordsService, ApiPassportRecord } from '../../../services/passport-records.service';
 import { ButtonComponent, CardComponent, InputComponent, SelectComponent, SelectOption } from '../../../shared/components';
 import { type CitizenReadCardData } from '../components/citizen-read-card/citizen-read-card.component';
@@ -37,6 +39,9 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   @Output() closed = new EventEmitter<void>();
   @Output() saved = new EventEmitter<void>();
 
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly citizenSearch$ = new Subject<string>();
+
   isLoading = false;
   isReferenceLoading = false;
   isCitizenDetailsLoading = false;
@@ -55,6 +60,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   citizenPage = 1;
   readonly citizenPageSize = 15;
   citizenTotal = 0;
+  currentCitizenPageCount = 0;
   hasMoreCitizens = false;
 
   outsideBorderOptions: SelectOption[] = [
@@ -70,6 +76,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   ) {}
 
   ngOnInit(): void {
+    this.setupCitizenSearch();
     this.loadInitialCitizens();
   }
 
@@ -115,21 +122,46 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   }
 
   get citizenRangeLabel(): string {
-    if (this.citizenTotal === 0) {
+    if (this.currentCitizenPageCount === 0) {
       return 'Ничего не найдено';
     }
 
     const start = (this.citizenPage - 1) * this.citizenPageSize + 1;
-    const end = Math.min(this.citizenPage * this.citizenPageSize, this.citizenTotal);
-    return `${start}-${end} из ${this.citizenTotal}`;
+    const end = start + this.currentCitizenPageCount - 1;
+    return `${start}-${end}`;
+  }
+
+  get citizenTotalLabel(): string {
+    return `Всего граждан в реестре: ${this.citizenTotal}`;
+  }
+
+  get selectedCitizenDetails(): string {
+    if (!this.selectedCitizen) {
+      return 'Выберите гражданина из списка ниже.';
+    }
+
+    const details = [
+      this.selectedCitizen.birthDate ? `Дата рождения: ${this.selectedCitizen.birthDate}` : null,
+      this.selectedCitizen.gender ? `Пол: ${this.selectedCitizen.gender}` : null,
+      this.selectedCitizen.citizenship ? `Гражданство: ${this.selectedCitizen.citizenship}` : null,
+    ].filter(Boolean);
+
+    return details.join(' · ');
+  }
+
+  onCitizenSearchChanged(value: string): void {
+    this.citizenSearch = value;
+    this.citizenPage = 1;
+    this.citizenSearch$.next(value.trim());
   }
 
   searchCitizens(page = 1): void {
     this.isCitizenSearchLoading = true;
     this.citizenPage = page;
+    this.errorMessage = '';
 
     this.borderCrossingService
-      .searchCitizens(this.citizenSearch, this.citizenPage, this.citizenPageSize)
+      .searchCitizens(this.citizenSearch, page, this.citizenPageSize)
       .pipe(
         finalize(() => {
           this.isCitizenSearchLoading = false;
@@ -137,15 +169,13 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       )
       .subscribe({
         next: (response) => {
-          this.citizens = response.items;
-          this.citizenTotal = response.total;
-          this.citizenPage = response.page;
-          this.hasMoreCitizens = response.hasMore;
+          this.applyCitizenSearchResponse(response);
         },
         error: () => {
           this.citizens = [];
-          this.citizenTotal = 0;
+          this.currentCitizenPageCount = 0;
           this.hasMoreCitizens = false;
+          this.errorMessage = 'Не удалось загрузить список граждан.';
         },
       });
   }
@@ -153,6 +183,8 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
   selectCitizen(citizen: ApiCitizen): void {
     this.selectedCitizen = citizen;
     this.form.peopleId = citizen.id.toString();
+    this.citizenSearch = citizen.fullName?.trim() || '';
+    this.errorMessage = '';
     this.loadCitizenDetails();
   }
 
@@ -205,8 +237,10 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
             this.errorMessage = isEdit ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
             return;
           }
+
           this.successMessage = isEdit ? 'Запись обновлена.' : 'Запись создана.';
           this.saved.emit();
+
           if (this.embedded) {
             this.closed.emit();
           }
@@ -228,6 +262,39 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     }
   }
 
+  private setupCitizenSearch(): void {
+    this.citizenSearch$
+      .pipe(
+        debounceTime(250),
+        distinctUntilChanged(),
+        switchMap((search) => {
+          this.isCitizenSearchLoading = true;
+          this.errorMessage = '';
+
+          return this.borderCrossingService.searchCitizens(search, 1, this.citizenPageSize).pipe(
+            catchError(() =>
+              of({
+                items: [],
+                total: this.citizenTotal,
+                page: 1,
+                limit: this.citizenPageSize,
+                hasMore: false,
+                search,
+                shown: 0,
+              } as PagedCitizensResponse),
+            ),
+            finalize(() => {
+              this.isCitizenSearchLoading = false;
+            }),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((response) => {
+        this.applyCitizenSearchResponse(response);
+      });
+  }
+
   private loadInitialCitizens(): void {
     this.isReferenceLoading = true;
     this.errorMessage = '';
@@ -241,10 +308,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
       )
       .subscribe({
         next: (response) => {
-          this.citizens = response.items;
-          this.citizenTotal = response.total;
-          this.citizenPage = response.page;
-          this.hasMoreCitizens = response.hasMore;
+          this.applyCitizenSearchResponse(response);
 
           if (this.citizen?.id && !this.recordId) {
             this.form.peopleId = this.extractPeopleId(this.citizen.id)?.toString() ?? '';
@@ -257,7 +321,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
         },
         error: (error: unknown) => {
           this.citizens = [];
-          this.citizenTotal = 0;
+          this.currentCitizenPageCount = 0;
           this.hasMoreCitizens = false;
           this.errorMessage =
             error instanceof TimeoutError
@@ -290,6 +354,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
             this.errorMessage = 'Запись не найдена.';
             return;
           }
+
           this.applyRecord(record);
           this.loadSelectedCitizen();
         },
@@ -323,14 +388,19 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     const localCitizen = this.citizens.find((citizen) => citizen.id === peopleId) ?? null;
     if (localCitizen) {
       this.selectedCitizen = localCitizen;
+      this.citizenSearch = localCitizen.fullName?.trim() || '';
       this.loadCitizenDetails();
       return;
     }
 
-    this.borderCrossingService.getCitizenById(peopleId).subscribe((citizen) => {
-      this.selectedCitizen = citizen;
-      this.loadCitizenDetails();
-    });
+    this.borderCrossingService
+      .getCitizenById(peopleId)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((citizen) => {
+        this.selectedCitizen = citizen;
+        this.citizenSearch = citizen?.fullName?.trim() || '';
+        this.loadCitizenDetails();
+      });
   }
 
   private loadCitizenDetails(): void {
@@ -402,6 +472,14 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     };
   }
 
+  private applyCitizenSearchResponse(response: PagedCitizensResponse): void {
+    this.citizens = response.items;
+    this.citizenTotal = response.total;
+    this.citizenPage = response.page;
+    this.currentCitizenPageCount = response.shown ?? response.items.length;
+    this.hasMoreCitizens = response.hasMore;
+  }
+
   private createDefaultForm(): BorderCrossingForm {
     return {
       peopleId: '',
@@ -418,6 +496,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     if (!numericPart) {
       return null;
     }
+
     const peopleId = Number(numericPart);
     return Number.isInteger(peopleId) ? peopleId : null;
   }
@@ -427,6 +506,7 @@ export class BorderCrossingCreateEditComponent implements OnChanges, OnInit {
     if (Number.isNaN(date.getTime())) {
       return '';
     }
+
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');

@@ -25,9 +25,10 @@
           <div class="flex-1">
             <app-input
               label="Гражданин"
-              placeholder="Введите ФИО или ИИН"
+              placeholder="Начните вводить ФИО или ИИН"
               [disabled]="isLoading"
-              [(ngModel)]="citizenSearch"
+              [ngModel]="citizenSearch"
+              (ngModelChange)="onCitizenSearchChanged($event)"
             ></app-input>
           </div>
           <div class="flex gap-3">
@@ -37,7 +38,7 @@
               [loading]="isCitizenSearchLoading"
               (clicked)="searchCitizens(1)"
             >
-              Найти
+              Обновить
             </app-button>
             @if (selectedCitizen) {
               <app-button
@@ -51,22 +52,33 @@
           </div>
         </div>
 
-        <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <div class="rounded-2xl border border-brand-100 bg-brand-50 p-4">
           <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
-              <div class="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">Выбранный гражданин</div>
-              <div class="mt-1 text-sm font-semibold text-slate-900">{{ selectedCitizenLabel }}</div>
+              <div class="text-xs font-semibold uppercase tracking-[0.16em] text-brand-600">Выбранный гражданин</div>
+              <div class="mt-1 text-base font-semibold text-slate-900">{{ selectedCitizenLabel }}</div>
+              <div class="mt-1 text-sm text-slate-600">{{ selectedCitizenDetails }}</div>
             </div>
-            <div class="text-xs text-slate-500">
-              @if (isCitizenSearchLoading) {
-                <span>Идёт загрузка списка...</span>
-              } @else {
-                <span>{{ citizenRangeLabel }}</span>
-              }
+            <div class="text-right text-xs text-slate-500">
+              <div>{{ citizenTotalLabel }}</div>
+              <div class="mt-1">
+                @if (isCitizenSearchLoading) {
+                  Идёт поиск...
+                } @else {
+                  Показаны записи: {{ citizenRangeLabel }}
+                }
+              </div>
             </div>
           </div>
+        </div>
 
-          <div class="mt-4 space-y-2">
+        <div class="rounded-2xl border border-slate-200 bg-white">
+          <div class="border-b border-slate-200 px-4 py-3">
+            <div class="text-sm font-semibold text-slate-900">Список граждан</div>
+            <div class="mt-1 text-xs text-slate-500">Нажмите на строку, чтобы выбрать гражданина и сразу подгрузить его данные.</div>
+          </div>
+
+          <div class="max-h-80 overflow-y-auto p-3 space-y-2">
             @for (citizen of citizens; track citizen.id) {
               <button
                 type="button"
@@ -78,23 +90,28 @@
                 [disabled]="isCitizenDetailsLoading && selectedCitizen?.id !== citizen.id"
                 (click)="selectCitizen(citizen)"
               >
-                <div class="flex flex-col gap-1 md:flex-row md:items-center md:justify-between">
-                  <div class="text-sm font-semibold text-slate-900">{{ citizen.fullName }}</div>
-                  <div class="text-xs text-slate-500">ID {{ citizen.id }}</div>
-                </div>
-                <div class="mt-1 text-xs text-slate-500">
-                  Дата рождения: {{ citizen.birthDate || 'Не указана' }}
+                <div class="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <div class="text-sm font-semibold text-slate-900">{{ citizen.fullName }}</div>
+                    <div class="mt-1 text-xs text-slate-500">Дата рождения: {{ citizen.birthDate || 'Не указана' }}</div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <div class="text-xs text-slate-500">ID {{ citizen.id }}</div>
+                    @if (selectedCitizen?.id === citizen.id) {
+                      <span class="rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">Выбран</span>
+                    }
+                  </div>
                 </div>
               </button>
             } @empty {
-              <div class="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-6 text-sm text-slate-500">
-                Граждане не найдены. Уточните запрос и нажмите «Найти».
+              <div class="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
+                По этому запросу граждане не найдены.
               </div>
             }
           </div>
 
-          <div class="mt-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div class="text-xs text-slate-500">Загружается только текущая страница списка.</div>
+          <div class="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
+            <div class="text-xs text-slate-500">Загружается только текущая страница. Поиск выполняется автоматически при вводе.</div>
             <div class="flex gap-2">
               <app-button
                 variant="secondary"

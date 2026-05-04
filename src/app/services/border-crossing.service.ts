@@ -15,6 +15,8 @@ export interface PagedCitizensResponse {
   page: number;
   limit: number;
   hasMore: boolean;
+  search?: string;
+  shown?: number;
 }
 
 export interface ApiCitizen {
@@ -120,6 +122,8 @@ export class BorderCrossingService {
           page: Number(response?.page ?? page),
           limit: Number(response?.limit ?? limit),
           hasMore: Boolean(response?.hasMore),
+          search: typeof response?.search === 'string' ? response.search : '',
+          shown: Number(response?.shown ?? 0),
         })),
         catchError(() =>
           of({
@@ -128,6 +132,8 @@ export class BorderCrossingService {
             page,
             limit,
             hasMore: false,
+            search: search.trim(),
+            shown: 0,
           }),
         ),
       );

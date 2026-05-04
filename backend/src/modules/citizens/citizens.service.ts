@@ -72,10 +72,10 @@ export class CitizensService implements OnModuleInit {
     if (search?.trim()) {
       const value = search.trim();
       filter.$or = [
-        { fullName: { $regex: value, $options: 'i' } },
-        { firstName: { $regex: value, $options: 'i' } },
-        { lastName: { $regex: value, $options: 'i' } },
-        { iin: { $regex: value, $options: 'i' } },
+        { fullName: { $regex: `^${this.escapeRegex(value)}`, $options: 'i' } },
+        { firstName: { $regex: `^${this.escapeRegex(value)}`, $options: 'i' } },
+        { lastName: { $regex: `^${this.escapeRegex(value)}`, $options: 'i' } },
+        { iin: { $regex: `^${this.escapeRegex(value)}`, $options: 'i' } },
       ];
     }
 
@@ -83,17 +83,22 @@ export class CitizensService implements OnModuleInit {
     const safeLimit = Number.isInteger(limit) && limit > 0 ? Math.min(limit, 50) : 20;
     const skip = (safePage - 1) * safeLimit;
 
-    const [citizens, total] = await Promise.all([
-      this.citizenModel.find(filter).sort({ id: -1 }).skip(skip).limit(safeLimit).lean(),
-      this.citizenModel.countDocuments(filter),
+    const [citizens, totalCitizens] = await Promise.all([
+      this.citizenModel.find(filter).sort({ id: -1 }).skip(skip).limit(safeLimit + 1).lean(),
+      this.citizenModel.estimatedDocumentCount(),
     ]);
 
+    const hasMore = citizens.length > safeLimit;
+    const items = hasMore ? citizens.slice(0, safeLimit) : citizens;
+
     return {
-      items: citizens.map((citizen) => this.mapCitizen(citizen)),
-      total,
+      items: items.map((citizen) => this.mapCitizen(citizen)),
+      total: totalCitizens,
       page: safePage,
       limit: safeLimit,
-      hasMore: skip + citizens.length < total,
+      hasMore,
+      search: search?.trim() || '',
+      shown: items.length,
     };
   }
 
@@ -216,6 +221,10 @@ export class CitizensService implements OnModuleInit {
       throw new NotFoundException(`${entity} ${id} not found`);
     }
     return numericId;
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private async backfillMissingIds(): Promise<void> {

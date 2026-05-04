@@ -415,14 +415,11 @@ export class UniversityStudyDetailComponent implements OnInit {
     const graduatesByPeopleId = new Map(graduates.map((graduate) => [graduate.peopleId, graduate]));
 
     return citizens
-      .filter((citizen) => graduatesByPeopleId.has(citizen.id))
       .map((citizen) => ({
         citizen,
-        graduate: graduatesByPeopleId.get(citizen.id)!,
+        graduate: graduatesByPeopleId.get(citizen.id) ?? null,
         medical: medicalByPeopleId.get(citizen.id) ?? null,
       }))
-      .filter(({ graduate }) => Boolean(graduate.graduationDate))
-      .filter(({ medical }) => (medical?.decision ?? '').toUpperCase() === 'FIT')
       .filter(({ citizen }) => !alreadyEnrolledPeopleIds.has(citizen.id))
       .map(({ citizen, graduate, medical }) => ({
         value: citizen.id.toString(),
@@ -469,10 +466,10 @@ export class UniversityStudyDetailComponent implements OnInit {
 
   private formatGraduateLabelFromCitizen(
     citizen: ApiCitizen,
-    graduate: ApiSchoolRecord,
+    graduate: ApiSchoolRecord | null,
     medicalRecord: ApiMedicalRecord | null = null,
   ): string {
-    const name = citizen.fullName?.trim() || graduate.peopleFullName?.trim() || `ID ${citizen.id}`;
+    const name = citizen.fullName?.trim() || graduate?.peopleFullName?.trim() || `ID ${citizen.id}`;
     const parents: string[] = [];
     if (citizen.fatherFullName?.trim()) {
       parents.push(`отец: ${citizen.fatherFullName.trim()}`);
@@ -481,7 +478,7 @@ export class UniversityStudyDetailComponent implements OnInit {
       parents.push(`мать: ${citizen.motherFullName.trim()}`);
     }
     const details: string[] = [];
-    if (graduate.graduationDate) {
+    if (graduate?.graduationDate) {
       details.push(`выпуск: ${this.formatDate(graduate.graduationDate)}`);
     }
     if (medicalRecord?.decision) {
@@ -531,16 +528,6 @@ export class UniversityStudyDetailComponent implements OnInit {
     const selectedGraduate = this.findSelectedGraduate();
     const selectedMedicalRecord = this.findSelectedMedicalRecord();
 
-    if (!selectedGraduate) {
-      this.formErrorMessage = 'Не удалось найти выпускника школы.';
-      return null;
-    }
-
-    if (!selectedMedicalRecord) {
-      this.formErrorMessage = 'Не удалось найти медосмотр FIT для выпускника.';
-      return null;
-    }
-
     if (!userId) {
       this.formErrorMessage = 'Не удалось определить текущего пользователя.';
       return null;
@@ -577,8 +564,8 @@ export class UniversityStudyDetailComponent implements OnInit {
 
     return {
       peopleId,
-      schoolRecordId: selectedGraduate.id,
-      medicalRecordId: selectedMedicalRecord.id,
+      schoolRecordId: selectedGraduate?.id ?? null,
+      medicalRecordId: selectedMedicalRecord?.id ?? null,
       institutionId,
       studyForm: this.formData.studyForm.trim(),
       faculty: this.formData.faculty.trim(),

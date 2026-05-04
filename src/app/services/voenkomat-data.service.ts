@@ -469,10 +469,11 @@ export class VoenkomatDataService {
         const citizen = snapshot.citizens.find((item) => item.id === row.id);
         const family = citizen ? this.findFamily(snapshot.families, citizen) : null;
         const normalizedChildrenCount = citizen ? this.countCitizenChildren(snapshot, citizen, family) : row.childrenCount;
+        const baseMilitaryStatus = this.normalizeMilitaryStatusText(row.militaryStatus);
         const normalizedMilitaryStatus =
-          row.militaryStatus === 'РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ РїРѕ СЃРµРјСЊРµ' || normalizedChildrenCount >= 2 || family?.eligibleFatherForMilitaryExemption
-            ? 'РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ РїРѕ СЃРµРјСЊРµ'
-            : row.militaryStatus;
+          baseMilitaryStatus === 'Освобождение по семье' || normalizedChildrenCount >= 2 || family?.eligibleFatherForMilitaryExemption
+            ? 'Освобождение по семье'
+            : baseMilitaryStatus;
         const normalizedDefermentBasis =
           normalizedChildrenCount >= 2 || family?.eligibleFatherForMilitaryExemption
             ? `Освобождение по семье: ${normalizedChildrenCount} детей`
@@ -799,6 +800,25 @@ export class VoenkomatDataService {
     }
 
     return Math.max(...counts, 0);
+  }
+
+  private normalizeMilitaryStatusText(value: string): string {
+    const trimmed = String(value ?? '').trim();
+
+    const replacements: Record<string, string> = {
+      'РћСЃРІРѕР±РѕР¶РґРµРЅРёРµ РїРѕ СЃРµРјСЊРµ': 'Освобождение по семье',
+      'РќРµ РІРѕРµРЅРЅРѕРѕР±СЏР·Р°РЅРЅС‹Рµ': 'Не военнообязанные',
+      'РќРµС‚ СЃРІСЏР·РєРё': 'Нет связки',
+      'Р”РѕРїСЂРёР·С‹РІРЅРёРє': 'Допризывник',
+      'РџСЂРёР·С‹РІРЅРёРє': 'Призывник',
+      'РќР° СЃР»СѓР¶Р±Рµ': 'На службе',
+      'РЎР»СѓР¶Р±Сѓ Р·Р°РІРµСЂС€РёР»': 'Службу завершил',
+      'РЈС‡РµР±РЅР°СЏ РѕС‚СЃСЂРѕС‡РєР°': 'Учебная отсрочка',
+      'РќРµ РіРѕРґРµРЅ': 'Не годен',
+      'Р—Р° РіСЂР°РЅРёС†РµР№': 'За границей',
+    };
+
+    return replacements[trimmed] ?? trimmed;
   }
 
   private getSpouseName(citizen: ApiCitizen, family: ApiFamily | null): string {

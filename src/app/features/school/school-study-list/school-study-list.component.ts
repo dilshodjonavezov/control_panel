@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
+import { catchError, finalize, forkJoin, map, of, switchMap, TimeoutError, timeout } from 'rxjs';
 import {
   ButtonComponent,
   CardComponent,
@@ -26,9 +26,12 @@ import {
   CitizenLinksSnapshot,
   LinkedCitizenProfile,
 } from '../../../services/citizen-links.service';
-import { OrganizationsService } from '../../../services/organizations.service';
+import {
+  CreateEducationInstitutionRequest,
+  EducationInstitutionsService,
+} from '../../../services/education-institutions.service';
 
-type SchoolStatus = 'Учитcя' | 'Закончил' | 'Отчислен';
+type SchoolStatus = 'Учится' | 'Закончил' | 'Отчислен';
 
 interface SchoolRecordItem {
   id: number;
@@ -105,7 +108,7 @@ export class SchoolStudyListComponent implements OnInit {
   peopleOptions: SelectOption[] = [];
   institutionOptions: SelectOption[] = [{ value: 'all', label: 'Все учреждения' }];
   statusOptions: SelectOption[] = [
-    { value: 'Учитcя', label: 'Учитcя' },
+    { value: 'Учится', label: 'Учится' },
     { value: 'Закончил', label: 'Закончил' },
     { value: 'Отчислен', label: 'Отчислен' },
   ];
@@ -133,7 +136,7 @@ export class SchoolStudyListComponent implements OnInit {
     private readonly schoolRecordsService: SchoolRecordsService,
     private readonly citizenLinksService: CitizenLinksService,
     private readonly authService: AuthService,
-    private readonly organizationsService: OrganizationsService,
+    private readonly educationInstitutionsService: EducationInstitutionsService,
     private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
   ) {}
@@ -212,23 +215,35 @@ export class SchoolStudyListComponent implements OnInit {
       records: this.schoolRecordsService.getAll(),
       citizens: this.schoolRecordsService.getCitizens(),
       institutions: this.schoolRecordsService.getInstitutions(),
-      links: this.citizenLinksService.getSnapshot(),
-      organizations: this.organizationsService.getOrganizations(),
+      links: this.citizenLinksService.getSnapshot().pipe(catchError(() => of(this.createEmptyLinksSnapshot()))),
     })
-      .pipe(timeout(15000))
+      .pipe(
+        timeout(15000),
+        switchMap(({ records, citizens, institutions, links }) =>
+          this.resolveSchoolInstitution(institutions).pipe(
+            map(({ institutions: resolvedInstitutions, linkedInstitutionId }) => ({
+              records,
+              citizens,
+              institutions: resolvedInstitutions,
+              links,
+              linkedInstitutionId,
+            })),
+          ),
+        ),
+      )
       .subscribe({
-        next: ({ records, citizens, institutions, links, organizations }) => {
+        next: ({ records, citizens, institutions, links, linkedInstitutionId }) => {
           this.citizens = citizens;
           this.linksSnapshot = links;
-          const currentOrganizationId = this.authService.getCurrentUser()?.organizationId ?? null;
-          const currentOrganization = organizations.find((item) => item.id === currentOrganizationId) ?? null;
-          this.linkedInstitutionId = currentOrganization?.educationInstitutionId ?? null;
+          this.linkedInstitutionId = linkedInstitutionId;
+
           const visibleInstitutions = this.linkedInstitutionId
             ? institutions.filter((institution) => institution.id === this.linkedInstitutionId)
-            : institutions;
+            : institutions.filter((institution) => this.isSchoolInstitution(institution));
           const visibleRecords = this.linkedInstitutionId
             ? records.filter((record) => record.institutionId === this.linkedInstitutionId)
-            : records;
+            : records.filter((record) => visibleInstitutions.some((institution) => institution.id === record.institutionId));
+
           this.peopleOptions = this.buildPeopleOptions(citizens);
           this.institutionOptions = [
             { value: 'all', label: 'Все учреждения' },
@@ -238,9 +253,15 @@ export class SchoolStudyListComponent implements OnInit {
             })),
           ];
           this.records = visibleRecords.map((record) => this.mapRecord(record));
+
           if (this.linkedInstitutionId) {
             this.filters.institutionId = this.linkedInstitutionId.toString();
           }
+
+          if (!this.institutionOptions[1]) {
+            this.errorMessage = 'Для этой школы ещё не создано учебное учреждение. Оно будет создано автоматически при следующем обновлении или через админа.';
+          }
+
           this.isLoading = false;
           this.cdr.detectChanges();
         },
@@ -250,6 +271,7 @@ export class SchoolStudyListComponent implements OnInit {
           this.institutionOptions = [{ value: 'all', label: 'Все учреждения' }];
           this.citizens = [];
           this.linksSnapshot = null;
+          this.linkedInstitutionId = null;
           this.errorMessage = error instanceof TimeoutError
             ? 'Превышено время ожидания ответа API.'
             : 'Не удалось загрузить реестр обучения.';
@@ -300,7 +322,7 @@ export class SchoolStudyListComponent implements OnInit {
       return;
     }
     this.formData.status = value as SchoolStatus;
-    if (value === 'Учитcя') {
+    if (value === 'Учится') {
       this.formData.graduationDate = '';
       this.formData.expulsionDate = '';
     } else if (value === 'Закончил') {
@@ -451,7 +473,7 @@ export class SchoolStudyListComponent implements OnInit {
     let graduationDate = this.formData.graduationDate.trim() ? this.toIsoDate(this.formData.graduationDate) : null;
     let expulsionDate = this.formData.expulsionDate.trim() ? this.toIsoDate(this.formData.expulsionDate) : null;
 
-    if (this.formData.status === 'Учитcя') {
+    if (this.formData.status === 'Учится') {
       graduationDate = null;
       expulsionDate = null;
     } else if (this.formData.status === 'Закончил') {
@@ -519,6 +541,83 @@ export class SchoolStudyListComponent implements OnInit {
     return type ? `${name} (${type})` : name;
   }
 
+  private resolveSchoolInstitution(institutions: ApiEducationInstitution[]) {
+    const organizationName = this.authService.getCurrentUser()?.organizationName?.trim() || '';
+    const linkedInstitution = this.findLinkedSchoolInstitution(institutions, organizationName);
+    if (linkedInstitution) {
+      return of({
+        institutions,
+        linkedInstitutionId: linkedInstitution.id,
+      });
+    }
+
+    if (!organizationName) {
+      return of({
+        institutions,
+        linkedInstitutionId: null,
+      });
+    }
+
+    const payload: CreateEducationInstitutionRequest = {
+      name: organizationName,
+      type: 'SCHOOL',
+      address: '',
+      description: 'Автоматически создано из кабинета школы',
+    };
+
+    return this.educationInstitutionsService.createRecord(payload).pipe(
+      map((created) => ({
+        institutions: [...institutions, created],
+        linkedInstitutionId: created.id,
+      })),
+      catchError(() =>
+        of({
+          institutions,
+          linkedInstitutionId: null,
+        }),
+      ),
+    );
+  }
+
+  private findLinkedSchoolInstitution(
+    institutions: ApiEducationInstitution[],
+    organizationName: string,
+  ): ApiEducationInstitution | null {
+    const schoolInstitutions = institutions.filter((institution) => this.isSchoolInstitution(institution));
+    if (!schoolInstitutions.length) {
+      return null;
+    }
+
+    const normalizedOrganizationName = this.normalizeText(organizationName);
+    const exactMatch = schoolInstitutions.find(
+      (institution) => this.normalizeText(institution.name) === normalizedOrganizationName,
+    );
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    const partialMatch = schoolInstitutions.find((institution) => {
+      const institutionName = this.normalizeText(institution.name);
+      return !!normalizedOrganizationName && (
+        institutionName.includes(normalizedOrganizationName) ||
+        normalizedOrganizationName.includes(institutionName)
+      );
+    });
+    if (partialMatch) {
+      return partialMatch;
+    }
+
+    return schoolInstitutions.length === 1 ? schoolInstitutions[0] : null;
+  }
+
+  private isSchoolInstitution(institution: ApiEducationInstitution): boolean {
+    return (institution.type?.trim().toUpperCase() || '') === 'SCHOOL';
+  }
+
+  private normalizeText(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase();
+  }
+
   private formatFamilyLabel(profile: LinkedCitizenProfile): string {
     const family = profile.family;
     if (!family) {
@@ -535,7 +634,7 @@ export class SchoolStudyListComponent implements OnInit {
     if (record.graduationDate) {
       return 'Закончил';
     }
-    return 'Учитcя';
+    return 'Учится';
   }
 
   private createDefaultForm(): SchoolRecordForm {
@@ -546,8 +645,25 @@ export class SchoolStudyListComponent implements OnInit {
       admissionDate: '',
       graduationDate: '',
       expulsionDate: '',
-      status: 'Учитcя',
+      status: 'Учится',
       comment: '',
+    };
+  }
+
+  private createEmptyLinksSnapshot(): CitizenLinksSnapshot {
+    return {
+      citizens: [],
+      families: [],
+      addresses: [],
+      passports: [],
+      schoolRecords: [],
+      educationRecords: [],
+      medicalRecords: [],
+      medicalVisits: [],
+      vvkResults: [],
+      militaryRecords: [],
+      borderCrossings: [],
+      zagsActs: [],
     };
   }
 

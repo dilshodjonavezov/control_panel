@@ -151,6 +151,28 @@
 
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Дата рождения</div>
+                <div class="text-gray-900">{{ currentSelectedBirthDate || '—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Гражданство</div>
+                <div class="text-gray-900">{{ currentSelectedCitizenship || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Пол</div>
+                <div class="text-gray-900">{{ currentSelectedGender || '—' }}</div>
+              </div>
+              <div>
+                <div class="text-xs uppercase tracking-wide text-gray-500">Семья</div>
+                <div class="text-gray-900">{{ currentSelectedFamily || '—' }}</div>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+              <div>
                 <div class="text-xs uppercase tracking-wide text-gray-500">Выпуск школы</div>
                 <div class="text-gray-900">
                   {{ currentSelectedGraduationDate || '—' }}

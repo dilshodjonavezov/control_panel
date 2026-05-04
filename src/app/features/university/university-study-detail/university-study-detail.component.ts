@@ -25,7 +25,7 @@ import {
 } from '../../../services/education-institutions.service';
 import { ApiSchoolRecord, SchoolRecordsService } from '../../../services/school-records.service';
 import { ApiMedicalRecord, MedicalRecordsService } from '../../../services/medical-records.service';
-import { AddressesService, ApiAddress, ApiCitizen } from '../../../services/addresses.service';
+import { AddressesService, ApiAddress, ApiCitizen, ApiFamily } from '../../../services/addresses.service';
 import { PassportRecordsService, ApiPassportRecord } from '../../../services/passport-records.service';
 
 interface EducationRecordRow {
@@ -89,6 +89,7 @@ export class UniversityStudyDetailComponent implements OnInit {
   private citizens: ApiCitizen[] = [];
   private addresses: ApiAddress[] = [];
   private passports: ApiPassportRecord[] = [];
+  private families: ApiFamily[] = [];
 
   isLoading = false;
   errorMessage = '';
@@ -170,23 +171,42 @@ export class UniversityStudyDetailComponent implements OnInit {
   }
 
   get currentSelectedFather(): string {
-    const graduate = this.findSelectedGraduate();
-    return graduate?.fatherFullName?.trim() || '';
+    return this.resolveFatherName(this.getSelectedCitizen(), this.findSelectedGraduate()) || '';
   }
 
   get currentSelectedMother(): string {
-    const graduate = this.findSelectedGraduate();
-    return graduate?.motherFullName?.trim() || '';
+    return this.resolveMotherName(this.getSelectedCitizen(), this.findSelectedGraduate()) || '';
   }
 
   get currentSelectedPersonName(): string {
-    const peopleId = Number(this.formData.peopleId);
-    if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      return '';
-    }
-    const citizen = this.citizens.find((item) => item.id === peopleId) ?? null;
+    const citizen = this.getSelectedCitizen();
     const graduate = this.findSelectedGraduate();
     return citizen?.fullName?.trim() || graduate?.peopleFullName?.trim() || '';
+  }
+
+  get currentSelectedBirthDate(): string {
+    const citizen = this.getSelectedCitizen();
+    return citizen?.birthDate ? this.formatDate(citizen.birthDate) : '';
+  }
+
+  get currentSelectedGender(): string {
+    const citizen = this.getSelectedCitizen();
+    return this.formatGender(citizen?.gender ?? null);
+  }
+
+  get currentSelectedCitizenship(): string {
+    const citizen = this.getSelectedCitizen();
+    return citizen?.citizenship?.trim() || '';
+  }
+
+  get currentSelectedFamily(): string {
+    const citizen = this.getSelectedCitizen();
+    const family = this.findFamilyForCitizen(citizen);
+    if (!family) {
+      return '';
+    }
+
+    return family.familyName?.trim() || `Семья #${family.id}`;
   }
 
   get currentSelectedGraduationDate(): string {
@@ -362,16 +382,18 @@ export class UniversityStudyDetailComponent implements OnInit {
       citizens: this.schoolRecordsService.getCitizens(),
       addresses: this.addressesService.getAll().pipe(catchError(() => of([]))),
       passports: this.passportRecordsService.getAll().pipe(catchError(() => of([]))),
+      families: this.addressesService.getFamilies().pipe(catchError(() => of([]))),
     })
       .pipe(timeout(15000))
       .subscribe({
-        next: ({ institution, records, graduates, medicalRecords, citizens, addresses, passports }) => {
+        next: ({ institution, records, graduates, medicalRecords, citizens, addresses, passports, families }) => {
           this.institution = institution;
           this.graduates = graduates;
           this.medicalRecords = medicalRecords;
           this.citizens = citizens;
           this.addresses = addresses;
           this.passports = passports;
+          this.families = families;
           this.peopleOptions = this.buildPeopleOptions(
             citizens,
             graduates,
@@ -494,6 +516,7 @@ export class UniversityStudyDetailComponent implements OnInit {
 
   private mapRecord(record: ApiEducationRecord): EducationRecordRow {
     const graduate = this.findGraduateByPeopleId(record.peopleId);
+    const citizen = this.findCitizenByPeopleId(record.peopleId);
     const medical = this.findMedicalRecordByPeopleId(record.peopleId);
     const schoolGraduationSource = record.schoolGraduationDate ?? graduate?.graduationDate ?? null;
     return {
@@ -504,8 +527,8 @@ export class UniversityStudyDetailComponent implements OnInit {
       schoolGraduationDate: schoolGraduationSource ? this.formatDate(schoolGraduationSource) : '-',
       medicalRecordId: record.medicalRecordId ?? medical?.id ?? null,
       medicalDecision: record.medicalDecision ?? medical?.decision ?? '-',
-      fatherFullName: graduate?.fatherFullName?.trim() || '-',
-      motherFullName: graduate?.motherFullName?.trim() || '-',
+      fatherFullName: this.resolveFatherName(citizen, graduate) || '-',
+      motherFullName: this.resolveMotherName(citizen, graduate) || '-',
       studyForm: record.studyForm?.trim() || '-',
       faculty: record.faculty?.trim() || '-',
       specialty: record.specialty?.trim() || '-',
@@ -612,17 +635,19 @@ export class UniversityStudyDetailComponent implements OnInit {
     return (
       this.medicalRecords.find(
         (record) => record.peopleId === peopleId && (record.decision ?? '').toUpperCase() === 'FIT',
-      ) ?? null
+      ) ??
+      this.medicalRecords.find((record) => record.peopleId === peopleId) ??
+      null
     );
   }
 
   private findSelectedAddress(): ApiAddress | null {
-    const peopleId = Number(this.formData.peopleId);
-    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+    const citizen = this.getSelectedCitizen();
+    if (!citizen) {
       return null;
     }
 
-    return this.addresses.find((address) => address.citizenId === peopleId && address.isActive) ?? null;
+    return this.findAddressForCitizen(citizen);
   }
 
   private findSelectedPassport(): ApiPassportRecord | null {
@@ -645,6 +670,88 @@ export class UniversityStudyDetailComponent implements OnInit {
       expulsionDate: '',
       isDeferralActive: true,
     };
+  }
+
+  private getSelectedCitizen(): ApiCitizen | null {
+    const peopleId = Number(this.formData.peopleId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      return null;
+    }
+
+    return this.findCitizenByPeopleId(peopleId);
+  }
+
+  private findCitizenByPeopleId(peopleId: number): ApiCitizen | null {
+    return this.citizens.find((item) => item.id === peopleId) ?? null;
+  }
+
+  private findFamilyForCitizen(citizen: ApiCitizen | null): ApiFamily | null {
+    if (!citizen) {
+      return null;
+    }
+
+    return (
+      this.families.find((item) => item.id === citizen.familyId) ??
+      this.families.find(
+        (item) => item.memberCitizenIds.includes(citizen.id) || item.childCitizenIds?.includes(citizen.id),
+      ) ??
+      null
+    );
+  }
+
+  private findAddressForCitizen(citizen: ApiCitizen): ApiAddress | null {
+    const family = this.findFamilyForCitizen(citizen);
+
+    return (
+      this.addresses.find((address) => address.citizenId === citizen.id && address.isActive) ??
+      this.addresses.find((address) => family?.id === address.familyId && address.isActive) ??
+      null
+    );
+  }
+
+  private resolveFatherName(citizen: ApiCitizen | null, graduate: ApiSchoolRecord | null): string {
+    if (graduate?.fatherFullName?.trim()) {
+      return graduate.fatherFullName.trim();
+    }
+
+    if (citizen?.fatherFullName?.trim()) {
+      return citizen.fatherFullName.trim();
+    }
+
+    if (citizen?.fatherCitizenId) {
+      return this.findCitizenByPeopleId(citizen.fatherCitizenId)?.fullName?.trim() || '';
+    }
+
+    const family = this.findFamilyForCitizen(citizen);
+    return family?.fatherFullName?.trim() || '';
+  }
+
+  private resolveMotherName(citizen: ApiCitizen | null, graduate: ApiSchoolRecord | null): string {
+    if (graduate?.motherFullName?.trim()) {
+      return graduate.motherFullName.trim();
+    }
+
+    if (citizen?.motherFullName?.trim()) {
+      return citizen.motherFullName.trim();
+    }
+
+    if (citizen?.motherCitizenId) {
+      return this.findCitizenByPeopleId(citizen.motherCitizenId)?.fullName?.trim() || '';
+    }
+
+    const family = this.findFamilyForCitizen(citizen);
+    return family?.motherFullName?.trim() || '';
+  }
+
+  private formatGender(value: string | null): string {
+    const normalized = (value ?? '').trim().toUpperCase();
+    if (normalized === 'MALE') {
+      return 'Мужской';
+    }
+    if (normalized === 'FEMALE') {
+      return 'Женский';
+    }
+    return value?.trim() || '';
   }
 
   private normalizeDateInput(value: string | null): string {

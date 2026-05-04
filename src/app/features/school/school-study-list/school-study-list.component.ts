@@ -130,7 +130,7 @@ export class SchoolStudyListComponent implements OnInit {
 
   private citizens: ApiCitizen[] = [];
   private linksSnapshot: CitizenLinksSnapshot | null = null;
-  private linkedInstitutionId: number | null = null;
+  linkedInstitutionId: number | null = null;
 
   constructor(
     private readonly schoolRecordsService: SchoolRecordsService,
@@ -205,6 +205,12 @@ export class SchoolStudyListComponent implements OnInit {
   get currentSelectedFamily(): string {
     const profile = this.findSelectedCitizenProfile();
     return profile?.family ? this.formatFamilyLabel(profile) : '';
+  }
+
+  get selectedSchoolName(): string {
+    const selectedId = Number(this.formData.institutionId || this.linkedInstitutionId);
+    const selectedOption = this.institutionOptions.find((option) => Number(option.value) === selectedId);
+    return selectedOption?.label || this.authService.getCurrentUser()?.organizationName?.trim() || 'Школа';
   }
 
   loadData(): void {
@@ -518,10 +524,26 @@ export class SchoolStudyListComponent implements OnInit {
       .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'))
       .map((citizen) => ({
         value: citizen.id.toString(),
-        label: this.linksSnapshot
-          ? this.citizenLinksService.formatCitizenOptionLabel(this.linksSnapshot, citizen.id)
-          : this.formatCitizenLabel(citizen),
+        label: this.formatCitizenOption(citizen),
       }));
+  }
+
+  private formatCitizenOption(citizen: ApiCitizen): string {
+    if (this.linksSnapshot) {
+      const profile = this.citizenLinksService.buildCitizenProfile(this.linksSnapshot, citizen.id);
+      if (profile) {
+        const parts: string[] = [];
+        if (profile.father?.fullName?.trim() || profile.citizen.fatherFullName?.trim()) {
+          parts.push(`отец: ${profile.father?.fullName?.trim() || profile.citizen.fatherFullName?.trim()}`);
+        }
+        if (profile.mother?.fullName?.trim() || profile.citizen.motherFullName?.trim()) {
+          parts.push(`мать: ${profile.mother?.fullName?.trim() || profile.citizen.motherFullName?.trim()}`);
+        }
+        return parts.length > 0 ? `${profile.citizen.fullName} (${parts.join(', ')})` : profile.citizen.fullName;
+      }
+    }
+
+    return this.formatCitizenLabel(citizen);
   }
 
   private formatCitizenLabel(citizen: ApiCitizen): string {
@@ -536,9 +558,7 @@ export class SchoolStudyListComponent implements OnInit {
   }
 
   private formatInstitutionLabel(institution: ApiEducationInstitution): string {
-    const name = institution.name?.trim() || `ID ${institution.id}`;
-    const type = institution.type?.trim();
-    return type ? `${name} (${type})` : name;
+    return institution.name?.trim() || `Школа #${institution.id}`;
   }
 
   private resolveSchoolInstitution(institutions: ApiEducationInstitution[]) {

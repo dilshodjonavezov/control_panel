@@ -105,12 +105,21 @@
           [(ngModel)]="formData.peopleId"
         ></app-select>
 
-        <app-select
-          label="Школа"
-          [options]="institutionOptions.slice(1)"
-          placeholder="Выберите школу"
-          [(ngModel)]="formData.institutionId"
-        ></app-select>
+        @if (linkedInstitutionId) {
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700">Школа</label>
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900">
+              {{ selectedSchoolName }}
+            </div>
+          </div>
+        } @else {
+          <app-select
+            label="Школа"
+            [options]="institutionOptions.slice(1)"
+            placeholder="Выберите школу"
+            [(ngModel)]="formData.institutionId"
+          ></app-select>
+        }
 
         <app-input type="number" label="Класс" placeholder="11" [(ngModel)]="formData.classNumber"></app-input>
         <app-select label="Статус" [options]="statusOptions" [(ngModel)]="formData.status" (changed)="onStatusChanged($event)"></app-select>

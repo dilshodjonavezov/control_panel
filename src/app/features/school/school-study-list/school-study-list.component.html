@@ -2,7 +2,9 @@
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
       <h1 class="text-3xl font-bold text-gray-900">Реестр школьного обучения</h1>
-      <p class="mt-1 text-sm text-gray-500">Записи школы теперь связаны с общей базой граждан, семей, адресов и паспортов.</p>
+      <p class="mt-1 text-sm text-gray-500">
+        Школа работает только со своими учениками, классами и статусами обучения.
+      </p>
     </div>
     <div class="flex items-center gap-2">
       <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
@@ -11,10 +13,11 @@
   </div>
 
   <app-card title="Фильтры">
-    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       <app-input label="Гражданин" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
       <app-input label="Класс" placeholder="11" [(ngModel)]="filters.classNumber"></app-input>
-      <app-select label="Учреждение" [options]="institutionOptions" [(ngModel)]="filters.institutionId"></app-select>
+      <app-select label="Статус" [options]="statusFilterOptions" [(ngModel)]="filters.status"></app-select>
+      <app-select label="Обучение" [options]="studyingFilterOptions" [(ngModel)]="filters.isStudying"></app-select>
     </div>
   </app-card>
 
@@ -48,7 +51,7 @@
           <span
             class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1"
             [ngClass]="{
-              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.status === 'Учитcя',
+              'bg-emerald-100 text-emerald-800 ring-emerald-200': row.status === 'Учится',
               'bg-slate-100 text-slate-700 ring-slate-200': row.status === 'Закончил',
               'bg-rose-100 text-rose-800 ring-rose-200': row.status === 'Отчислен'
             }"

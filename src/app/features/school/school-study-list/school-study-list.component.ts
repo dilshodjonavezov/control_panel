@@ -81,7 +81,8 @@ export class SchoolStudyListComponent implements OnInit {
   filters = {
     fullName: '',
     classNumber: '',
-    institutionId: 'all',
+    status: 'all',
+    isStudying: 'all',
   };
 
   columns: TableColumn[] = [
@@ -111,6 +112,17 @@ export class SchoolStudyListComponent implements OnInit {
     { value: 'Учится', label: 'Учится' },
     { value: 'Закончил', label: 'Закончил' },
     { value: 'Отчислен', label: 'Отчислен' },
+  ];
+  statusFilterOptions: SelectOption[] = [
+    { value: 'all', label: 'Все статусы' },
+    { value: 'РЈС‡РёС‚СЃСЏ', label: 'Учится' },
+    { value: 'Р—Р°РєРѕРЅС‡РёР»', label: 'Закончил' },
+    { value: 'РћС‚С‡РёСЃР»РµРЅ', label: 'Отчислен' },
+  ];
+  studyingFilterOptions: SelectOption[] = [
+    { value: 'all', label: 'Все записи' },
+    { value: 'Р”Р°', label: 'Обучается сейчас' },
+    { value: 'РќРµС‚', label: 'Не обучается' },
   ];
 
   isLoading = false;
@@ -155,21 +167,24 @@ export class SchoolStudyListComponent implements OnInit {
       }
 
       this.filters.fullName = '';
-      this.filters.institutionId = 'all';
       this.filters.classNumber = '11';
+      this.filters.status = 'all';
+      this.filters.isStudying = 'all';
     });
   }
 
   get filteredRecords(): SchoolRecordItem[] {
     const byName = this.filters.fullName.trim().toLowerCase();
     const byClass = this.filters.classNumber.trim().toLowerCase();
-    const institutionFilter = this.filters.institutionId;
+    const statusFilter = this.filters.status;
+    const studyingFilter = this.filters.isStudying;
 
     return this.records.filter((record) => {
       const matchesName = !byName || record.peopleFullName.toLowerCase().includes(byName);
       const matchesClass = !byClass || record.classNumber.toString().toLowerCase().includes(byClass);
-      const matchesInstitution = institutionFilter === 'all' || record.institutionId.toString() === institutionFilter;
-      return matchesName && matchesClass && matchesInstitution;
+      const matchesStatus = statusFilter === 'all' || record.status === statusFilter;
+      const matchesStudying = studyingFilter === 'all' || record.isStudying === studyingFilter;
+      return matchesName && matchesClass && matchesStatus && matchesStudying;
     });
   }
 
@@ -259,10 +274,6 @@ export class SchoolStudyListComponent implements OnInit {
             })),
           ];
           this.records = visibleRecords.map((record) => this.mapRecord(record));
-
-          if (this.linkedInstitutionId) {
-            this.filters.institutionId = this.linkedInstitutionId.toString();
-          }
 
           if (!this.institutionOptions[1]) {
             this.errorMessage = 'Для этой школы ещё не создано учебное учреждение. Оно будет создано автоматически при следующем обновлении или через админа.';

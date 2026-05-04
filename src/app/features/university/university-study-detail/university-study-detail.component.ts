@@ -2,7 +2,7 @@
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
+import { catchError, finalize, forkJoin, of, TimeoutError, timeout } from 'rxjs';
 import {
   ButtonComponent,
   CardComponent,
@@ -180,8 +180,13 @@ export class UniversityStudyDetailComponent implements OnInit {
   }
 
   get currentSelectedPersonName(): string {
+    const peopleId = Number(this.formData.peopleId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      return '';
+    }
+    const citizen = this.citizens.find((item) => item.id === peopleId) ?? null;
     const graduate = this.findSelectedGraduate();
-    return graduate?.peopleFullName?.trim() || '';
+    return citizen?.fullName?.trim() || graduate?.peopleFullName?.trim() || '';
   }
 
   get currentSelectedGraduationDate(): string {
@@ -352,11 +357,11 @@ export class UniversityStudyDetailComponent implements OnInit {
     forkJoin({
       institution: this.educationInstitutionsService.getById(institutionId),
       records: this.educationRecordsService.getAll(),
-      graduates: this.schoolRecordsService.getAll(),
-      medicalRecords: this.medicalRecordsService.getAll(),
+      graduates: this.schoolRecordsService.getAll().pipe(catchError(() => of([]))),
+      medicalRecords: this.medicalRecordsService.getAll().pipe(catchError(() => of([]))),
       citizens: this.schoolRecordsService.getCitizens(),
-      addresses: this.addressesService.getAll(),
-      passports: this.passportRecordsService.getAll(),
+      addresses: this.addressesService.getAll().pipe(catchError(() => of([]))),
+      passports: this.passportRecordsService.getAll().pipe(catchError(() => of([]))),
     })
       .pipe(timeout(15000))
       .subscribe({
@@ -521,7 +526,7 @@ export class UniversityStudyDetailComponent implements OnInit {
     const userId = this.authService.resolveCurrentUserId();
 
     if (!Number.isInteger(peopleId) || peopleId <= 0) {
-      this.formErrorMessage = 'Выберите выпускника школы.';
+      this.formErrorMessage = 'Выберите гражданина.';
       return null;
     }
 
@@ -588,12 +593,11 @@ export class UniversityStudyDetailComponent implements OnInit {
   }
 
   private findSelectedMedicalRecord(): ApiMedicalRecord | null {
-    const graduate = this.findSelectedGraduate();
-    if (!graduate) {
+    const peopleId = Number(this.formData.peopleId);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
       return null;
     }
-
-    return this.findMedicalRecordByPeopleId(graduate.peopleId);
+    return this.findMedicalRecordByPeopleId(peopleId);
   }
 
   private findGraduateByPeopleId(peopleId: number): ApiSchoolRecord | null {

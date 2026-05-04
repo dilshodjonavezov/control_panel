@@ -135,6 +135,8 @@ export class UsersService implements OnModuleInit {
     const voenkomatRole = roleByCode.get('admin') ?? null;
     const defaultOrganization = organizationByCode.get('system-admin') ?? null;
     const existingVoenkomat = await this.userModel.findOne({ username: 'voenkomat' }).lean();
+    const legacyCollegeUser = await this.userModel.findOne({ username: 'university' }).lean();
+    const existingCollegeUser = await this.userModel.findOne({ username: 'kolleg3' }).lean();
 
     if (legacySuperadmin && !existingVoenkomat && voenkomatRole) {
       await this.userModel.updateOne(
@@ -147,6 +149,22 @@ export class UsersService implements OnModuleInit {
             email: 'voenkomat@example.com',
             roleId: voenkomatRole.id,
             organizationId: defaultOrganization?.id ?? null,
+            isActive: true,
+          },
+        },
+      );
+    }
+
+    if (legacyCollegeUser && !existingCollegeUser) {
+      await this.userModel.updateOne(
+        { username: 'university' },
+        {
+          $set: {
+            username: 'kolleg3',
+            passwordHash: 'kolleg3',
+            fullName: 'Сотрудник колледжа',
+            email: 'kolleg3@example.com',
+            organizationId: organizationByCode.get('college-3')?.id ?? null,
             isActive: true,
           },
         },

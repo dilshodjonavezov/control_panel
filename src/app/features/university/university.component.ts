@@ -19,6 +19,7 @@ export class UniversityComponent {
   readonly institutionName;
   readonly accountEmail;
   readonly avatarLetter;
+  readonly roleLabel;
 
   readonly navSections: PortalShellNavSection[] = [
     {
@@ -29,7 +30,7 @@ export class UniversityComponent {
           path: '/university/studies',
           label: 'Студенты и обучение',
           icon: '🎓',
-          hint: 'Реестр студентов, факультетов, специальностей и статусов обучения',
+          hint: 'Реестр студентов, специальностей и статусов обучения только этого колледжа',
         },
       ],
     },
@@ -40,14 +41,14 @@ export class UniversityComponent {
       path: '/university/studies',
       label: 'Добавить студента',
       icon: '➕',
-      description: 'Открыть форму новой записи об обучении',
+      description: 'Открыть форму новой записи об обучении для своего колледжа',
       queryParams: { action: 'create' },
     },
     {
       path: '/university/studies',
       label: 'Риск отчисления',
       icon: '⚠️',
-      description: 'Перейти к записям, которые влияют на отсрочку и статус учебы',
+      description: 'Перейти к записям, которые влияют на отсрочку и статус обучения',
       queryParams: { action: 'expulsions' },
     },
     {
@@ -62,13 +63,13 @@ export class UniversityComponent {
   readonly metrics: PortalShellMetric[] = [
     {
       label: 'Учреждение',
-      value: 'Колледж / ВУЗ',
-      hint: 'Кабинет работает с конкретным учреждением, а не с реестром всех заведений',
+      value: 'Колледж №3',
+      hint: 'Кабинет работает только с одним колледжем, а не с реестром всех заведений',
     },
     {
       label: 'Фокус',
       value: 'Студенты',
-      hint: 'Здесь ведутся зачисления, обучение, выпуск и отчисление студентов',
+      hint: 'Здесь ведутся поступление, обучение, выпуск и отчисление студентов',
     },
     {
       label: 'Связь',
@@ -79,8 +80,9 @@ export class UniversityComponent {
 
   constructor(private readonly authService: AuthService) {
     this.currentUser = this.authService.getCurrentUser();
-    this.institutionName = this.currentUser?.organizationName?.trim() || 'Колледж / ВУЗ';
-    this.accountEmail = this.currentUser?.email?.trim() || 'university@example.com';
+    this.institutionName = this.currentUser?.organizationName?.trim() || 'Колледж №3';
+    this.accountEmail = this.currentUser?.email?.trim() || 'kolleg3@example.com';
     this.avatarLetter = this.institutionName.charAt(0).toUpperCase() || 'К';
+    this.roleLabel = this.institutionName.toLowerCase().includes('колледж') ? 'Колледж' : 'Учебное учреждение';
   }
 }

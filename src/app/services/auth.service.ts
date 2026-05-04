@@ -264,6 +264,7 @@ export class AuthService {
       jek: 'jek',
       passport: 'passport',
       school: 'school',
+      kolleg3: 'university',
       university: 'university',
       clinic: 'clinic',
       vvk: 'vvk',

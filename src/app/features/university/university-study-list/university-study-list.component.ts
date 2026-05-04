@@ -1,381 +1,179 @@
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
-import {
-  ButtonComponent,
-  CardComponent,
-  InputComponent,
-  ModalComponent,
-  SelectComponent,
-  SelectOption,
-  TableComponent,
-  TableColumn,
-} from '../../../shared/components';
+import { ActivatedRoute, Router } from '@angular/router';
+import { catchError, map, of, switchMap, timeout } from 'rxjs';
+import { CardComponent } from '../../../shared/components';
+import { AuthService } from '../../../services/auth.service';
 import {
   ApiEducationInstitution,
   CreateEducationInstitutionRequest,
   EducationInstitutionsService,
 } from '../../../services/education-institutions.service';
-import { AuthService } from '../../../services/auth.service';
-import { ApiEducationRecord, EducationRecordsService } from '../../../services/education-records.service';
-import { OrganizationsService } from '../../../services/organizations.service';
-
-interface EducationInstitutionForm {
-  name: string;
-  type: string;
-  address: string;
-  description: string;
-}
-
-interface InstitutionRow extends ApiEducationInstitution {
-  peopleCount: number;
-  peopleNames: string;
-  studentDetails: string;
-  studentFormSummary: string;
-}
+import { OrganizationRecord, OrganizationsService } from '../../../services/organizations.service';
 
 @Component({
   selector: 'app-university-study-list',
   standalone: true,
-  imports: [
-    CommonModule,
-    FormsModule,
-    RouterLink,
-    CardComponent,
-    TableComponent,
-    InputComponent,
-    ButtonComponent,
-    ModalComponent,
-    SelectComponent,
-  ],
+  imports: [CommonModule, CardComponent],
   templateUrl: './university-study-list.component.html',
   styleUrl: './university-study-list.component.css',
 })
 export class UniversityStudyListComponent implements OnInit {
-  isRedirectingToInstitution = false;
-  institutionTypeOptions: SelectOption[] = [
-    { value: 'UNIVERSITY', label: 'Университет' },
-    { value: 'COLLEGE', label: 'Колледж' },
-    { value: 'SCHOOL', label: 'Школа' },
-  ];
-
-  filters = {
-    name: '',
-    type: '',
-    people: '',
-  };
-
-  columns: TableColumn[] = [
-    { key: 'id', label: 'ID', sortable: true },
-    { key: 'name', label: 'Название', sortable: true },
-    { key: 'type', label: 'Тип', sortable: true },
-    { key: 'address', label: 'Адрес', sortable: true },
-    { key: 'peopleNames', label: 'ФИО людей', sortable: false },
-    { key: 'studentDetails', label: 'Кандидаты', sortable: false },
-    { key: 'studentFormSummary', label: 'Форма', sortable: false },
-    { key: 'peopleCount', label: 'Кол-во', sortable: true },
-    { key: 'description', label: 'Описание', sortable: false },
-    { key: 'details', label: 'Подробнее', sortable: false },
-  ];
-
-  records: InstitutionRow[] = [];
-  isLoading = false;
+  isRedirectingToInstitution = true;
   errorMessage = '';
-
-  showFormModal = false;
-  isEditMode = false;
-  editingId: number | null = null;
-  isFormSubmitting = false;
-  formErrorMessage = '';
-  formData: EducationInstitutionForm = this.createDefaultForm();
-
-  showDeleteModal = false;
-  deletingRecord: InstitutionRow | null = null;
-  isDeleting = false;
-  deleteErrorMessage = '';
-  private linkedInstitutionId: number | null = null;
+  institutionName = '';
 
   constructor(
     private readonly educationInstitutionsService: EducationInstitutionsService,
-    private readonly educationRecordsService: EducationRecordsService,
-    private readonly authService: AuthService,
     private readonly organizationsService: OrganizationsService,
+    private readonly authService: AuthService,
     private readonly route: ActivatedRoute,
     private readonly router: Router,
     private readonly cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
-    this.loadRecords();
-    this.route.queryParamMap.subscribe((params) => {
-      const action = params.get('action');
-      if (!action) {
-        return;
-      }
-
-      if (action === 'create') {
-        this.openCreateModal();
-        return;
-      }
-
-      this.filters.name = '';
-      this.filters.people = '';
-      this.filters.type = action === 'expulsions' ? 'college' : 'university';
-    });
+    this.redirectToOwnInstitution();
   }
 
-  get filteredRecords(): InstitutionRow[] {
-    const byName = this.filters.name.trim().toLowerCase();
-    const byType = this.filters.type.trim().toLowerCase();
-    const byPeople = this.filters.people.trim().toLowerCase();
-
-    return this.records.filter((record) => {
-      const matchesName = !byName || (record.name ?? '').toLowerCase().includes(byName);
-      const matchesType = !byType || (record.type ?? '').toLowerCase().includes(byType);
-      const matchesPeople = !byPeople || (record.peopleNames ?? '').toLowerCase().includes(byPeople);
-      return matchesName && matchesType && matchesPeople;
-    });
-  }
-
-  get formModalTitle(): string {
-    return this.isEditMode ? 'Редактировать учебное заведение' : 'Добавить учебное заведение';
-  }
-
-  loadRecords(): void {
-    this.isLoading = true;
+  private redirectToOwnInstitution(): void {
+    const currentUser = this.authService.getCurrentUser();
+    this.institutionName = currentUser?.organizationName?.trim() || 'Колледж';
+    this.isRedirectingToInstitution = true;
     this.errorMessage = '';
 
-    forkJoin({
-      institutions: this.educationInstitutionsService.getAll(),
-      educationRecords: this.educationRecordsService.getAll(),
-      organizations: this.organizationsService.getOrganizations(),
-    })
+    this.educationInstitutionsService
+      .getAll()
       .pipe(
         timeout(15000),
-        finalize(() => {
-          this.isLoading = false;
-          this.cdr.detectChanges();
-        }),
+        switchMap((institutions) =>
+          this.organizationsService.getOrganizations().pipe(
+            map((organizations) => ({ institutions, organizations })),
+            catchError(() => of({ institutions, organizations: [] as OrganizationRecord[] })),
+          ),
+        ),
+        switchMap(({ institutions, organizations }) => this.resolveInstitutionId(institutions, organizations)),
       )
       .subscribe({
-        next: ({ institutions, educationRecords, organizations }) => {
-          const currentOrganizationId = this.authService.getCurrentUser()?.organizationId ?? null;
-          const currentOrganization = organizations.find((item) => item.id === currentOrganizationId) ?? null;
-          this.linkedInstitutionId = currentOrganization?.educationInstitutionId ?? null;
-          if (this.linkedInstitutionId) {
-            this.isRedirectingToInstitution = true;
-            void this.router.navigate(['/university/studies', this.linkedInstitutionId], {
-              queryParams: this.route.snapshot.queryParams,
-              replaceUrl: true,
-            });
+        next: (institutionId) => {
+          if (!institutionId) {
+            this.errorMessage =
+              'Не удалось открыть кабинет Колледжа №3. Проверьте привязку учреждения в административной части.';
+            this.isRedirectingToInstitution = false;
+            this.cdr.detectChanges();
             return;
           }
-          const visibleInstitutions = this.linkedInstitutionId
-            ? institutions.filter((institution) => institution.id === this.linkedInstitutionId)
-            : institutions;
-          this.records = this.mergeRecords(visibleInstitutions, educationRecords);
-        },
-        error: (error: unknown) => {
-          this.records = [];
-          this.errorMessage =
-            error instanceof TimeoutError
-              ? 'Превышено время ожидания ответа API.'
-              : 'Не удалось загрузить реестр учебных заведений.';
-        },
-      });
-  }
 
-  openCreateModal(): void {
-    this.isEditMode = false;
-    this.editingId = null;
-    this.formData = this.createDefaultForm();
-    this.formErrorMessage = '';
-    this.showFormModal = true;
-  }
-
-  openEditModal(record: InstitutionRow): void {
-    this.isEditMode = true;
-    this.editingId = record.id;
-    this.formData = {
-      name: record.name ?? '',
-      type: record.type ?? '',
-      address: record.address ?? '',
-      description: record.description ?? '',
-    };
-    this.formErrorMessage = '';
-    this.showFormModal = true;
-  }
-
-  closeFormModal(): void {
-    if (this.isFormSubmitting) {
-      return;
-    }
-    this.showFormModal = false;
-  }
-
-  saveForm(): void {
-    const payload = this.buildPayload();
-    if (!payload) {
-      return;
-    }
-
-    this.isFormSubmitting = true;
-    this.formErrorMessage = '';
-
-    const request$ =
-      this.isEditMode && this.editingId
-        ? this.educationInstitutionsService.update(this.editingId, payload)
-        : this.educationInstitutionsService.create(payload);
-
-    request$
-      .pipe(
-        finalize(() => {
-          this.isFormSubmitting = false;
-          this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: (ok) => {
-          if (!ok) {
-            this.formErrorMessage = this.isEditMode ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
-            return;
-          }
-          this.showFormModal = false;
-          this.loadRecords();
+          void this.router.navigate(['/university/studies', institutionId], {
+            queryParams: this.route.snapshot.queryParams,
+            replaceUrl: true,
+          });
         },
         error: () => {
-          this.formErrorMessage = this.isEditMode ? 'Не удалось изменить запись.' : 'Не удалось создать запись.';
-        },
-      });
-  }
-
-  openDeleteModal(record: InstitutionRow): void {
-    this.deletingRecord = record;
-    this.deleteErrorMessage = '';
-    this.showDeleteModal = true;
-  }
-
-  closeDeleteModal(): void {
-    if (this.isDeleting) {
-      return;
-    }
-    this.showDeleteModal = false;
-    this.deletingRecord = null;
-    this.deleteErrorMessage = '';
-  }
-
-  confirmDelete(): void {
-    if (!this.deletingRecord || this.isDeleting) {
-      return;
-    }
-
-    this.isDeleting = true;
-    this.deleteErrorMessage = '';
-
-    this.educationInstitutionsService
-      .delete(this.deletingRecord.id)
-      .pipe(
-        finalize(() => {
-          this.isDeleting = false;
+          this.errorMessage = 'Не удалось открыть кабинет Колледжа №3.';
+          this.isRedirectingToInstitution = false;
           this.cdr.detectChanges();
-        }),
-      )
-      .subscribe({
-        next: (ok) => {
-          if (!ok) {
-            this.deleteErrorMessage = 'Не удалось удалить запись.';
-            return;
-          }
-          this.showDeleteModal = false;
-          this.deletingRecord = null;
-          this.loadRecords();
-        },
-        error: () => {
-          this.deleteErrorMessage = 'Не удалось удалить запись.';
         },
       });
   }
 
-  getInstitutionTypeLabel(type: string | null | undefined): string {
-    const normalized = (type ?? '').trim().toUpperCase();
-    if (normalized === 'UNIVERSITY') {
-      return 'Университет';
-    }
-    if (normalized === 'COLLEGE') {
-      return 'Колледж';
-    }
-    if (normalized === 'SCHOOL') {
-      return 'Школа';
-    }
-    return '';
-  }
-
-  get pageTitle(): string {
-    return 'Учебные заведения';
-  }
-
-  get pageDescription(): string {
-    return 'Этот экран нужен только как общий список заведений. Кабинет колледжа или вуза должен работать внутри своего учреждения.';
-  }
-
-  private mergeRecords(
+  private resolveInstitutionId(
     institutions: ApiEducationInstitution[],
-    educationRecords: ApiEducationRecord[],
-  ): InstitutionRow[] {
-    return institutions.map((institution) => {
-      const relatedRecords = educationRecords.filter((record) => record.institutionId === institution.id);
-      const peopleNames = relatedRecords
-        .map((record) => record.peopleFullName?.trim() || `ID ${record.peopleId}`)
-        .filter((value, index, array) => array.indexOf(value) === index)
-        .join(', ');
-      const studentDetails = relatedRecords
-        .map((record) => `${record.peopleFullName?.trim() || `ID ${record.peopleId}`} (${record.studyForm?.trim() || '-'})`)
-        .filter((value, index, array) => array.indexOf(value) === index)
-        .join(' | ');
-      const studentFormSummary = relatedRecords
-        .map((record) => record.studyForm?.trim() || '-')
-        .filter((value, index, array) => array.indexOf(value) === index)
-        .join(', ');
+    organizations: OrganizationRecord[],
+  ) {
+    const currentUser = this.authService.getCurrentUser();
+    const organization =
+      organizations.find((item) => item.id === currentUser?.organizationId) ??
+      organizations.find((item) => this.normalizeText(item.name) === this.normalizeText(currentUser?.organizationName)) ??
+      null;
 
-      return {
-        ...institution,
-        peopleCount: relatedRecords.length,
-        peopleNames: peopleNames || '—',
-        studentDetails: studentDetails || '—',
-        studentFormSummary: studentFormSummary || '—',
-      };
-    });
-  }
+    const linkedByOrganizationId =
+      organization?.educationInstitutionId && Number.isInteger(organization.educationInstitutionId)
+        ? institutions.find((item) => item.id === organization.educationInstitutionId) ?? null
+        : null;
+    if (linkedByOrganizationId) {
+      return of(linkedByOrganizationId.id);
+    }
 
-  private buildPayload(): CreateEducationInstitutionRequest | null {
+    const linkedByName = this.findLinkedInstitution(institutions, currentUser?.organizationName ?? '');
+    if (linkedByName) {
+      return this.persistOrganizationLink(organization, linkedByName.id);
+    }
+
+    const organizationName = currentUser?.organizationName?.trim() || organization?.name?.trim() || '';
+    if (!organizationName) {
+      return of<number | null>(null);
+    }
+
     const payload: CreateEducationInstitutionRequest = {
-      name: this.formData.name.trim(),
-      type: this.formData.type.trim(),
-      address: this.formData.address.trim(),
-      description: this.formData.description.trim(),
+      name: organizationName,
+      type: this.resolveInstitutionType(organizationName, organization?.type),
+      address: organization?.addressText?.trim() || '',
+      description: 'Автоматически создано из кабинета колледжа',
     };
 
-    if (!payload.name) {
-      this.formErrorMessage = 'Укажите название.';
-      return null;
-    }
-
-    if (!payload.type) {
-      this.formErrorMessage = 'Укажите тип.';
-      return null;
-    }
-
-    return payload;
+    return this.educationInstitutionsService.createRecord(payload).pipe(
+      switchMap((created) => this.persistOrganizationLink(organization, created.id)),
+      catchError(() => of<number | null>(null)),
+    );
   }
 
-  private createDefaultForm(): EducationInstitutionForm {
-    return {
-      name: '',
-      type: '',
-      address: '',
-      description: '',
-    };
+  private persistOrganizationLink(organization: OrganizationRecord | null, institutionId: number) {
+    if (!organization?.id) {
+      return of<number | null>(institutionId);
+    }
+
+    return this.organizationsService
+      .updateOrganization(organization.id, { educationInstitutionId: institutionId })
+      .pipe(
+        map(() => institutionId),
+        catchError(() => of<number | null>(institutionId)),
+      );
+  }
+
+  private findLinkedInstitution(
+    institutions: ApiEducationInstitution[],
+    organizationName: string,
+  ): ApiEducationInstitution | null {
+    const filteredInstitutions = institutions.filter((institution) =>
+      ['COLLEGE', 'UNIVERSITY', 'INSTITUTE'].includes((institution.type ?? '').trim().toUpperCase()),
+    );
+    const normalizedOrganizationName = this.normalizeText(organizationName);
+
+    const exactMatch = filteredInstitutions.find(
+      (institution) => this.normalizeText(institution.name) === normalizedOrganizationName,
+    );
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    const partialMatch = filteredInstitutions.find((institution) => {
+      const institutionName = this.normalizeText(institution.name);
+      return !!normalizedOrganizationName && (
+        institutionName.includes(normalizedOrganizationName) ||
+        normalizedOrganizationName.includes(institutionName)
+      );
+    });
+
+    return partialMatch ?? null;
+  }
+
+  private resolveInstitutionType(organizationName: string, organizationType?: string | null): string {
+    const normalizedName = this.normalizeText(organizationName);
+    if (normalizedName.includes('колледж')) {
+      return 'COLLEGE';
+    }
+    if (normalizedName.includes('институт')) {
+      return 'INSTITUTE';
+    }
+    const normalizedType = (organizationType ?? '').trim().toUpperCase();
+    if (normalizedType === 'COLLEGE' || normalizedType === 'INSTITUTE' || normalizedType === 'UNIVERSITY') {
+      return normalizedType;
+    }
+    return 'UNIVERSITY';
+  }
+
+  private normalizeText(value: string | null | undefined): string {
+    return (value ?? '').trim().toLowerCase();
   }
 }

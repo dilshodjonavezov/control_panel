@@ -1,135 +1,20 @@
 @if (isRedirectingToInstitution) {
   <app-card>
-    <p class="text-sm text-gray-600">Открываем кабинет вашего учебного заведения...</p>
+    <div class="space-y-2">
+      <div class="text-base font-semibold text-gray-900">Открываем кабинет учреждения</div>
+      <p class="text-sm text-gray-600">
+        Подготавливаем рабочий кабинет {{ institutionName || 'Колледжа №3' }} и переводим вас сразу в реестр студентов.
+      </p>
+    </div>
   </app-card>
 } @else {
-  <div class="space-y-6">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900">{{ pageTitle }}</h1>
-        <p class="mt-1 text-sm text-gray-500">{{ pageDescription }}</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <app-button variant="outline" (clicked)="loadRecords()">Обновить</app-button>
-        <app-button variant="primary" (clicked)="openCreateModal()">Добавить заведение</app-button>
-      </div>
+  <app-card>
+    <div class="space-y-2">
+      <div class="text-base font-semibold text-red-700">Кабинет не открылся</div>
+      <p class="text-sm text-gray-700">{{ errorMessage }}</p>
+      <p class="text-sm text-gray-500">
+        Для роли колледжа общий список заведений отключён. Этот кабинет должен открывать только данные своего колледжа.
+      </p>
     </div>
-
-    <app-card title="Фильтры">
-      <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <app-input label="Название" placeholder="Например: ТГНУ" [(ngModel)]="filters.name"></app-input>
-        <app-input label="Тип" placeholder="Университет / Колледж" [(ngModel)]="filters.type"></app-input>
-        <app-input label="Студенты" placeholder="Иванов Иван" [(ngModel)]="filters.people"></app-input>
-      </div>
-    </app-card>
-
-    @if (errorMessage) {
-      <app-card>
-        <p class="text-sm text-red-600">{{ errorMessage }}</p>
-      </app-card>
-    }
-
-    <app-card>
-      <app-table
-        [columns]="columns"
-        [data]="filteredRecords"
-        [loading]="isLoading"
-        [rowTemplate]="rowTemplate"
-        [actionsTemplate]="actionsTemplate"
-        [emptyMessage]="'Записей нет'"
-      >
-        <ng-template #rowTemplate let-row>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.name }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ getInstitutionTypeLabel(row.type) || row.type || '—' }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.address || '—' }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleNames }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.studentDetails }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.studentFormSummary }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleCount }}</td>
-          <td class="px-6 py-4 text-sm text-gray-900">{{ row.description || '—' }}</td>
-          <td class="px-6 py-4 text-sm">
-            <a
-              [routerLink]="['/university/studies', row.id]"
-              class="font-medium text-sky-700 underline decoration-sky-300 underline-offset-2 hover:text-sky-900"
-            >
-              Открыть кабинет
-            </a>
-          </td>
-        </ng-template>
-
-        <ng-template #actionsTemplate let-row>
-          <div class="flex items-center gap-2">
-            <button
-              type="button"
-              class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-300 text-gray-600 hover:bg-gray-100"
-              title="Редактировать"
-              (click)="openEditModal(row)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-                <path d="M13.586 3.586a2 2 0 1 1 2.828 2.828l-8.707 8.707a2 2 0 0 1-.878.497l-2.425.693a.75.75 0 0 1-.928-.928l.693-2.425a2 2 0 0 1 .497-.878l8.92-8.494Z"/>
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="inline-flex h-8 w-8 items-center justify-center rounded-md border border-red-300 text-red-600 hover:bg-red-50"
-              title="Удалить"
-              (click)="openDeleteModal(row)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-4 w-4">
-                <path
-                  fill-rule="evenodd"
-                  d="M8.75 2.5a1 1 0 0 0-1 1V4h4.5v-.5a1 1 0 0 0-1-1h-2.5Zm-3 3a.75.75 0 0 0 0 1.5h.53l.53 9.28A2 2 0 0 0 8.806 18h2.388a2 2 0 0 0 1.996-1.72l.53-9.28h.53a.75.75 0 0 0 0-1.5h-8.5Z"
-                  clip-rule="evenodd"
-                />
-              </svg>
-            </button>
-          </div>
-        </ng-template>
-      </app-table>
-    </app-card>
-
-    <app-modal [show]="showFormModal" [title]="formModalTitle" size="lg" (closed)="closeFormModal()">
-      <div class="space-y-4">
-        @if (formErrorMessage) {
-          <p class="text-sm text-red-600">{{ formErrorMessage }}</p>
-        }
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <app-input label="Название" [disabled]="isFormSubmitting" [(ngModel)]="formData.name"></app-input>
-          <app-select
-            label="Тип учреждения"
-            [options]="institutionTypeOptions"
-            placeholder="Выберите тип"
-            [disabled]="isFormSubmitting"
-            [(ngModel)]="formData.type"
-          ></app-select>
-          <app-input label="Адрес" [disabled]="isFormSubmitting" [(ngModel)]="formData.address"></app-input>
-          <app-input label="Описание" [disabled]="isFormSubmitting" [(ngModel)]="formData.description"></app-input>
-        </div>
-        <div class="flex justify-end gap-2">
-          <app-button variant="secondary" [disabled]="isFormSubmitting" (clicked)="closeFormModal()">Отмена</app-button>
-          <app-button variant="primary" [loading]="isFormSubmitting" [disabled]="isFormSubmitting" (clicked)="saveForm()">Сохранить</app-button>
-        </div>
-      </div>
-    </app-modal>
-
-    <app-modal [show]="showDeleteModal" [title]="'Удаление учебного заведения'" size="md" (closed)="closeDeleteModal()">
-      <div class="space-y-4">
-        @if (deleteErrorMessage) {
-          <p class="text-sm text-red-600">{{ deleteErrorMessage }}</p>
-        }
-        <p class="text-sm text-gray-700">
-          Удалить запись
-          @if (deletingRecord) {
-            <span class="font-semibold">#{{ deletingRecord.id }} ({{ deletingRecord.name }})</span>
-          }
-          ?
-        </p>
-        <div class="flex justify-end gap-2">
-          <app-button variant="secondary" [disabled]="isDeleting" (clicked)="closeDeleteModal()">Отмена</app-button>
-          <app-button variant="danger" [loading]="isDeleting" [disabled]="isDeleting" (clicked)="confirmDelete()">Удалить</app-button>
-        </div>
-      </div>
-    </app-modal>
-  </div>
+  </app-card>
 }

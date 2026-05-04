@@ -207,6 +207,24 @@ export class SchoolStudyListComponent implements OnInit {
     return profile?.citizen.birthDate ? this.formatDate(profile.citizen.birthDate) : '';
   }
 
+  get currentSelectedAge(): string {
+    const profile = this.findSelectedCitizenProfile();
+    if (!profile?.citizen.birthDate) {
+      return '';
+    }
+    return this.formatAge(profile.citizen.birthDate);
+  }
+
+  get currentSelectedGender(): string {
+    const profile = this.findSelectedCitizenProfile();
+    return this.formatGender(profile?.citizen.gender || '');
+  }
+
+  get currentSelectedCitizenship(): string {
+    const profile = this.findSelectedCitizenProfile();
+    return profile?.citizen.citizenship?.trim() || '';
+  }
+
   get currentSelectedAddress(): string {
     const profile = this.findSelectedCitizenProfile();
     return profile?.address?.fullAddress?.trim() || '';
@@ -723,5 +741,32 @@ export class SchoolStudyListComponent implements OnInit {
       return value;
     }
     return date.toLocaleDateString('ru-RU');
+  }
+
+  private formatAge(value: string): string {
+    const birthDate = new Date(value);
+    if (Number.isNaN(birthDate.getTime())) {
+      return '';
+    }
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    const dayDiff = today.getDate() - birthDate.getDate();
+    if (monthDiff < 0 || (monthDiff === 0 && dayDiff < 0)) {
+      age -= 1;
+    }
+    return age >= 0 ? `${age}` : '';
+  }
+
+  private formatGender(value: string): string {
+    const normalized = value.trim().toUpperCase();
+    if (normalized === 'MALE' || normalized === 'M') {
+      return 'Мужской';
+    }
+    if (normalized === 'FEMALE' || normalized === 'F') {
+      return 'Женский';
+    }
+    return value.trim();
   }
 }

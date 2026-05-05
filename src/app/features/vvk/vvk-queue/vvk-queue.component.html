@@ -1,8 +1,8 @@
-﻿<div class="space-y-6">
+<div class="space-y-6">
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Военкомат</h1>
-      <p class="mt-2 text-gray-600">Медицинские осмотры выпускников школы с адресом и родителями.</p>
+      <h1 class="text-3xl font-bold text-gray-900">ВВК</h1>
+      <p class="mt-2 text-gray-600">Комиссия принимает итоговое решение по годности на основе медосмотра поликлиники.</p>
     </div>
     <app-button variant="outline" (clicked)="loadData()">Обновить</app-button>
   </div>
@@ -11,7 +11,7 @@
     <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
       <app-input label="ФИО" placeholder="Фамилия Имя" [(ngModel)]="filters.fullName"></app-input>
       <app-input label="Адрес" placeholder="Улица, дом" [(ngModel)]="filters.address"></app-input>
-      <app-select label="Годность" [options]="decisionOptions" [(ngModel)]="filters.decision"></app-select>
+      <app-select label="Медосмотр" [options]="decisionOptions" [(ngModel)]="filters.decision"></app-select>
     </div>
   </app-card>
 
@@ -27,6 +27,7 @@
       [data]="filteredRecords"
       [loading]="isLoading"
       [rowTemplate]="rowTemplate"
+      [actionsTemplate]="actionsTemplate"
       [emptyMessage]="'Записей нет'"
     >
       <ng-template #rowTemplate let-row>
@@ -36,10 +37,47 @@
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.addressLabel }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.clinic }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ getStatusLabel(row.decision) }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.reason }}</td>
-        <td class="px-6 py-4 text-sm text-gray-900">{{ row.defermentReason }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.vvkCategory }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.vvkDecision }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.createdAtRecord }}</td>
+      </ng-template>
+
+      <ng-template #actionsTemplate let-row>
+        <app-button variant="secondary" (clicked)="openResultModal(row)">Решение ВВК</app-button>
       </ng-template>
     </app-table>
   </app-card>
+
+  <app-modal [show]="showResultModal" [title]="'Решение ВВК'" size="lg" (closed)="closeResultModal()">
+    <div class="space-y-4">
+      @if (editingItem) {
+        <div class="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+          <div class="text-xs font-semibold uppercase tracking-wide text-gray-500">Гражданин</div>
+          <div class="mt-1 text-base font-semibold text-gray-900">{{ editingItem.fullName }}</div>
+          <div class="mt-1 text-sm text-gray-600">
+            Медосмотр: {{ getStatusLabel(editingItem.decision) }} · Поликлиника: {{ editingItem.clinic }}
+          </div>
+        </div>
+      }
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <app-input label="Дата решения" type="date" [(ngModel)]="formData.examDate"></app-input>
+        <app-select label="Категория ВВК" [options]="vvkCategoryOptions" [(ngModel)]="formData.category"></app-select>
+        <app-input label="Причина" [(ngModel)]="formData.reason"></app-input>
+        <app-input label="Следующий пересмотр" type="date" [(ngModel)]="formData.nextReviewDate"></app-input>
+        <div class="md:col-span-2">
+          <app-input label="Комментарий" [(ngModel)]="formData.notes"></app-input>
+        </div>
+      </div>
+
+      @if (submitError) {
+        <p class="text-sm text-red-600">{{ submitError }}</p>
+      }
+
+      <div class="flex justify-end gap-2">
+        <app-button variant="secondary" [disabled]="isSubmitting" (clicked)="closeResultModal()">Отмена</app-button>
+        <app-button variant="primary" [loading]="isSubmitting" [disabled]="isSubmitting" (clicked)="saveResult()">Сохранить</app-button>
+      </div>
+    </div>
+  </app-modal>
 </div>

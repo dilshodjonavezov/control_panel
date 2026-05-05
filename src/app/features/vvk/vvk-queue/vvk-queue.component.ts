@@ -1,16 +1,34 @@
-﻿import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { finalize, forkJoin, TimeoutError, timeout } from 'rxjs';
-import { CardComponent, TableComponent, TableColumn, InputComponent, SelectComponent, SelectOption, ButtonComponent } from '../../../shared/components';
+import {
+  ButtonComponent,
+  CardComponent,
+  InputComponent,
+  ModalComponent,
+  SelectComponent,
+  SelectOption,
+  TableComponent,
+  TableColumn,
+} from '../../../shared/components';
 import { MedicalRecordsService, ApiMedicalRecord } from '../../../services/medical-records.service';
+import { AuthService } from '../../../services/auth.service';
+import {
+  ApiVvkResult,
+  CreateVvkResultRequest,
+  VvkResultsService,
+} from '../../../services/vvk-results.service';
 
 type Decision = 'FIT' | 'UNFIT';
+type VvkCategory = 'A' | 'B' | 'C' | 'D_UNFIT';
 
 interface MilitaryRecordItem {
   id: number;
   fullName: string;
+  peopleId: number;
+  medicalVisitId: number;
   fatherFullName: string;
   motherFullName: string;
   addressLabel: string;
@@ -19,14 +37,28 @@ interface MilitaryRecordItem {
   reason: string;
   defermentReason: string;
   createdAtRecord: string;
+  vvkCategory: string;
+  vvkDecision: string;
+  vvkResultId: number | null;
+}
+
+interface VvkFormData {
+  peopleId: string;
+  medicalVisitId: string;
+  fullName: string;
+  examDate: string;
+  category: VvkCategory;
+  reason: string;
+  notes: string;
+  nextReviewDate: string;
 }
 
 @Component({
   selector: 'app-vvk-queue',
   standalone: true,
-  imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, SelectComponent, ButtonComponent],
+  imports: [CommonModule, FormsModule, CardComponent, TableComponent, InputComponent, SelectComponent, ButtonComponent, ModalComponent],
   templateUrl: './vvk-queue.component.html',
-  styleUrl: './vvk-queue.component.css'
+  styleUrl: './vvk-queue.component.css',
 })
 export class VvkQueueComponent implements OnInit {
   filters = {
@@ -41,9 +73,9 @@ export class VvkQueueComponent implements OnInit {
     { key: 'motherFullName', label: 'ФИО матери', sortable: true },
     { key: 'addressLabel', label: 'Адрес', sortable: true },
     { key: 'clinic', label: 'Поликлиника', sortable: true },
-    { key: 'decision', label: 'Годность', sortable: true },
-    { key: 'reason', label: 'Причина', sortable: true },
-    { key: 'defermentReason', label: 'Отсрочка', sortable: true },
+    { key: 'decision', label: 'Медосмотр', sortable: true },
+    { key: 'vvkCategory', label: 'Категория ВВК', sortable: true },
+    { key: 'vvkDecision', label: 'Решение ВВК', sortable: true },
     { key: 'createdAtRecord', label: 'Дата', sortable: true },
   ];
 
@@ -53,12 +85,26 @@ export class VvkQueueComponent implements OnInit {
     { value: 'UNFIT', label: 'Не годен' },
   ];
 
+  vvkCategoryOptions: SelectOption[] = [
+    { value: 'A', label: 'A — годен' },
+    { value: 'B', label: 'B — годен с ограничениями' },
+    { value: 'C', label: 'C — временно не годен' },
+    { value: 'D_UNFIT', label: 'D — не годен' },
+  ];
+
   records: MilitaryRecordItem[] = [];
   isLoading = false;
   errorMessage = '';
+  showResultModal = false;
+  isSubmitting = false;
+  submitError = '';
+  editingItem: MilitaryRecordItem | null = null;
+  formData: VvkFormData = this.createDefaultForm();
 
   constructor(
     private readonly medicalRecordsService: MedicalRecordsService,
+    private readonly vvkResultsService: VvkResultsService,
+    private readonly authService: AuthService,
     private readonly route: ActivatedRoute,
     private readonly cdr: ChangeDetectorRef,
   ) {}
@@ -90,8 +136,10 @@ export class VvkQueueComponent implements OnInit {
     this.isLoading = true;
     this.errorMessage = '';
 
-    this.medicalRecordsService
-      .getAll()
+    forkJoin({
+      medicalRecords: this.medicalRecordsService.getAll(),
+      vvkResults: this.vvkResultsService.getAll(),
+    })
       .pipe(
         timeout(15000),
         finalize(() => {
@@ -100,14 +148,109 @@ export class VvkQueueComponent implements OnInit {
         }),
       )
       .subscribe({
-        next: (records) => {
-          this.records = records.map((record) => this.mapRecord(record));
+        next: ({ medicalRecords, vvkResults }) => {
+          const latestVvkByPeopleId = new Map<number, ApiVvkResult>();
+          [...vvkResults]
+            .sort((left, right) => String(right.examDate ?? '').localeCompare(String(left.examDate ?? '')))
+            .forEach((item) => {
+              if (!latestVvkByPeopleId.has(item.peopleId)) {
+                latestVvkByPeopleId.set(item.peopleId, item);
+              }
+            });
+
+          this.records = medicalRecords.map((record) => this.mapRecord(record, latestVvkByPeopleId.get(record.peopleId) ?? null));
         },
         error: (error: unknown) => {
           this.records = [];
           this.errorMessage = error instanceof TimeoutError
             ? 'Превышено время ожидания ответа API.'
-            : 'Не удалось загрузить записи для военкомата.';
+            : 'Не удалось загрузить записи ВВК.';
+        },
+      });
+  }
+
+  openResultModal(item: MilitaryRecordItem): void {
+    this.editingItem = item;
+    this.submitError = '';
+    this.formData = {
+      peopleId: String(item.peopleId),
+      medicalVisitId: String(item.medicalVisitId),
+      fullName: item.fullName,
+      examDate: new Date().toISOString().slice(0, 10),
+      category: this.inferCategory(item),
+      reason: item.reason === '-' ? '' : item.reason,
+      notes: '',
+      nextReviewDate: '',
+    };
+    this.showResultModal = true;
+  }
+
+  closeResultModal(): void {
+    if (this.isSubmitting) {
+      return;
+    }
+    this.showResultModal = false;
+    this.editingItem = null;
+    this.submitError = '';
+  }
+
+  saveResult(): void {
+    if (!this.editingItem) {
+      return;
+    }
+
+    const userId = this.authService.resolveCurrentUserId();
+    if (!userId) {
+      this.submitError = 'Не удалось определить текущего пользователя.';
+      return;
+    }
+
+    if (!this.formData.examDate) {
+      this.submitError = 'Укажите дату решения ВВК.';
+      return;
+    }
+
+    const payload: CreateVvkResultRequest = {
+      peopleId: Number(this.formData.peopleId),
+      userId,
+      medicalVisitId: Number(this.formData.medicalVisitId) || null,
+      examDate: new Date(this.formData.examDate).toISOString(),
+      category: this.formData.category,
+      queueStatus: 'DONE',
+      reason: this.formData.reason.trim() || null,
+      notes: this.formData.notes.trim() || null,
+      nextReviewDate: this.formData.nextReviewDate ? new Date(this.formData.nextReviewDate).toISOString() : null,
+    };
+
+    this.isSubmitting = true;
+    this.submitError = '';
+
+    const request$ = this.editingItem.vvkResultId
+      ? this.vvkResultsService.update(this.editingItem.vvkResultId, payload)
+      : this.vvkResultsService.create(payload);
+
+    request$
+      .pipe(
+        timeout(15000),
+        finalize(() => {
+          this.isSubmitting = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (result) => {
+          if (!result) {
+            this.submitError = 'Не удалось сохранить решение ВВК.';
+            return;
+          }
+          this.showResultModal = false;
+          this.editingItem = null;
+          this.loadData();
+        },
+        error: (error: unknown) => {
+          this.submitError = error instanceof TimeoutError
+            ? 'Превышено время ожидания ответа API.'
+            : 'Не удалось сохранить решение ВВК.';
         },
       });
   }
@@ -116,9 +259,11 @@ export class VvkQueueComponent implements OnInit {
     return decision === 'UNFIT' ? 'Не годен' : 'Годен';
   }
 
-  private mapRecord(record: ApiMedicalRecord): MilitaryRecordItem {
+  private mapRecord(record: ApiMedicalRecord, vvkResult: ApiVvkResult | null): MilitaryRecordItem {
     return {
       id: record.id,
+      peopleId: record.peopleId,
+      medicalVisitId: record.id,
       fullName: record.peopleFullName?.trim() || `ID ${record.peopleId}`,
       fatherFullName: record.fatherFullName?.trim() || '-',
       motherFullName: record.motherFullName?.trim() || '-',
@@ -128,6 +273,46 @@ export class VvkQueueComponent implements OnInit {
       reason: record.reason?.trim() || '-',
       defermentReason: record.defermentReason?.trim() || '-',
       createdAtRecord: record.createdAtRecord ? this.formatDate(record.createdAtRecord) : '-',
+      vvkCategory: vvkResult?.category?.trim() || 'Нет решения',
+      vvkDecision: this.formatVvkDecision(vvkResult),
+      vvkResultId: vvkResult?.id ?? null,
+    };
+  }
+
+  private inferCategory(item: MilitaryRecordItem): VvkCategory {
+    if (item.vvkCategory === 'A' || item.vvkCategory === 'B' || item.vvkCategory === 'C' || item.vvkCategory === 'D_UNFIT') {
+      return item.vvkCategory;
+    }
+    return item.decision === 'UNFIT' ? 'D_UNFIT' : 'A';
+  }
+
+  private formatVvkDecision(item: ApiVvkResult | null): string {
+    if (!item) {
+      return 'Нет решения';
+    }
+
+    if (item.finalDecision === 'UNFIT') {
+      return 'Не годен';
+    }
+    if (item.finalDecision === 'TEMP_UNFIT') {
+      return 'Временно не годен';
+    }
+    if (item.finalDecision === 'FIT') {
+      return 'Годен';
+    }
+    return item.finalDecision?.trim() || 'Нет решения';
+  }
+
+  private createDefaultForm(): VvkFormData {
+    return {
+      peopleId: '',
+      medicalVisitId: '',
+      fullName: '',
+      examDate: new Date().toISOString().slice(0, 10),
+      category: 'A',
+      reason: '',
+      notes: '',
+      nextReviewDate: '',
     };
   }
 

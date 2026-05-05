@@ -38,7 +38,7 @@ export class UniversityStudyListComponent implements OnInit {
 
   private redirectToOwnInstitution(): void {
     const currentUser = this.authService.getCurrentUser();
-    this.institutionName = currentUser?.organizationName?.trim() || 'Колледж';
+    this.institutionName = currentUser?.organizationName?.trim() || 'Учебное учреждение';
     this.isRedirectingToInstitution = true;
     this.errorMessage = '';
 
@@ -58,7 +58,8 @@ export class UniversityStudyListComponent implements OnInit {
         next: (institutionId) => {
           if (!institutionId) {
             this.errorMessage =
-              'Не удалось открыть кабинет Колледжа №3. Проверьте привязку учреждения в административной части.';
+              `Не удалось открыть кабинет учреждения ${this.institutionName}. ` +
+              'Проверьте привязку учреждения в административной части.';
             this.isRedirectingToInstitution = false;
             this.cdr.detectChanges();
             return;
@@ -70,7 +71,7 @@ export class UniversityStudyListComponent implements OnInit {
           });
         },
         error: () => {
-          this.errorMessage = 'Не удалось открыть кабинет Колледжа №3.';
+          this.errorMessage = `Не удалось открыть кабинет учреждения ${this.institutionName}.`;
           this.isRedirectingToInstitution = false;
           this.cdr.detectChanges();
         },
@@ -109,7 +110,7 @@ export class UniversityStudyListComponent implements OnInit {
       name: organizationName,
       type: this.resolveInstitutionType(organizationName, organization?.type),
       address: organization?.addressText?.trim() || '',
-      description: 'Автоматически создано из кабинета колледжа',
+      description: 'Автоматически создано из кабинета учебного учреждения',
     };
 
     return this.educationInstitutionsService.createRecord(payload).pipe(

@@ -19,7 +19,7 @@
         </div>
         <div>
           <div class="text-xs uppercase tracking-wide text-gray-500">Тип</div>
-          <div class="text-base text-gray-800">{{ institution.type || '—' }}</div>
+          <div class="text-base text-gray-800">{{ getInstitutionTypeLabel(institution.type) || '—' }}</div>
         </div>
         <div>
           <div class="text-xs uppercase tracking-wide text-gray-500">Адрес</div>

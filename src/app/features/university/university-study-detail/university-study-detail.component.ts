@@ -208,7 +208,7 @@ export class UniversityStudyDetailComponent implements OnInit {
       return '';
     }
 
-    return family.familyName?.trim() || `Семья #${family.id}`;
+    return this.formatFamilyLabel(family);
   }
 
   get currentSelectedGraduationDate(): string {
@@ -473,13 +473,25 @@ export class UniversityStudyDetailComponent implements OnInit {
 
   getInstitutionTypeLabel(type: string | null | undefined): string {
     const normalized = (type ?? '').trim().toUpperCase();
-    if (normalized === 'UNIVERSITY') {
-      return 'ВУЗ';
+    if (normalized === 'SCHOOL') {
+      return 'Школа';
     }
     if (normalized === 'COLLEGE') {
       return 'Колледж';
     }
-    return '';
+    if (normalized === 'INSTITUTE') {
+      return 'Институт';
+    }
+    if (normalized === 'UNIVERSITY') {
+      return 'ВУЗ';
+    }
+    if (normalized === 'CLINIC') {
+      return 'Поликлиника';
+    }
+    if (normalized === 'VVK') {
+      return 'ВВК';
+    }
+    return type?.trim() || '';
   }
 
   private formatGraduateLabel(
@@ -753,6 +765,26 @@ export class UniversityStudyDetailComponent implements OnInit {
         this.cdr.detectChanges();
       },
     });
+  }
+
+  private formatFamilyLabel(family: ApiFamily): string {
+    const familyName = family.familyName?.trim() || '';
+    if (familyName && !/family/i.test(familyName)) {
+      return familyName;
+    }
+
+    const father = family.fatherFullName?.trim() || '';
+    const mother = family.motherFullName?.trim() || '';
+    if (father || mother) {
+      return [father, mother].filter(Boolean).join(' / ');
+    }
+
+    const primary = family.primaryCitizenFullName?.trim() || '';
+    if (primary) {
+      return `Семья ${primary}`;
+    }
+
+    return `Семья #${family.id}`;
   }
 
   private resolveFatherName(citizen: ApiCitizen | null, graduate: ApiSchoolRecord | null): string {

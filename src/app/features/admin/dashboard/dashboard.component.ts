@@ -50,6 +50,8 @@ export class DashboardComponent implements OnInit {
       queryParams['section'] = 'Освобождение по семье';
     } else if (label === 'Учатся') {
       queryParams['section'] = 'Учебная отсрочка';
+    } else if (label === 'В армии') {
+      queryParams['status'] = 'На службе';
     } else {
       queryParams['section'] = label;
     }
@@ -69,6 +71,9 @@ export class DashboardComponent implements OnInit {
         break;
       case 'study':
         queryParams['section'] = 'Учебная отсрочка';
+        break;
+      case 'in-service':
+        queryParams['status'] = 'На службе';
         break;
       case 'completed-service':
         queryParams['section'] = 'Отслужившие';

@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Put, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { Roles } from '../../common/roles/roles.decorator';
 import { CreateVvkResultDto } from './dto/create-vvk-result.dto';
@@ -46,6 +46,13 @@ export class VvkResultsController {
   @ApiOperation({ summary: 'Replace VVK result' })
   @ApiOkResponse({ type: VvkResultResponseDto })
   update(@Param('id') id: string, @Body() dto: UpdateVvkResultDto) {
+    return this.vvkResultsService.update(id, dto);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Patch VVK result' })
+  @ApiOkResponse({ type: VvkResultResponseDto })
+  patch(@Param('id') id: string, @Body() dto: UpdateVvkResultDto) {
     return this.vvkResultsService.update(id, dto);
   }
 

@@ -54,6 +54,22 @@ export class CitizensComponent implements OnInit {
       this.pageDescription.set('Здесь показываются только призывники: мужчины от 18 до 27 лет.');
     }
 
+    this.route.queryParamMap.subscribe((params) => {
+      if (this.isConscriptsPage()) {
+        return;
+      }
+
+      this.selectedSection.set(params.get('section') ?? 'all');
+      this.selectedStatus.set(params.get('status') ?? 'all');
+      this.selectedFitness.set(params.get('fitness') ?? 'all');
+      this.selectedBirthYear.set(params.get('birthYear') ?? 'all');
+      this.selectedDeferment.set(params.get('deferment') ?? 'all');
+
+      if (this.citizens().length) {
+        this.applyFilters();
+      }
+    });
+
     this.loadCitizens();
   }
 

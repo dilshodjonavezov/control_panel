@@ -53,10 +53,14 @@
       <app-card title="Разделы учета">
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           @for (status of data.statusDistribution; track status.label) {
-            <div class="flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
+            <button
+              type="button"
+              (click)="openSection(status.label)"
+              class="flex w-full items-center justify-between rounded-2xl border border-slate-200 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
+            >
               <div class="text-sm font-medium text-slate-700">{{ status.label }}</div>
               <span class="rounded-full px-3 py-1 text-xs font-semibold" [ngClass]="status.tone">{{ status.count }}</span>
-            </div>
+            </button>
           }
         </div>
       </app-card>
@@ -99,13 +103,17 @@
       <app-card title="Быстрые фильтры">
         <div class="space-y-3">
           @for (filter of data.quickFilters; track filter.id) {
-            <div class="rounded-2xl border border-slate-200 px-4 py-3">
+            <button
+              type="button"
+              (click)="openQuickFilter(filter.id)"
+              class="block w-full rounded-2xl border border-slate-200 px-4 py-3 text-left transition hover:border-slate-300 hover:bg-slate-50"
+            >
               <div class="flex items-center justify-between">
                 <div class="text-sm font-semibold text-slate-900">{{ filter.label }}</div>
                 <div class="text-xl font-bold text-slate-900">{{ filter.count }}</div>
               </div>
               <div class="mt-1 text-xs text-slate-500">{{ filter.hint }}</div>
-            </div>
+            </button>
           }
         </div>
       </app-card>

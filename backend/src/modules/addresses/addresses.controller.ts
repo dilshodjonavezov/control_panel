@@ -7,7 +7,7 @@ import { UpdateAddressDto } from './dto/update-address.dto';
 import { AddressesService } from './addresses.service';
 
 @ApiTags('Addresses')
-@Roles('jek', 'admin', 'superadmin')
+@Roles('jek', 'admin', 'superadmin', 'school', 'university', 'clinic', 'vvk', 'border', 'passport', 'maternity', 'zags')
 @Controller('addresses')
 export class AddressesController {
   constructor(private readonly addressesService: AddressesService) {}

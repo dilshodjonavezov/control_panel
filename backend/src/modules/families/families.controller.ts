@@ -7,7 +7,7 @@ import { UpdateFamilyDto } from './dto/update-family.dto';
 import { FamiliesService } from './families.service';
 
 @ApiTags('Families')
-@Roles('jek', 'admin', 'superadmin')
+@Roles('jek', 'admin', 'superadmin', 'school', 'university', 'clinic', 'vvk', 'border', 'passport', 'maternity', 'zags')
 @Controller('families')
 export class FamiliesController {
   constructor(private readonly familiesService: FamiliesService) {}

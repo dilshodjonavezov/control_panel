@@ -7,7 +7,7 @@ import { UpdatePassportRecordDto } from './dto/update-passport-record.dto';
 import { PassportService } from './passport.service';
 
 @ApiTags('PassportRecords')
-@Roles('passport', 'admin', 'superadmin')
+@Roles('passport', 'admin', 'superadmin', 'school', 'university', 'clinic', 'vvk', 'border', 'jek', 'maternity', 'zags')
 @Controller('passport-records')
 export class PassportController {
   constructor(private readonly passportService: PassportService) {}

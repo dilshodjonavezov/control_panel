@@ -7,7 +7,7 @@ import { UpdateMedicalRecordDto } from './dto/update-medical-record.dto';
 import { MedicalRecordsService } from './medical-records.service';
 
 @ApiTags('MedicalRecords')
-@Roles('clinic', 'vvk', 'admin', 'superadmin')
+@Roles('clinic', 'vvk', 'admin', 'superadmin', 'university', 'school')
 @Controller('medical-records')
 export class MedicalRecordsController {
   constructor(private readonly medicalRecordsService: MedicalRecordsService) {}

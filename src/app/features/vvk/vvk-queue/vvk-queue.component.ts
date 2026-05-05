@@ -214,12 +214,12 @@ export class VvkQueueComponent implements OnInit {
       peopleId: Number(this.formData.peopleId),
       userId,
       medicalVisitId: Number(this.formData.medicalVisitId) || null,
-      examDate: new Date(this.formData.examDate).toISOString(),
+      examDate: this.formData.examDate,
       category: this.formData.category,
       queueStatus: 'DONE',
       reason: this.formData.reason.trim() || null,
       notes: this.formData.notes.trim() || null,
-      nextReviewDate: this.formData.nextReviewDate ? new Date(this.formData.nextReviewDate).toISOString() : null,
+      nextReviewDate: this.formData.nextReviewDate || null,
     };
 
     this.isSubmitting = true;

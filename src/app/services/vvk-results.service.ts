@@ -63,7 +63,7 @@ export class VvkResultsService {
 
   update(id: number, payload: Partial<CreateVvkResultRequest>): Observable<ApiVvkResult | null> {
     return this.http
-      .patch<ApiResponse<ApiVvkResult> | ApiVvkResult>(`${this.apiUrl}/${id}`, payload)
+      .put<ApiResponse<ApiVvkResult> | ApiVvkResult>(`${this.apiUrl}/${id}`, payload)
       .pipe(map((response) => this.unwrapOne(response)));
   }
 

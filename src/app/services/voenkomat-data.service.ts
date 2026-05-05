@@ -409,7 +409,7 @@ export class VoenkomatDataService {
         { label: 'Призывники', count: totalConscriptMen, tone: 'bg-blue-100 text-blue-800' },
         { label: '2+ детей', count: rows.filter((item) => item.voenkomatSection === 'Освобождение по семье').length, tone: 'bg-amber-100 text-amber-800' },
         { label: 'Учатся', count: rows.filter((item) => item.voenkomatSection === 'Учебная отсрочка').length, tone: 'bg-emerald-100 text-emerald-800' },
-        { label: 'Не годен', count: rows.filter((item) => item.voenkomatSection === 'Не годен').length, tone: 'bg-rose-100 text-rose-800' },
+        { label: 'Не годен', count: rows.filter((item) => item.voenkomatSection === 'Не годен' || item.fitnessCategory === 'Не годен' || item.fitnessCategory === 'Временно не годен').length, tone: 'bg-rose-100 text-rose-800' },
         { label: 'Отслужившие', count: totalCompletedService, tone: 'bg-indigo-100 text-indigo-800' },
         { label: 'Остальные мужчины', count: totalOtherMen, tone: 'bg-slate-100 text-slate-800' },
       ],

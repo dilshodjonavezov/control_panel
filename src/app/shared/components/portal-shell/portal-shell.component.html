@@ -32,6 +32,7 @@
                 @for (item of section.items; track item.id) {
                   <a
                     [routerLink]="item.path"
+                    [queryParams]="item.queryParams"
                     routerLinkActive
                     #routeRef="routerLinkActive"
                     [routerLinkActiveOptions]="{ exact: item.path.endsWith('/dashboard') || item.path.endsWith('/access') || item.path.endsWith('/registry') || item.path.endsWith('/queue') || item.path.endsWith('/records') || item.path.endsWith('/studies') || item.path.endsWith('/acts') || item.path.endsWith('/birth-records') || item.path.endsWith('/crossings') }"

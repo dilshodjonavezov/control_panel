@@ -20,7 +20,7 @@ export class AdminComponent {
       items: [
         { id: 'dashboard', path: '/voenkomat/dashboard', label: 'Панель управления', icon: '📊', hint: 'Сводка по учёту и связанным службам' },
         { id: 'conscripts', path: '/voenkomat/conscripts', label: 'Призывники', icon: '🧑‍✈️', hint: 'Только мужчины 18-27 лет призывного возраста' },
-        { id: 'in-service', path: '/voenkomat/citizens?status=На%20службе', label: 'В армии', icon: '🪖', hint: 'Граждане, которых уже отправили на службу' },
+        { id: 'in-service', path: '/voenkomat/citizens', queryParams: { status: 'На службе' }, label: 'В армии', icon: '🪖', hint: 'Граждане, которых уже отправили на службу' },
         { id: 'citizens', path: '/voenkomat/citizens', label: 'Граждане', icon: '👥', hint: 'Полный контур граждан и разделов учёта' },
         { id: 'education-registry', path: '/voenkomat/education-registry', label: 'Реестр по образованию', icon: '🗂️', hint: 'Школа, колледж и влияние на отсрочку' },
         { id: 'deferment-review', path: '/voenkomat/deferment-review', label: 'Проверка отсрочек', icon: '✅', hint: 'Семья, учёба и основания освобождения' },

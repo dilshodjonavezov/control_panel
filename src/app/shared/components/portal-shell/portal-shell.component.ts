@@ -8,6 +8,7 @@ export interface PortalShellNavItem {
   path: string;
   icon: string;
   hint?: string;
+  queryParams?: Params;
 }
 
 export interface PortalShellNavSection {

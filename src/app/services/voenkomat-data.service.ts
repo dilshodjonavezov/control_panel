@@ -843,6 +843,10 @@ export class VoenkomatDataService {
       return 'Не военнообязанные';
     }
 
+    if (row.militaryStatus === 'На службе') {
+      return 'В армии';
+    }
+
     if (row.militaryStatus === 'Освобождение по семье' || row.childrenCount >= 2) {
       return 'Освобождение по семье';
     }

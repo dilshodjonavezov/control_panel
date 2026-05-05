@@ -35,6 +35,8 @@ interface PassportRecordItem {
   placeOfIssue: string;
   dateBirth: string;
   dateBirthRaw: string;
+  passportStatus: string;
+  passportStatusSort: number;
 }
 
 interface PassportForm {
@@ -63,6 +65,7 @@ export class PassportRegistryComponent implements OnInit {
     { key: 'id', label: 'ID', sortable: true },
     { key: 'peopleFullName', label: 'ФИО', sortable: true },
     { key: 'passportNumber', label: 'Номер паспорта', sortable: true },
+    { key: 'passportStatus', label: 'Статус', sortable: true },
     { key: 'dateOfIssue', label: 'Дата выдачи', sortable: true },
     { key: 'expireDate', label: 'Действует до', sortable: true },
     { key: 'placeOfIssue', label: 'Место выдачи', sortable: true },
@@ -136,6 +139,14 @@ export class PassportRegistryComponent implements OnInit {
 
   get formModalTitle(): string {
     return this.isEditMode ? 'Изменить паспортную запись' : 'Добавить паспортную запись';
+  }
+
+  get expiredRecords(): PassportRecordItem[] {
+    return this.records.filter((record) => record.passportStatus === 'Просрочен');
+  }
+
+  get expiringSoonRecords(): PassportRecordItem[] {
+    return this.records.filter((record) => record.passportStatus === 'Истекает скоро');
   }
 
   loadData(): void {
@@ -314,6 +325,7 @@ export class PassportRegistryComponent implements OnInit {
   }
 
   private mapRecord(record: ApiPassportRecord): PassportRecordItem {
+    const passportStatus = this.resolvePassportStatus(record.expireDate);
     return {
       id: record.id,
       peopleId: record.peopleId,
@@ -328,6 +340,8 @@ export class PassportRegistryComponent implements OnInit {
       placeOfIssue: record.placeOfIssue?.trim() || '-',
       dateBirth: this.formatDate(record.dateBirth),
       dateBirthRaw: this.normalizeDateInput(record.dateBirth),
+      passportStatus,
+      passportStatusSort: this.getPassportStatusSort(passportStatus),
     };
   }
 
@@ -485,5 +499,45 @@ export class PassportRegistryComponent implements OnInit {
 
     const passportNumber = passport.passportNumber?.trim() || 'паспорт уже создан';
     return `${fullName} - уже есть паспорт (${passportNumber})`;
+  }
+
+  private resolvePassportStatus(expireDate: string | null): string {
+    if (!expireDate) {
+      return 'Срок не указан';
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiry = new Date(expireDate);
+    if (Number.isNaN(expiry.getTime())) {
+      return 'Срок не указан';
+    }
+
+    expiry.setHours(0, 0, 0, 0);
+    const diffDays = Math.floor((expiry.getTime() - today.getTime()) / 86400000);
+
+    if (diffDays < 0) {
+      return 'Просрочен';
+    }
+
+    if (diffDays <= 30) {
+      return 'Истекает скоро';
+    }
+
+    return 'Действует';
+  }
+
+  private getPassportStatusSort(status: string): number {
+    switch (status) {
+      case 'Просрочен':
+        return 0;
+      case 'Истекает скоро':
+        return 1;
+      case 'Действует':
+        return 2;
+      default:
+        return 3;
+    }
   }
 }

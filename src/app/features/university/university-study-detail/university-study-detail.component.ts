@@ -90,6 +90,8 @@ export class UniversityStudyDetailComponent implements OnInit {
   private addresses: ApiAddress[] = [];
   private passports: ApiPassportRecord[] = [];
   private families: ApiFamily[] = [];
+  private selectedCitizenAddresses: ApiAddress[] = [];
+  private selectedCitizenPassports: ApiPassportRecord[] = [];
 
   isLoading = false;
   errorMessage = '';
@@ -251,6 +253,8 @@ export class UniversityStudyDetailComponent implements OnInit {
     this.editingRecordId = null;
     this.formData = this.createDefaultForm();
     this.formErrorMessage = '';
+    this.selectedCitizenAddresses = [];
+    this.selectedCitizenPassports = [];
     this.showFormModal = true;
   }
 
@@ -268,6 +272,7 @@ export class UniversityStudyDetailComponent implements OnInit {
       expulsionDate: row.expulsionDateRaw,
       isDeferralActive: row.isDeferralActiveValue,
     };
+    this.loadSelectedCitizenLinkedData(this.formData.peopleId);
     this.showFormModal = true;
   }
 
@@ -275,7 +280,18 @@ export class UniversityStudyDetailComponent implements OnInit {
     if (this.isFormSubmitting) {
       return;
     }
+    this.selectedCitizenAddresses = [];
+    this.selectedCitizenPassports = [];
     this.showFormModal = false;
+  }
+
+  onCitizenChanged(value: string | number | null): void {
+    if (typeof value !== 'string') {
+      return;
+    }
+
+    this.formData.peopleId = value;
+    this.loadSelectedCitizenLinkedData(value);
   }
 
   saveForm(): void {
@@ -647,7 +663,11 @@ export class UniversityStudyDetailComponent implements OnInit {
       return null;
     }
 
-    return this.findAddressForCitizen(citizen);
+    return (
+      this.selectedCitizenAddresses.find((address) => address.isActive) ??
+      this.selectedCitizenAddresses[0] ??
+      this.findAddressForCitizen(citizen)
+    );
   }
 
   private findSelectedPassport(): ApiPassportRecord | null {
@@ -656,7 +676,7 @@ export class UniversityStudyDetailComponent implements OnInit {
       return null;
     }
 
-    return this.passports.find((passport) => passport.peopleId === peopleId) ?? null;
+    return this.selectedCitizenPassports[0] ?? this.passports.find((passport) => passport.peopleId === peopleId) ?? null;
   }
 
   private createDefaultForm(): StudyFormData {
@@ -707,6 +727,32 @@ export class UniversityStudyDetailComponent implements OnInit {
       this.addresses.find((address) => family?.id === address.familyId && address.isActive) ??
       null
     );
+  }
+
+  private loadSelectedCitizenLinkedData(peopleIdValue: string): void {
+    const peopleId = Number(peopleIdValue);
+    if (!Number.isInteger(peopleId) || peopleId <= 0) {
+      this.selectedCitizenAddresses = [];
+      this.selectedCitizenPassports = [];
+      this.cdr.detectChanges();
+      return;
+    }
+
+    forkJoin({
+      addresses: this.addressesService.getByCitizenId(peopleId).pipe(catchError(() => of([]))),
+      passports: this.passportRecordsService.getByPeopleId(peopleId).pipe(catchError(() => of([]))),
+    }).subscribe({
+      next: ({ addresses, passports }) => {
+        this.selectedCitizenAddresses = addresses;
+        this.selectedCitizenPassports = passports;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.selectedCitizenAddresses = [];
+        this.selectedCitizenPassports = [];
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   private resolveFatherName(citizen: ApiCitizen | null, graduate: ApiSchoolRecord | null): string {

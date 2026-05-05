@@ -119,7 +119,8 @@
           label="Гражданин"
           [options]="peopleOptions"
           placeholder="Выберите гражданина"
-          [(ngModel)]="formData.peopleId"
+          [ngModel]="formData.peopleId"
+          (ngModelChange)="onCitizenChanged($event)"
         ></app-select>
 
         <app-input label="Форма обучения" placeholder="Очная" [(ngModel)]="formData.studyForm"></app-input>

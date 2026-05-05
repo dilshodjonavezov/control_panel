@@ -17,6 +17,23 @@
     </div>
   </app-card>
 
+  <app-card title="Контроль сроков">
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+        <div class="text-xs uppercase tracking-wide text-red-700">Просроченные</div>
+        <div class="mt-2 text-2xl font-bold text-red-900">{{ expiredRecords.length }}</div>
+      </div>
+      <div class="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div class="text-xs uppercase tracking-wide text-amber-700">Истекают за 30 дней</div>
+        <div class="mt-2 text-2xl font-bold text-amber-900">{{ expiringSoonRecords.length }}</div>
+      </div>
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+        <div class="text-xs uppercase tracking-wide text-emerald-700">Всего паспортов</div>
+        <div class="mt-2 text-2xl font-bold text-emerald-900">{{ records.length }}</div>
+      </div>
+    </div>
+  </app-card>
+
   @if (errorMessage) {
     <app-card>
       <p class="text-sm text-red-600">{{ errorMessage }}</p>
@@ -42,6 +59,7 @@
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.id }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.peopleFullName }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.passportNumber }}</td>
+        <td class="px-6 py-4 text-sm text-gray-900">{{ row.passportStatus }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.dateOfIssue }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.expireDate }}</td>
         <td class="px-6 py-4 text-sm text-gray-900">{{ row.placeOfIssue }}</td>
@@ -74,6 +92,46 @@
       </ng-template>
     </app-table>
   </app-card>
+
+  @if (expiredRecords.length || expiringSoonRecords.length) {
+    <app-card title="Паспорта под контролем">
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+        <div>
+          <div class="mb-3 text-sm font-semibold text-red-700">Просроченные</div>
+          @if (expiredRecords.length) {
+            <div class="space-y-3">
+              @for (row of expiredRecords; track row.id) {
+                <div class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm">
+                  <div class="font-semibold text-red-950">{{ row.peopleFullName }}</div>
+                  <div class="text-red-800">Паспорт: {{ row.passportNumber }}</div>
+                  <div class="text-red-800">Срок истёк: {{ row.expireDate }}</div>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="text-sm text-gray-500">Просроченных паспортов нет.</p>
+          }
+        </div>
+
+        <div>
+          <div class="mb-3 text-sm font-semibold text-amber-700">Скоро истекают</div>
+          @if (expiringSoonRecords.length) {
+            <div class="space-y-3">
+              @for (row of expiringSoonRecords; track row.id) {
+                <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm">
+                  <div class="font-semibold text-amber-950">{{ row.peopleFullName }}</div>
+                  <div class="text-amber-800">Паспорт: {{ row.passportNumber }}</div>
+                  <div class="text-amber-800">Действует до: {{ row.expireDate }}</div>
+                </div>
+              }
+            </div>
+          } @else {
+            <p class="text-sm text-gray-500">Паспортов с близким сроком окончания нет.</p>
+          }
+        </div>
+      </div>
+    </app-card>
+  }
 
   <app-modal [show]="showFormModal" [title]="formModalTitle" size="lg" (closed)="closeFormModal()">
     <div class="space-y-4">

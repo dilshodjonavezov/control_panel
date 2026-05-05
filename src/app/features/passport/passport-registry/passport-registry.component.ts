@@ -345,6 +345,14 @@ export class PassportRegistryComponent implements OnInit {
       return null;
     }
 
+    const existingPassport = this.records.find(
+      (record) => record.peopleId === peopleId && (!this.isEditMode || record.id !== this.editingRecordId),
+    );
+    if (existingPassport) {
+      this.formErrorMessage = 'У этого гражданина уже есть паспортная запись.';
+      return null;
+    }
+
     if (!this.formData.passportNumber.trim()) {
       this.formErrorMessage = 'Укажите номер паспорта.';
       return null;
@@ -374,13 +382,18 @@ export class PassportRegistryComponent implements OnInit {
     passports: ApiPassportRecord[],
     currentPeopleId: number | null,
   ): SelectOption[] {
-    const passportedIds = new Set(passports.map((record) => record.peopleId));
+    const passportByCitizenId = new Map<number, ApiPassportRecord>();
+    for (const passport of passports) {
+      if (!passportByCitizenId.has(passport.peopleId)) {
+        passportByCitizenId.set(passport.peopleId, passport);
+      }
+    }
+
     return citizens
-      .filter((citizen) => !passportedIds.has(citizen.id) || citizen.id === currentPeopleId)
       .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'))
       .map((citizen) => ({
         value: citizen.id.toString(),
-        label: citizen.fullName?.trim() || `ID ${citizen.id}`,
+        label: this.buildCitizenOptionLabel(citizen, passportByCitizenId.get(citizen.id), currentPeopleId),
       }));
   }
 
@@ -454,5 +467,23 @@ export class PassportRegistryComponent implements OnInit {
     }
 
     this.formData.dateBirth = this.normalizeDateInput(citizen.birthDate);
+  }
+
+  private buildCitizenOptionLabel(
+    citizen: ApiCitizen,
+    passport: ApiPassportRecord | undefined,
+    currentPeopleId: number | null,
+  ): string {
+    const fullName = citizen.fullName?.trim() || `ID ${citizen.id}`;
+    if (!passport) {
+      return fullName;
+    }
+
+    if (citizen.id === currentPeopleId) {
+      return `${fullName} - текущая запись`;
+    }
+
+    const passportNumber = passport.passportNumber?.trim() || 'паспорт уже создан';
+    return `${fullName} - уже есть паспорт (${passportNumber})`;
   }
 }

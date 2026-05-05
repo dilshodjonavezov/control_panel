@@ -74,7 +74,6 @@ export class VvkQueueComponent implements OnInit {
     { key: 'addressLabel', label: 'Адрес', sortable: true },
     { key: 'clinic', label: 'Поликлиника', sortable: true },
     { key: 'decision', label: 'Медосмотр', sortable: true },
-    { key: 'vvkCategory', label: 'Категория ВВК', sortable: true },
     { key: 'vvkDecision', label: 'Решение ВВК', sortable: true },
     { key: 'createdAtRecord', label: 'Дата', sortable: true },
   ];

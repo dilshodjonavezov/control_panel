@@ -13,6 +13,9 @@
         @if (canSendToArmy()) {
           <app-button (clicked)="openServiceModal()">В армию</app-button>
         }
+        @if (canCompleteService()) {
+          <app-button (clicked)="openCompletionModal()">Отслужил</app-button>
+        }
         <app-button variant="outline" (clicked)="goBack()">Назад к реестру</app-button>
       </div>
     </div>
@@ -166,6 +169,11 @@
                     Отправка {{ formatDate(record.assignmentDate) }} • приказ {{ record.orderNumber || 'не указан' }}
                   </div>
                 }
+                @if (record.serviceCompletedDate || record.militaryTicketNumber) {
+                  <div class="mt-1 text-slate-500">
+                    Завершение службы {{ formatDate(record.serviceCompletedDate) }} • военный билет {{ record.militaryTicketNumber || 'не указан' }}
+                  </div>
+                }
                 <div class="mt-1 text-slate-500">{{ record.familyExemptionReason || record.defermentReason || record.notes || 'Без комментария' }}</div>
               </div>
             }
@@ -232,6 +240,7 @@
         </div>
       </app-card>
     </div>
+
     @if (isServiceModalOpen()) {
       <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
         <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
@@ -309,6 +318,56 @@
             <app-button variant="outline" (clicked)="closeServiceModal()">Отмена</app-button>
             <app-button (clicked)="saveServiceAssignment()">
               {{ isSavingService() ? 'Сохранение...' : 'Сохранить отправку' }}
+            </app-button>
+          </div>
+        </div>
+      </div>
+    }
+
+    @if (isCompletionModalOpen()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+        <div class="w-full max-w-2xl rounded-3xl bg-white shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+            <div>
+              <h2 class="text-2xl font-bold text-slate-900">Завершение службы</h2>
+              <p class="mt-1 text-sm text-slate-500">Зафиксируйте дату завершения службы и номер военного билета.</p>
+            </div>
+            <button type="button" class="text-2xl text-slate-400 transition hover:text-slate-700" (click)="closeCompletionModal()">×</button>
+          </div>
+
+          <div class="space-y-5 px-6 py-6">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Гражданин</div>
+              <div class="mt-2 text-lg font-semibold text-slate-900">{{ detail()!.citizen.fullName }}</div>
+              <div class="mt-1 text-sm text-slate-500">Текущий статус: {{ detail()!.citizen.militaryStatus }}</div>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <label class="block">
+                <div class="mb-2 text-sm font-medium text-slate-700">Дата завершения службы</div>
+                <input [(ngModel)]="completionDraft.serviceCompletedDate" type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" />
+              </label>
+
+              <label class="block">
+                <div class="mb-2 text-sm font-medium text-slate-700">Номер военного билета</div>
+                <input [(ngModel)]="completionDraft.militaryTicketNumber" type="text" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" placeholder="Например: VB-2027-10045" />
+              </label>
+
+              <label class="block md:col-span-2">
+                <div class="mb-2 text-sm font-medium text-slate-700">Комментарий</div>
+                <textarea [(ngModel)]="completionDraft.notes" rows="3" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" placeholder="Дополнительные сведения о завершении службы"></textarea>
+              </label>
+            </div>
+
+            @if (serviceErrorMessage()) {
+              <div class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ serviceErrorMessage() }}</div>
+            }
+          </div>
+
+          <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-5">
+            <app-button variant="outline" (clicked)="closeCompletionModal()">Отмена</app-button>
+            <app-button (clicked)="saveServiceCompletion()">
+              {{ isSavingService() ? 'Сохранение...' : 'Сохранить завершение' }}
             </app-button>
           </div>
         </div>

@@ -45,6 +45,12 @@ export class MilitaryRecord {
   orderNumber!: string | null;
 
   @Prop({ type: String, default: null, trim: true })
+  serviceCompletedDate!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  militaryTicketNumber!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
   category!: string | null;
 
   @Prop({ required: true, trim: true, default: 'ENLISTED' })

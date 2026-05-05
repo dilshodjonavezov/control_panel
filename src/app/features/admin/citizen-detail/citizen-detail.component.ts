@@ -6,6 +6,7 @@ import { ButtonComponent, CardComponent } from '../../../shared/components';
 import { AuthService } from '../../../services/auth.service';
 import {
   ApiMilitaryRecord,
+  CompleteMilitaryServicePayload,
   SaveMilitaryServicePayload,
   VoenkomatCitizenDetail,
   VoenkomatDataService,
@@ -23,6 +24,7 @@ export class CitizenDetailComponent implements OnInit {
   readonly isLoading = signal(false);
   readonly errorMessage = signal('');
   readonly isServiceModalOpen = signal(false);
+  readonly isCompletionModalOpen = signal(false);
   readonly isSavingService = signal(false);
   readonly serviceErrorMessage = signal('');
   readonly serviceUnitOptions = signal<string[]>([]);
@@ -41,6 +43,12 @@ export class CitizenDetailComponent implements OnInit {
     commanderName: '',
     assignmentDate: '',
     orderNumber: '',
+    notes: '',
+  };
+
+  completionDraft = {
+    serviceCompletedDate: '',
+    militaryTicketNumber: '',
     notes: '',
   };
 
@@ -74,9 +82,17 @@ export class CitizenDetailComponent implements OnInit {
       return false;
     }
 
+    if (this.isInService() || this.hasCompletedService()) {
+      return false;
+    }
+
     return detail.citizen.voenkomatSection === 'Призывники'
       || detail.citizen.militaryStatus === 'Призывник'
       || detail.citizen.militaryStatus === 'Допризывник';
+  }
+
+  canCompleteService(): boolean {
+    return this.isInService() && !this.hasCompletedService();
   }
 
   openServiceModal(): void {
@@ -108,6 +124,23 @@ export class CitizenDetailComponent implements OnInit {
 
   closeServiceModal(): void {
     this.isServiceModalOpen.set(false);
+    this.isSavingService.set(false);
+    this.serviceErrorMessage.set('');
+  }
+
+  openCompletionModal(): void {
+    const current = this.latestMilitaryRecord();
+    this.completionDraft = {
+      serviceCompletedDate: current?.serviceCompletedDate ?? this.getToday(),
+      militaryTicketNumber: current?.militaryTicketNumber ?? '',
+      notes: current?.notes ?? '',
+    };
+    this.serviceErrorMessage.set('');
+    this.isCompletionModalOpen.set(true);
+  }
+
+  closeCompletionModal(): void {
+    this.isCompletionModalOpen.set(false);
     this.isSavingService.set(false);
     this.serviceErrorMessage.set('');
   }
@@ -161,6 +194,53 @@ export class CitizenDetailComponent implements OnInit {
     });
   }
 
+  saveServiceCompletion(): void {
+    const detail = this.detail();
+    const currentUser = this.authService.getCurrentUser();
+    const latestRecord = this.latestMilitaryRecord();
+    if (!detail || !currentUser?.id || !latestRecord) {
+      this.serviceErrorMessage.set('Не удалось определить активную службу гражданина.');
+      return;
+    }
+
+    if (!this.completionDraft.serviceCompletedDate.trim()) {
+      this.serviceErrorMessage.set('Укажите дату завершения службы.');
+      return;
+    }
+
+    const payload: CompleteMilitaryServicePayload = {
+      peopleId: detail.citizen.id,
+      userId: currentUser.id,
+      office: latestRecord.office?.trim() || currentUser.organizationName?.trim() || 'Военкомат',
+      enlistDate: latestRecord.enlistDate,
+      assignmentDate: latestRecord.assignmentDate ?? null,
+      serviceUnit: latestRecord.serviceUnit ?? null,
+      serviceCity: latestRecord.serviceCity ?? null,
+      commanderName: latestRecord.commanderName ?? null,
+      orderNumber: latestRecord.orderNumber ?? null,
+      serviceCompletedDate: this.completionDraft.serviceCompletedDate.trim(),
+      militaryTicketNumber: this.completionDraft.militaryTicketNumber.trim() || null,
+      notes: this.completionDraft.notes.trim() || null,
+    };
+
+    this.isSavingService.set(true);
+    this.serviceErrorMessage.set('');
+
+    this.voenkomatDataService.completeMilitaryService(latestRecord.id, payload).subscribe({
+      next: () => {
+        this.isCompletionModalOpen.set(false);
+        this.isSavingService.set(false);
+        if (this.citizenId) {
+          this.loadDetail(this.citizenId);
+        }
+      },
+      error: () => {
+        this.serviceErrorMessage.set('Не удалось сохранить завершение службы.');
+        this.isSavingService.set(false);
+      },
+    });
+  }
+
   formatDate(date?: string | null): string {
     if (!date) {
       return '-';
@@ -191,5 +271,25 @@ export class CitizenDetailComponent implements OnInit {
 
   private getToday(): string {
     return new Date().toISOString().split('T')[0];
+  }
+
+  private isInService(): boolean {
+    const detail = this.detail();
+    const latestRecord = this.latestMilitaryRecord();
+    return detail?.citizen.militaryStatus === 'На службе'
+      || latestRecord?.militaryStatus === 'IN_SERVICE'
+      || latestRecord?.militaryStatus === 'SERVICE';
+  }
+
+  private hasCompletedService(): boolean {
+    const detail = this.detail();
+    const latestRecord = this.latestMilitaryRecord();
+    return detail?.citizen.militaryStatus === 'Службу завершил'
+      || latestRecord?.militaryStatus === 'SERVICE_COMPLETED'
+      || latestRecord?.militaryStatus === 'COMPLETED_SERVICE'
+      || latestRecord?.militaryStatus === 'COMPLETED'
+      || latestRecord?.militaryStatus === 'DISCHARGED'
+      || latestRecord?.status === 'DISCHARGED'
+      || latestRecord?.status === 'SERVICE_COMPLETED';
   }
 }

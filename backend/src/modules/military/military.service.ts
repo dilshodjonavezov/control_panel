@@ -52,6 +52,8 @@ export class MilitaryService implements OnModuleInit {
       serviceCity: dto.serviceCity ?? null,
       commanderName: dto.commanderName ?? null,
       orderNumber: dto.orderNumber ?? null,
+      serviceCompletedDate: dto.serviceCompletedDate ?? null,
+      militaryTicketNumber: dto.militaryTicketNumber ?? null,
       category: dto.category ?? null,
       status: dto.status ?? 'ENLISTED',
       militaryStatus: dto.militaryStatus ?? 'CONSCRIPT',
@@ -122,6 +124,8 @@ export class MilitaryService implements OnModuleInit {
     if (dto.serviceCity !== undefined) payload.serviceCity = dto.serviceCity ?? null;
     if (dto.commanderName !== undefined) payload.commanderName = dto.commanderName ?? null;
     if (dto.orderNumber !== undefined) payload.orderNumber = dto.orderNumber ?? null;
+    if (dto.serviceCompletedDate !== undefined) payload.serviceCompletedDate = dto.serviceCompletedDate ?? null;
+    if (dto.militaryTicketNumber !== undefined) payload.militaryTicketNumber = dto.militaryTicketNumber ?? null;
     if (dto.category !== undefined) payload.category = dto.category ?? null;
     if (dto.status !== undefined) payload.status = dto.status;
     if (dto.militaryStatus !== undefined) payload.militaryStatus = dto.militaryStatus;
@@ -321,6 +325,8 @@ export class MilitaryService implements OnModuleInit {
       serviceCity: record.serviceCity ?? null,
       commanderName: record.commanderName ?? null,
       orderNumber: record.orderNumber ?? null,
+      serviceCompletedDate: record.serviceCompletedDate ?? null,
+      militaryTicketNumber: record.militaryTicketNumber ?? null,
       category: record.category ?? null,
       status: record.status,
       militaryStatus: record.militaryStatus,
@@ -362,6 +368,8 @@ export class MilitaryService implements OnModuleInit {
         serviceCity: null,
         commanderName: null,
         orderNumber: null,
+        serviceCompletedDate: null,
+        militaryTicketNumber: null,
         category: item.category ?? null,
         status: item.status,
         militaryStatus: item.militaryStatus,

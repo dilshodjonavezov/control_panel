@@ -44,6 +44,12 @@ export class MilitaryRecordResponseDto {
   orderNumber!: string | null;
 
   @ApiProperty({ nullable: true })
+  serviceCompletedDate!: string | null;
+
+  @ApiProperty({ nullable: true })
+  militaryTicketNumber!: string | null;
+
+  @ApiProperty({ nullable: true })
   category!: string | null;
 
   @ApiProperty()

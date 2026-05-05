@@ -142,6 +142,8 @@ export interface ApiMilitaryRecord {
   serviceCity: string | null;
   commanderName: string | null;
   orderNumber: string | null;
+  serviceCompletedDate: string | null;
+  militaryTicketNumber: string | null;
   category: string | null;
   status: string;
   militaryStatus: string;
@@ -315,6 +317,21 @@ export interface SaveMilitaryServicePayload {
   notes?: string | null;
 }
 
+export interface CompleteMilitaryServicePayload {
+  peopleId: number;
+  userId: number;
+  office: string;
+  enlistDate: string;
+  assignmentDate?: string | null;
+  serviceUnit?: string | null;
+  serviceCity?: string | null;
+  commanderName?: string | null;
+  orderNumber?: string | null;
+  serviceCompletedDate: string;
+  militaryTicketNumber?: string | null;
+  notes?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class VoenkomatDataService {
   private readonly apiBaseUrl = `${environment.apiBaseUrl}/api`;
@@ -377,6 +394,17 @@ export class VoenkomatDataService {
       ...payload,
       status: 'ENLISTED',
       militaryStatus: 'IN_SERVICE',
+      defermentReason: null,
+      defermentUntil: null,
+      militaryOfficeNotified: true,
+    }).pipe(map((response) => this.unwrapItem(response)));
+  }
+
+  completeMilitaryService(id: number, payload: CompleteMilitaryServicePayload): Observable<ApiMilitaryRecord> {
+    return this.http.put<ApiResponse<ApiMilitaryRecord> | ApiMilitaryRecord>(`${this.apiBaseUrl}/military-records/${id}`, {
+      ...payload,
+      status: 'DISCHARGED',
+      militaryStatus: 'SERVICE_COMPLETED',
       defermentReason: null,
       defermentUntil: null,
       militaryOfficeNotified: true,

@@ -61,6 +61,18 @@ export class CreateMilitaryRecordDto {
   @MaxLength(120)
   orderNumber?: string | null;
 
+  @ApiProperty({ example: '2027-11-15', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  serviceCompletedDate?: string | null;
+
+  @ApiProperty({ example: 'VB-2027-10045', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  militaryTicketNumber?: string | null;
+
   @ApiProperty({ example: 'A', required: false, nullable: true })
   @IsOptional()
   @IsString()

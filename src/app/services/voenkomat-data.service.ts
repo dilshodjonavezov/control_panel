@@ -130,7 +130,7 @@ interface ApiBorderCrossing {
   description: string | null;
 }
 
-interface ApiMilitaryRecord {
+export interface ApiMilitaryRecord {
   id: number;
   peopleId: number;
   peopleFullName: string | null;
@@ -138,6 +138,10 @@ interface ApiMilitaryRecord {
   district: string | null;
   enlistDate: string;
   assignmentDate: string | null;
+  serviceUnit: string | null;
+  serviceCity: string | null;
+  commanderName: string | null;
+  orderNumber: string | null;
   category: string | null;
   status: string;
   militaryStatus: string;
@@ -298,6 +302,19 @@ export interface ProcessVoenkomatExpulsionPayload {
   comment?: string | null;
 }
 
+export interface SaveMilitaryServicePayload {
+  peopleId: number;
+  userId: number;
+  office: string;
+  enlistDate: string;
+  assignmentDate: string;
+  serviceUnit: string;
+  serviceCity: string;
+  commanderName: string;
+  orderNumber?: string | null;
+  notes?: string | null;
+}
+
 @Injectable({ providedIn: 'root' })
 export class VoenkomatDataService {
   private readonly apiBaseUrl = `${environment.apiBaseUrl}/api`;
@@ -340,6 +357,32 @@ export class VoenkomatDataService {
     return this.http.post(`${this.apiBaseUrl}/education-records/${id}/process-expulsion`, payload);
   }
 
+  getMilitaryRecords(): Observable<ApiMilitaryRecord[]> {
+    return this.getArray<ApiMilitaryRecord>('military-records');
+  }
+
+  createMilitaryRecord(payload: SaveMilitaryServicePayload): Observable<ApiMilitaryRecord> {
+    return this.http.post<ApiResponse<ApiMilitaryRecord> | ApiMilitaryRecord>(`${this.apiBaseUrl}/military-records`, {
+      ...payload,
+      status: 'ENLISTED',
+      militaryStatus: 'IN_SERVICE',
+      defermentReason: null,
+      defermentUntil: null,
+      militaryOfficeNotified: true,
+    }).pipe(map((response) => this.unwrapItem(response)));
+  }
+
+  updateMilitaryRecord(id: number, payload: SaveMilitaryServicePayload): Observable<ApiMilitaryRecord> {
+    return this.http.put<ApiResponse<ApiMilitaryRecord> | ApiMilitaryRecord>(`${this.apiBaseUrl}/military-records/${id}`, {
+      ...payload,
+      status: 'ENLISTED',
+      militaryStatus: 'IN_SERVICE',
+      defermentReason: null,
+      defermentUntil: null,
+      militaryOfficeNotified: true,
+    }).pipe(map((response) => this.unwrapItem(response)));
+  }
+
   private getSnapshot(): Observable<Snapshot> {
     return forkJoin({
       citizens: this.getArray<ApiCitizen>('citizens'),
@@ -376,6 +419,20 @@ export class VoenkomatDataService {
     }
 
     return [];
+  }
+
+  private unwrapItem<T>(response: ApiResponse<T> | T): T {
+    if (response && typeof response === 'object' && !Array.isArray(response)) {
+      const record = response as ApiResponse<T>;
+      if (record.data !== undefined) {
+        return record.data;
+      }
+      if ('value' in (response as Record<string, unknown>)) {
+        return (response as Record<string, T>)['value'];
+      }
+    }
+
+    return response as T;
   }
 
   private buildDashboardData(snapshot: Snapshot): VoenkomatDashboardData {

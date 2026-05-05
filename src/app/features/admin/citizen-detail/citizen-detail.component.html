@@ -9,7 +9,12 @@
         <h1 class="text-3xl font-bold text-slate-900">Карточка гражданина</h1>
         <p class="mt-2 text-slate-600">Связки военкомата, семьи, документов, учебы и медкомиссии в одной карточке.</p>
       </div>
-      <app-button variant="outline" (clicked)="goBack()">Назад к реестру</app-button>
+      <div class="flex items-center gap-3">
+        @if (canSendToArmy()) {
+          <app-button (clicked)="openServiceModal()">В армию</app-button>
+        }
+        <app-button variant="outline" (clicked)="goBack()">Назад к реестру</app-button>
+      </div>
     </div>
 
     <div class="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -151,6 +156,16 @@
                 <div class="text-slate-600">
                   Статус {{ record.militaryStatus }} • постановка {{ formatDate(record.enlistDate) }} • детей {{ record.childrenCount }}
                 </div>
+                @if (record.serviceUnit || record.serviceCity || record.commanderName) {
+                  <div class="mt-1 text-slate-600">
+                    Часть {{ record.serviceUnit || '—' }} • город {{ record.serviceCity || '—' }} • командир {{ record.commanderName || '—' }}
+                  </div>
+                }
+                @if (record.assignmentDate || record.orderNumber) {
+                  <div class="mt-1 text-slate-500">
+                    Отправка {{ formatDate(record.assignmentDate) }} • приказ {{ record.orderNumber || 'не указан' }}
+                  </div>
+                }
                 <div class="mt-1 text-slate-500">{{ record.familyExemptionReason || record.defermentReason || record.notes || 'Без комментария' }}</div>
               </div>
             }
@@ -217,6 +232,88 @@
         </div>
       </app-card>
     </div>
+    @if (isServiceModalOpen()) {
+      <div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+        <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-3xl bg-white shadow-2xl">
+          <div class="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+            <div>
+              <h2 class="text-2xl font-bold text-slate-900">Отправка в армию</h2>
+              <p class="mt-1 text-sm text-slate-500">Зафиксируйте часть, город, командира и дату отправки гражданина на службу.</p>
+            </div>
+            <button type="button" class="text-2xl text-slate-400 transition hover:text-slate-700" (click)="closeServiceModal()">×</button>
+          </div>
+
+          <div class="space-y-6 px-6 py-6">
+            <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Гражданин</div>
+              <div class="mt-2 text-lg font-semibold text-slate-900">{{ detail()!.citizen.fullName }}</div>
+              <div class="mt-1 text-sm text-slate-500">
+                Статус: {{ detail()!.citizen.militaryStatus }} • годность: {{ detail()!.citizen.fitnessCategory }}
+              </div>
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <label class="block">
+                <div class="mb-2 text-sm font-medium text-slate-700">Воинская часть</div>
+                <input [(ngModel)]="serviceDraft.serviceUnit" list="service-unit-options" type="text" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" placeholder="Например: Часть 3036" />
+              </label>
+
+              <label class="block">
+                <div class="mb-2 text-sm font-medium text-slate-700">Город службы</div>
+                <input [(ngModel)]="serviceDraft.serviceCity" list="service-city-options" type="text" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" placeholder="Например: Душанбе" />
+              </label>
+
+              <label class="block">
+                <div class="mb-2 text-sm font-medium text-slate-700">Командир</div>
+                <input [(ngModel)]="serviceDraft.commanderName" list="commander-options" type="text" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" placeholder="Начните вводить фамилию командира" />
+              </label>
+
+              <label class="block">
+                <div class="mb-2 text-sm font-medium text-slate-700">Дата отправки</div>
+                <input [(ngModel)]="serviceDraft.assignmentDate" type="date" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" />
+              </label>
+
+              <label class="block md:col-span-2">
+                <div class="mb-2 text-sm font-medium text-slate-700">Приказ / номер направления</div>
+                <input [(ngModel)]="serviceDraft.orderNumber" type="text" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" placeholder="Например: Приказ №45" />
+              </label>
+
+              <label class="block md:col-span-2">
+                <div class="mb-2 text-sm font-medium text-slate-700">Комментарий</div>
+                <textarea [(ngModel)]="serviceDraft.notes" rows="3" class="w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-blue-500" placeholder="Дополнительные сведения по отправке"></textarea>
+              </label>
+            </div>
+
+            <datalist id="service-unit-options">
+              @for (item of serviceUnitOptions(); track item) {
+                <option [value]="item"></option>
+              }
+            </datalist>
+            <datalist id="service-city-options">
+              @for (item of serviceCityOptions(); track item) {
+                <option [value]="item"></option>
+              }
+            </datalist>
+            <datalist id="commander-options">
+              @for (item of commanderOptions(); track item) {
+                <option [value]="item"></option>
+              }
+            </datalist>
+
+            @if (serviceErrorMessage()) {
+              <div class="rounded-2xl bg-rose-50 px-4 py-3 text-sm text-rose-700">{{ serviceErrorMessage() }}</div>
+            }
+          </div>
+
+          <div class="flex items-center justify-end gap-3 border-t border-slate-200 px-6 py-5">
+            <app-button variant="outline" (clicked)="closeServiceModal()">Отмена</app-button>
+            <app-button (clicked)="saveServiceAssignment()">
+              {{ isSavingService() ? 'Сохранение...' : 'Сохранить отправку' }}
+            </app-button>
+          </div>
+        </div>
+      </div>
+    }
   </div>
 } @else {
   <div class="space-y-4 rounded-3xl border border-rose-200 bg-rose-50 p-8">

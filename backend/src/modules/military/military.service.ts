@@ -48,6 +48,10 @@ export class MilitaryService implements OnModuleInit {
       district: dto.district ?? null,
       enlistDate: new Date(dto.enlistDate),
       assignmentDate: dto.assignmentDate ?? null,
+      serviceUnit: dto.serviceUnit ?? null,
+      serviceCity: dto.serviceCity ?? null,
+      commanderName: dto.commanderName ?? null,
+      orderNumber: dto.orderNumber ?? null,
       category: dto.category ?? null,
       status: dto.status ?? 'ENLISTED',
       militaryStatus: dto.militaryStatus ?? 'CONSCRIPT',
@@ -77,8 +81,10 @@ export class MilitaryService implements OnModuleInit {
     return mapped.filter((record) => {
       const person = String(record.peopleFullName ?? '').toLowerCase();
       const office = String(record.office ?? '').toLowerCase();
+      const serviceUnit = String(record.serviceUnit ?? '').toLowerCase();
+      const commanderName = String(record.commanderName ?? '').toLowerCase();
       const category = String(record.category ?? '').toLowerCase();
-      return person.includes(searchValue) || office.includes(searchValue) || category.includes(searchValue);
+      return person.includes(searchValue) || office.includes(searchValue) || serviceUnit.includes(searchValue) || commanderName.includes(searchValue) || category.includes(searchValue);
     });
   }
 
@@ -112,6 +118,10 @@ export class MilitaryService implements OnModuleInit {
     if (dto.district !== undefined) payload.district = dto.district ?? null;
     if (dto.enlistDate !== undefined) payload.enlistDate = new Date(dto.enlistDate);
     if (dto.assignmentDate !== undefined) payload.assignmentDate = dto.assignmentDate ?? null;
+    if (dto.serviceUnit !== undefined) payload.serviceUnit = dto.serviceUnit ?? null;
+    if (dto.serviceCity !== undefined) payload.serviceCity = dto.serviceCity ?? null;
+    if (dto.commanderName !== undefined) payload.commanderName = dto.commanderName ?? null;
+    if (dto.orderNumber !== undefined) payload.orderNumber = dto.orderNumber ?? null;
     if (dto.category !== undefined) payload.category = dto.category ?? null;
     if (dto.status !== undefined) payload.status = dto.status;
     if (dto.militaryStatus !== undefined) payload.militaryStatus = dto.militaryStatus;
@@ -307,6 +317,10 @@ export class MilitaryService implements OnModuleInit {
       district: record.district ?? null,
       enlistDate: new Date(record.enlistDate).toISOString().split('T')[0],
       assignmentDate: record.assignmentDate ?? null,
+      serviceUnit: record.serviceUnit ?? null,
+      serviceCity: record.serviceCity ?? null,
+      commanderName: record.commanderName ?? null,
+      orderNumber: record.orderNumber ?? null,
       category: record.category ?? null,
       status: record.status,
       militaryStatus: record.militaryStatus,
@@ -344,6 +358,10 @@ export class MilitaryService implements OnModuleInit {
         district: item.district ?? null,
         enlistDate: new Date(item.enlistDate),
         assignmentDate: item.assignmentDate ?? null,
+        serviceUnit: null,
+        serviceCity: null,
+        commanderName: null,
+        orderNumber: null,
         category: item.category ?? null,
         status: item.status,
         militaryStatus: item.militaryStatus,

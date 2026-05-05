@@ -32,6 +32,18 @@ export class MilitaryRecordResponseDto {
   assignmentDate!: string | null;
 
   @ApiProperty({ nullable: true })
+  serviceUnit!: string | null;
+
+  @ApiProperty({ nullable: true })
+  serviceCity!: string | null;
+
+  @ApiProperty({ nullable: true })
+  commanderName!: string | null;
+
+  @ApiProperty({ nullable: true })
+  orderNumber!: string | null;
+
+  @ApiProperty({ nullable: true })
   category!: string | null;
 
   @ApiProperty()

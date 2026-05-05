@@ -2,8 +2,8 @@ import { Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsBoolean, IsDateString, IsIn, IsInt, IsOptional, IsString, MaxLength } from 'class-validator';
 
-const MILITARY_RECORD_STATUSES = ['ENLISTED', 'REMOVED', 'RESERVE', 'DEFERRED'] as const;
-const MILITARY_PERSON_STATUSES = ['PRE_CONSCRIPT', 'CONSCRIPT', 'RESERVE', 'SERVICE', 'FAMILY_CIRCUMSTANCES'] as const;
+const MILITARY_RECORD_STATUSES = ['ENLISTED', 'REMOVED', 'RESERVE', 'DEFERRED', 'SERVICE_COMPLETED', 'DISCHARGED'] as const;
+const MILITARY_PERSON_STATUSES = ['PRE_CONSCRIPT', 'CONSCRIPT', 'RESERVE', 'SERVICE', 'IN_SERVICE', 'SERVICE_COMPLETED', 'COMPLETED_SERVICE', 'COMPLETED', 'DISCHARGED', 'FAMILY_CIRCUMSTANCES'] as const;
 
 export class CreateMilitaryRecordDto {
   @ApiProperty({ example: 1 })
@@ -36,6 +36,30 @@ export class CreateMilitaryRecordDto {
   @IsString()
   @MaxLength(50)
   assignmentDate?: string | null;
+
+  @ApiProperty({ example: 'Military unit 3036', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  serviceUnit?: string | null;
+
+  @ApiProperty({ example: 'Dushanbe', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  serviceCity?: string | null;
+
+  @ApiProperty({ example: 'Abdulloev Rahim', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  commanderName?: string | null;
+
+  @ApiProperty({ example: 'Order No. 45', required: false, nullable: true })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  orderNumber?: string | null;
 
   @ApiProperty({ example: 'A', required: false, nullable: true })
   @IsOptional()

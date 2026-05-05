@@ -33,6 +33,18 @@ export class MilitaryRecord {
   assignmentDate!: string | null;
 
   @Prop({ type: String, default: null, trim: true })
+  serviceUnit!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  serviceCity!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  commanderName!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
+  orderNumber!: string | null;
+
+  @Prop({ type: String, default: null, trim: true })
   category!: string | null;
 
   @Prop({ required: true, trim: true, default: 'ENLISTED' })
